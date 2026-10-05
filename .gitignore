@@ -1,0 +1,15 @@
+# 依赖
+node_modules/
+# 构建产物
+dist/
+# 本地配置与临时文件
+*.log
+selftest-out.txt
+st.txt
+er.txt
+tmp-*.js
+tmp-*.png
+# 系统
+Thumbs.db
+.DS_Store
+tmp-*.py

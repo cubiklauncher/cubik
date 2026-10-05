@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Cubik — Minecraft 启动器</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <!-- 左侧竖排菜单 -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">C</div>
+      <div class="brand-text">
+        <div class="brand-name">Cubik</div>
+        <div class="brand-sub">Minecraft Launcher</div>
+      </div>
+    </div>
+    <nav id="nav">
+      <button class="nav-item active" data-page="home">🏠 主页</button>
+      <button class="nav-item" data-page="versions">📦 版本选择</button>
+      <button class="nav-item" data-page="modpack">🧩 整合包</button>
+      <button class="nav-item" data-page="mod">🔧 Mod 下载</button>
+      <button class="nav-item" data-page="shader">✨ 光影包</button>
+      <button class="nav-item" data-page="server">🖥️ 服务器</button>
+      <button class="nav-item" data-page="account">👤 账号</button>
+      <button class="nav-item" data-page="settings">⚙️ 设置</button>
+      <button class="nav-item" data-page="about">ℹ️ 关于</button>
+      <button class="nav-item" data-page="log">📜 运行日志</button>
+    </nav>
+    <div class="sidebar-foot">
+      <button id="btn-open-mc" class="btn ghost">打开 .minecraft</button>
+    </div>
+  </aside>
+
+  <!-- 右侧内容 -->
+  <main class="content">
+    <!-- 主页 -->
+    <section class="page active" id="page-home">
+      <h1>主页</h1>
+      <div class="card hero">
+        <div class="hero-version">
+          <span class="label">当前版本</span>
+          <span class="value" id="home-version">未选择</span>
+        </div>
+        <div class="hero-account">
+          <span class="label">当前账号</span>
+          <span class="hero-acct-row">
+            <img id="home-avatar" class="home-avatar" src="" alt="" style="display:none">
+            <span class="value" id="home-account">Steve</span>
+            <span class="home-acct-badge" id="home-acct-badge"></span>
+          </span>
+        </div>
+        <button id="btn-launch" class="big-btn">▶ 启动游戏</button>
+        <div class="progress-wrap" id="progress-wrap">
+          <div class="progress-bar"><div class="progress-inner" id="progress-inner"></div></div>
+          <div class="progress-text" id="progress-text">准备中…</div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>状态</h2>
+        <ul class="status-list">
+          <li>游戏目录：<code id="st-mcdir"></code></li>
+          <li>Java 状态：<span id="st-java">检测中…</span></li>
+          <li>本地版本数：<span id="st-count">0</span></li>
+        </ul>
+      </div>
+      <p class="footer-note"><span id="home-app-ver">Cubik</span> · 开源免费 · 仅供学习交流</p>
+    </section>
+
+    <!-- 版本选择 -->
+    <section class="page" id="page-versions">
+      <h1>版本选择</h1>
+      <div class="card form">
+        <label>下载游戏</label>
+        <div class="row">
+          <select id="sel-van-type">
+            <option value="release">正式版 Release</option>
+            <option value="snapshot">快照 Snapshot</option>
+            <option value="old">远古版本 Old Alpha/Beta</option>
+          </select>
+          <div class="ver-picker" id="ver-picker">
+            <button class="ver-picker-btn" id="ver-picker-btn">
+              <span class="vp-ico" id="vp-ico"></span>
+              <span class="vp-label" id="vp-label">加载中…</span>
+              <span class="vp-arrow">▾</span>
+            </button>
+            <div class="ver-picker-drop" id="ver-picker-drop" style="display:none">
+              <input id="ver-picker-search" type="text" placeholder="搜索版本号…">
+              <ul id="ver-picker-list"></ul>
+            </div>
+          </div>
+          <input type="hidden" id="sel-van-ver">
+        </div>
+        <div class="row">
+          <select id="sel-van-loader" style="flex:1">
+            <option value="vanilla">无加载器（原版）</option>
+            <option value="fabric">Fabric</option>
+            <option value="forge">Forge</option>
+            <option value="neoforge">NeoForge</option>
+          </select>
+          <select id="sel-van-loaderver" style="flex:1" disabled><option>（选择加载器后可选）</option></select>
+        </div>
+        <label>一起安装的组件（可多选）</label>
+        <div class="addon-checks" id="addon-checks">
+          <label class="addon-check">
+            <input type="checkbox" id="chk-optifine" value="optifine">
+            <span>OptiFine（光影优化，需 Forge/Fabric 基座）</span>
+          </label>
+        </div>
+        <div class="row" id="row-addon-ver" style="display:none">
+          <select id="sel-addon-ver" style="flex:1"><option>选择 OptiFine 版本</option></select>
+        </div>
+        <div class="row end">
+          <button id="btn-van-install" class="btn primary">⬇ 下载并安装</button>
+        </div>
+        <p class="hint">自动下载 client.jar、libraries 和全部资源文件（assets）。勾选加载器和组件会一并装进同一个版本，一次全部下完。</p>
+      </div>
+      <div class="row">
+        <h2 style="margin:0">本地版本</h2>
+        <button id="btn-refresh" class="btn ghost" style="margin-left:auto">🔄 刷新</button>
+        <button id="btn-manage-toggle" class="btn ghost">🗂 管理游戏版本</button>
+      </div>
+      <!-- 管理模式提示 -->
+      <div class="manage-bar" id="manage-bar" style="display:none">
+        <span class="hint" style="margin:0">管理模式下可删除版本（删除会移入回收站，可恢复）</span>
+      </div>
+      <ul class="version-list" id="version-list">
+        <li class="empty">暂无本地版本，请在上方下载安装原版，或用设置里的目录指向已有 .minecraft</li>
+      </ul>
+
+      <!-- 版本详情：mod 管理 + 支持库 -->
+      <div id="version-detail" style="display:none">
+        <div class="row" style="margin-top:22px">
+          <h2 id="vd-title" style="margin:0">版本详情</h2>
+          <button id="btn-vd-close" class="btn ghost" style="margin-left:auto">✕ 关闭</button>
+        </div>
+        <div class="vd-meta" id="vd-meta"></div>
+        <div class="vd-tabs">
+          <button class="vd-tab active" data-tab="mods">🧩 模组 Mods</button>
+          <button class="vd-tab" data-tab="libs">📚 支持库 Libraries</button>
+        </div>
+        <div class="vd-panel" id="vd-panel-mods">
+          <div class="row">
+            <button class="btn primary" id="btn-mod-add">📥 导入 Mod</button>
+            <button class="btn primary" id="btn-mod-download">🌐 下载 Mod</button>
+            <button class="btn ghost" id="btn-mod-open">📂 打开 mods 文件夹</button>
+            <span class="hint" id="mod-count" style="margin-left:auto"></span>
+          </div>
+          <!-- mod 下载面板 -->
+          <div id="mod-store" style="display:none">
+            <div class="row">
+              <select id="sel-mod-source">
+                <option value="modrinth">Modrinth</option>
+                <option value="curseforge">CurseForge</option>
+              </select>
+              <input id="in-mod-query" type="text" placeholder="搜索 Mod，如 sodium / JEI">
+              <button class="btn primary" id="btn-mod-search">搜索</button>
+              <button class="btn ghost" id="btn-mod-store-close">✕ 关闭</button>
+            </div>
+            <p class="hint" id="mod-store-filter"></p>
+            <div class="pack-grid" id="mod-store-list"></div>
+            <div id="mod-ver-panel" style="display:none">
+              <h3 id="mod-ver-title" style="margin:10px 0"></h3>
+              <ul class="version-list" id="mod-ver-list"></ul>
+            </div>
+          </div>
+          <ul class="mod-list" id="mod-list"></ul>
+        </div>
+        <div class="vd-panel" id="vd-panel-libs" style="display:none">
+          <ul class="lib-list" id="lib-list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 整合包 -->
+    <section class="page" id="page-modpack">
+      <h1>整合包下载</h1>
+      <div class="card">
+        <div class="row">
+          <select id="sel-pack-source">
+            <option value="modrinth">Modrinth（推荐）</option>
+            <option value="curseforge">CurseForge（需 API Key）</option>
+          </select>
+          <input id="in-pack-query" type="text" placeholder="搜索整合包，如 RLCraft / 空岛生存（支持中文）">
+          <button id="btn-pack-search" class="btn primary">搜索</button>
+        </div>
+        <p class="hint">下方默认展示下载量最高的整合包，点击卡片进入详情页一键安装。支持中文关键词搜索；卡片右侧会附上该整合包的网上常用中文名（无则留空）。</p>
+      </div>
+      <h2 id="pack-list-title">🔥 热门整合包（按下载量）</h2>
+      <div class="pack-grid" id="pack-list"><div class="empty">加载中…</div></div>
+    </section>
+
+    <!-- Mod 下载 -->
+    <section class="page" id="page-mod">
+      <h1>Mod 下载</h1>
+      <div class="card">
+        <div class="row">
+          <select id="sel-modsrc">
+            <option value="modrinth">Modrinth（推荐）</option>
+            <option value="curseforge">CurseForge（需 API Key）</option>
+          </select>
+          <input id="in-modq" type="text" placeholder="搜索 Mod，如 sodium / JEI / 机械动力（支持中文）">
+          <button class="btn primary" id="btn-modq-search">搜索</button>
+        </div>
+        <div class="row">
+          <label style="margin:0;flex:none">安装到版本：</label>
+          <select id="sel-mod-target" style="flex:1"><option>加载本地版本中…</option></select>
+          <label style="margin:0;flex:none">MC 版本：</label>
+          <select id="sel-mod-mc" style="flex:none;min-width:120px"><option value="">不限</option></select>
+        </div>
+        <p class="hint">选择“安装到版本”后会自动按该实例的 MC 版本与加载器筛选兼容 Mod。点卡片查看可用版本并下载。</p>
+      </div>
+      <h2 id="mod-list-title">🔥 热门 Mod（按下载量）</h2>
+      <div class="pack-grid" id="mod-grid"><div class="empty">加载中…</div></div>
+      <div id="mod-qver-panel" style="display:none">
+        <h2 id="mod-qver-title">可用版本</h2>
+        <ul class="version-list" id="mod-qver-list"></ul>
+      </div>
+    </section>
+
+    <!-- 光影包 -->
+    <section class="page" id="page-shader">
+      <h1>光影包下载</h1>
+      <div class="card">
+        <div class="row">
+          <input id="in-shader-query" type="text" placeholder="搜索光影包，如 BSL / 光影（支持中文）">
+          <button id="btn-shader-search" class="btn primary">搜索</button>
+        </div>
+        <p class="hint">下方默认展示下载量最高的光影包，点击卡片进入详情页下载/安装。支持中文关键词搜索；卡片右侧会附上网上常用中文名（无则留空）。</p>
+      </div>
+      <h2 id="shader-list-title">🔥 热门光影包（按下载量）</h2>
+      <div class="pack-grid" id="shader-list"><div class="empty">加载中…</div></div>
+    </section>
+
+    <!-- 项目详情页（整合包 / 光影共用） -->
+    <section class="page" id="page-detail">
+      <button id="btn-detail-back" class="btn ghost" style="margin-bottom:14px">← 返回</button>
+      <div class="detail-head card">
+        <img id="detail-icon" class="detail-icon" src="" alt="">
+        <div class="detail-info">
+          <h1 id="detail-title">项目名称</h1>
+          <div class="detail-meta" id="detail-meta"></div>
+          <p class="detail-desc" id="detail-desc"></p>
+          <div class="row" id="detail-mod-target-row" style="display:none;align-items:center;gap:8px;margin-bottom:8px">
+            <span class="hint" style="margin:0;flex:none">安装到版本：</span>
+            <select id="sel-detail-target" style="flex:1"></select>
+          </div>
+          <div class="row">
+            <button id="btn-detail-install" class="btn primary">⬇ 一键安装</button>
+            <button id="btn-detail-page" class="btn ghost">在 Modrinth 上查看</button>
+          </div>
+        </div>
+      </div>
+      <div class="card" id="detail-progress-card" style="display:none">
+        <h2 id="detail-progress-title">安装中…</h2>
+        <div class="progress-bar"><div class="progress-inner" id="detail-progress"></div></div>
+        <div class="progress-text" id="detail-progress-text"></div>
+        <ul class="install-steps" id="detail-steps"></ul>
+      </div>
+      <h2 id="detail-ver-title">全部可用版本</h2>
+      <ul class="version-list" id="detail-ver-list"><li class="empty">加载中…</li></ul>
+    </section>
+
+    <!-- 服务器 -->
+    <section class="page" id="page-server">
+      <h1>Minecraft 服务器</h1>
+      <details class="card usage tut-collapse" open>
+        <summary class="tut-summary">📖 使用说明</summary>
+        <div class="tut-inner">
+        <ol class="usage-list">
+          <li><b>选目录</b>：指定一个空文件夹作为服务器目录（如 <code>D:\mc-server</code>），不要用已有游戏目录。</li>
+          <li><b>选类型与版本</b>：原版 Vanilla（最原味）；<b>Paper</b>（插件服，性能好，推荐）；Fabric（可装模组）。选好对应 MC 版本。</li>
+          <li><b>分配内存</b>：小服 2G 够用，人多的服建议 4G+。拖动滑块即可，Paper 会自动应用 Aikar 调优参数。</li>
+          <li><b>点“创建服务器”</b>：自动下载服务端 jar、写好 eula.txt / server.properties / start.bat。</li>
+          <li><b>启动/停止</b>：点“▶ 启动服务器”开服；下方日志区可看输出；点“⏹ 停止”关服。</li>
+          <li><b>发指令</b>：在下边输入框直接输服务器指令（如 <code>op 你的名字</code>、<code>say hello</code>、<code>stop</code>），回车即发送到后台。</li>
+          <li><b>联机</b>：同一局域网用本机内网 IP + 端口（默认 25565）进入；公网联机见下方「🔌 端口映射教程」。</li>
+        </ol>
+        <p class="hint">提示：首次启动会生成世界，稍等片刻；开服前请确认已接受 Minecraft EULA（创建时已自动写入）。</p>
+        </div>
+      </details>
+
+      <div class="card form">
+        <label>服务器目录</label>
+        <div class="row">
+          <input id="in-srv-dir" type="text">
+          <button id="btn-srv-pick" class="btn">浏览</button>
+        </div>
+        <label>服务端类型</label>
+        <div class="row">
+          <select id="sel-srv-type">
+            <option value="vanilla">原版 Vanilla</option>
+            <option value="paper">Paper（性能优化，推荐）</option>
+            <option value="fabric">Fabric（可装模组）</option>
+            <option value="forge">Forge（模组服务端）</option>
+            <option value="neoforge">NeoForge（新模组服务端）</option>
+          </select>
+          <select id="sel-srv-mcver" style="flex:1"><option>加载中…</option></select>
+        </div>
+
+        <details class="adv-box" id="srv-options">
+          <summary>⚙️ 服务器选项（可稍后修改）</summary>
+          <div class="srv-opt-grid">
+            <div>
+              <label>游戏模式</label>
+              <select id="sel-srv-gamemode">
+                <option value="survival">生存 Survival</option>
+                <option value="creative">创造 Creative</option>
+                <option value="adventure">冒险 Adventure</option>
+                <option value="spectator">旁观 Spectator</option>
+              </select>
+            </div>
+            <div>
+              <label>难度</label>
+              <select id="sel-srv-difficulty">
+                <option value="peaceful">和平 Peaceful</option>
+                <option value="easy" selected>简单 Easy</option>
+                <option value="normal">普通 Normal</option>
+                <option value="hard">困难 Hard</option>
+              </select>
+            </div>
+            <div>
+              <label>最大人数</label>
+              <input id="in-srv-maxplayers" type="number" min="1" max="1000" value="20">
+            </div>
+            <div>
+              <label>端口</label>
+              <input id="in-srv-port" type="number" min="1" max="65535" value="25565">
+            </div>
+          </div>
+          <label>MOTD（服务器列表显示的描述）</label>
+          <input id="in-srv-motd" type="text" value="A Minecraft Server" maxlength="60">
+          <div class="row" style="gap:16px;flex-wrap:wrap;margin-top:8px">
+            <label class="chk-inline"><input type="checkbox" id="chk-srv-online"> 开启正版验证（仅正版可进）</label>
+            <label class="chk-inline"><input type="checkbox" id="chk-srv-pvp" checked> 允许 PVP</label>
+            <label class="chk-inline"><input type="checkbox" id="chk-srv-commandblock"> 允许命令方块</label>
+            <label class="chk-inline"><input type="checkbox" id="chk-srv-whitelist"> 开启白名单</label>
+          </div>
+        </details>
+        <label>服务器内存（MB）</label>
+        <div class="row" style="align-items:center;gap:12px">
+          <input id="in-srv-mem-range" type="range" min="1024" max="16384" step="512" value="2048" style="flex:1" />
+          <span id="srv-mem-label" style="min-width:80px;font-weight:600">2048 MB</span>
+        </div>
+        <input id="in-srv-mem" type="hidden" value="2048" />
+        <div class="row end">
+          <button id="btn-srv-create" class="btn primary">创建服务器</button>
+        </div>
+        <div class="progress-bar" style="margin-top:8px"><div class="progress-inner" id="srv-progress"></div></div>
+      </div>
+      <div class="card">
+        <h2>控制</h2>
+        <div class="row">
+          <button id="btn-srv-start" class="btn primary">▶ 启动服务器</button>
+          <button id="btn-srv-stop" class="btn">⏹ 停止</button>
+          <button id="btn-srv-open" class="btn ghost">打开目录</button>
+        </div>
+        <div class="row">
+          <input id="in-srv-cmd" type="text" placeholder="输入服务器指令，如 op Steve / say hi">
+          <button id="btn-srv-cmd" class="btn">发送</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>🌐 联机地址（把这个发给朋友）</h2>
+        <div class="net-grid">
+          <div class="net-item">
+            <div class="net-label">🏠 局域网地址（同一 WiFi / 同一路由器下用）</div>
+            <div class="net-val"><code id="net-lan">检测中…</code><button class="btn mini" id="btn-copy-lan">复制</button></div>
+          </div>
+          <div class="net-item">
+            <div class="net-label">🌍 公网 IP（远程联机 / 端口映射用）</div>
+            <div class="net-val"><code id="net-pub">检测中…</code><button class="btn mini" id="btn-copy-pub">复制</button></div>
+          </div>
+          <div class="net-item">
+            <div class="net-label">🔌 端口</div>
+            <div class="net-val"><code id="net-port">25565</code></div>
+          </div>
+          <div class="net-item">
+            <div class="net-label">🔐 正版验证</div>
+            <div class="net-val"><span id="net-online">—</span></div>
+          </div>
+        </div>
+        <p class="hint" id="net-tip">同一局域网：把<strong>局域网地址</strong>发给朋友，他在多人游戏里「添加服务器」粘贴即可。\n公网联机：把<strong>公网 IP:端口</strong>发给朋友，并确保已在路由器做端口映射（或使用内网穿透）。</p>
+        <div class="row end">
+          <button id="btn-net-refresh" class="btn">🔄 刷新地址</button>
+        </div>
+      </div>
+
+      <details class="card adv-box" id="tunnel-card">
+        <summary>🚇 内网穿透（一键让外网朋友直连，不用改路由器）</summary>
+        <p class="hint">原理：用一个公网中转服务器把你的本地端口映射到公网。基于开源 frp（MIT）实现。
+          你需要有一个 frp 服务端地址（可自建，或用你手上的免费 frp 服务）；没账号的情况下可以用下方推荐渠道。</p>
+        <div class="srv-opt-grid">
+          <div><label>frp 服务端地址</label><input id="in-tun-addr" type="text" placeholder="如 frp.example.com"></div>
+          <div><label>服务端端口</label><input id="in-tun-sport" type="number" value="7000"></div>
+          <div><label>本地端口（服务器端口）</label><input id="in-tun-lport" type="number" value="25565"></div>
+          <div><label>远端端口（朋友要连的端口）</label><input id="in-tun-rport" type="number" value="25565"></div>
+          <div><label>Token（可选）</label><input id="in-tun-token" type="text" placeholder="服务端要求的 auth token"></div>
+        </div>
+        <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">
+          <button class="btn" id="btn-tun-dl">⬇ 下载 frp 客户端</button>
+          <button class="btn primary" id="btn-tun-start">🚇 启动隧道</button>
+          <button class="btn" id="btn-tun-stop">⏹ 停止隧道</button>
+        </div>
+        <p class="hint" style="margin-top:10px">推荐渠道（自行注册获取服务端地址与 token）：
+          <a href="#" class="tun-link" data-url="https://www.natfrp.com">SakuraFrp（国内常用）</a> ·
+          <a href="#" class="tun-link" data-url="https://www.frp.org.cn">FRP 公共服</a> ·
+          <a href="#" class="tun-link" data-url="https://github.com/fatedier/frp">自建 frps（开源）</a>
+        </p>
+        <pre class="log" id="tun-log" style="height:180px">隧道日志将显示在这里…</pre>
+      </details>
+      <pre class="log" id="srv-log" style="height:300px"></pre>
+
+      <details class="card usage tut-collapse">
+        <summary class="tut-summary">🔌 端口映射教程（让外网朋友连上你的服务器）</summary>
+        <div class="tut-inner">
+        <p class="hint tut-intro" style="margin-top:2px">同一 WiFi 下直接发给朋友「局域网地址」即可，<b>不需要</b>这一步。只有当朋友不在你家里（用手机热点/其他地方网络）时才需要做端口映射。</p>
+
+        <h3 class="tut-h">先搞清三件东西</h3>
+        <ul class="usage-list">
+          <li><b>本机内网 IP</b>：上面「🏠 局域网地址」前的部分，如 <code>192.168.3.30</code>（重启路由器可能变，建议在路由器里给本机绑定静态 IP）。</li>
+          <li><b>端口</b>：默认 <code>25565</code>（上面「🔌 端口」显示的值）。</li>
+          <li><b>公网 IP</b>：上面「🌍 公网 IP」显示的值，如 <code>106.4.251.252</code>。</li>
+        </ul>
+
+        <h3 class="tut-h">步骤一：登录路由器后台</h3>
+        <ol class="usage-list">
+          <li>浏览器打开路由器管理页，常见地址：<code>192.168.1.1</code> 或 <code>192.168.0.1</code> 或 <code>tplogin.cn</code>（路由器背面标签上写着）。</li>
+          <li>输入管理员账号密码登录（默认多为 <code>admin/admin</code>，也印在路由器背面）。</li>
+        </ol>
+
+        <h3 class="tut-h">步骤二：添加端口转发规则</h3>
+        <ol class="usage-list">
+          <li>找到「<b>端口转发 / 虚拟服务器 / 端口映射 / NAT / 转发规则</b>」这类菜单（不同品牌叫法不同，通常在「高级设置」里）。</li>
+          <li>新增一条规则，填：
+            <ul class="usage-list" style="margin-top:6px">
+              <li><b>名称</b>：Minecraft（随意）</li>
+              <li><b>外部端口 / 服务端口</b>：<code>25565</code>（可改成别的，改后朋友要连新端口）</li>
+              <li><b>内部端口</b>：<code>25565</code></li>
+              <li><b>内部 IP / 主机 IP</b>：<code>192.168.3.30</code>（换成上面你的内网 IP）</li>
+              <li><b>协议</b>：选 <b>TCP</b>（Minecraft 用 TCP；部分路由器要求选 TCP+UDP，那也选上）</li>
+              <li><b>启用</b>：勾上 ✅</li>
+            </ul>
+          </li>
+          <li>保存并应用。</li>
+        </ol>
+
+        <h3 class="tut-h">步骤三：把地址发给朋友</h3>
+        <p class="usage-list" style="padding-left:0;list-style:none;margin:6px 0 0">朋友在游戏里「多人游戏 → 添加服务器 → 服务器地址」填：</p>
+        <p style="margin:8px 0 0"><code class="big-code">你的公网IP:端口</code> 例如 <code>106.4.251.252:25565</code></p>
+
+        <h3 class="tut-h">⚠️ 常见问题</h3>
+        <ul class="usage-list">
+          <li><b>朋友连不上？</b>先确认服务器已「▶ 启动」且日志出现 <code>Done</code>；再确认防火墙放行：Windows「防火墙」→「允许应用通过」里勾上 <code>java.exe</code>（专用 + 公用都勾）。</li>
+          <li><b>公网 IP 一会儿就变？</b>多数家庭宽带是动态公网 IP，重启光猫会变。要稳定可用 DDNS（域名解析）或内网穿透。</li>
+          <li><b>根本拿不到公网 IP（电信/联通大内网）？</b>若上面「公网 IP」是 <code>100.64.x.x</code> / <code>10.x.x.x</code> 这类，说明你没有真公网 IP，端口映射无效。改用<b>内网穿透</b>（如 frp、ngrok、Sakura Frp、花生壳），或打运营商客服申请公网 IP。</li>
+          <li><b>最简单方案</b>：如果搞不定路由器，直接用<b>内网穿透工具</b>（如 <code>Sakura Frp</code>），它会给你一个公网地址，朋友直接连那个地址即可，无需路由器设置。</li>
+          <li><b>只想和几个人玩</b>：也能用玩家的「对局域网开放」+ 内网穿透，或第三方联机平台（如 网易版联机、Radmin VPN 组建虚拟局域网）。</li>
+        </ul>
+        </div>
+      </details>
+    </section>
+
+    <!-- 账号 -->
+    <section class="page" id="page-account">
+      <h1>账号</h1>
+      <div class="card account-card">
+        <div class="acct-list-head">
+          <span class="acct-list-title">我的账号</span>
+          <button class="btn ghost mini" id="btn-ms-logout-all" style="display:none">全部退出</button>
+        </div>
+        <div id="acct-list" class="acct-list"></div>
+        <div class="row end" id="acct-actions">
+          <button class="btn primary" id="btn-ms-login">➕ 添加微软正版账号</button>
+        </div>
+        <div id="ms-login-flow" style="display:none" class="ms-flow">
+          <p class="hint">① 浏览器已打开登录页；若未打开，请手动访问：<br>
+            <a href="#" id="ms-verify-link"><code id="ms-verify-url">https://microsoft.com/link</code></a>
+          </p>
+          <p class="hint">② 输入下面的设备码：</p>
+          <div class="device-code" id="ms-user-code">— — — —</div>
+          <p class="hint" id="ms-status">等待登录…</p>
+          <div class="row end">
+            <button class="btn ghost" id="btn-ms-cancel">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="offline-card">
+        <label>离线用户名（未登录正版时使用）</label>
+        <input id="in-username" type="text" placeholder="Steve">
+        <p class="hint">离线模式：使用任意用户名即可启动，无法进入正版验证服务器。登录微软正版账号后可进入所有正版服务器。</p>
+      </div>
+    </section>
+
+    <!-- 设置 -->
+    <section class="page" id="page-settings">
+      <h1>设置</h1>
+      <div class="card form">
+        <label>游戏目录（.minecraft）</label>
+        <div class="row">
+          <input id="in-mcdir" type="text">
+          <button id="btn-pick-mc" class="btn">浏览</button>
+        </div>
+
+        <label>Java 路径（留空自动检测）</label>
+        <div class="row">
+          <input id="in-java" type="text" placeholder="自动">
+          <button id="btn-pick-java" class="btn">浏览</button>
+        </div>
+        <div class="row"><button id="btn-detect-java" class="btn ghost">🔍 自动检测 Java</button></div>
+        <ul class="java-list" id="java-list"></ul>
+
+        <label>最大内存分配</label>
+        <div class="row" style="align-items:center;gap:12px">
+          <input id="in-mem-range" type="range" min="1024" max="16384" step="512" value="4096" style="flex:1" />
+          <span id="mem-label" style="min-width:80px;font-weight:600">4096 MB</span>
+        </div>
+        <p class="hint" id="mem-hint">建议值：—</p>
+        <div class="row" style="gap:8px">
+          <button class="btn ghost" data-mem="2048">2G 流畅</button>
+          <button class="btn ghost" data-mem="4096">4G 均衡</button>
+          <button class="btn ghost" data-mem="8192">8G 整合包</button>
+          <button class="btn ghost" data-mem="12288">12G 大型</button>
+        </div>
+        <input id="in-mem" type="hidden" value="4096" />
+
+        <details class="adv-box">
+          <summary>⚙️ 高级启动参数（JVM / 游戏参数，可选）</summary>
+          <label>JVM 参数（加在 java 命令后）</label>
+          <input id="in-jvmargs" type="text" placeholder="如 -XX:+UseG1GC -XX:MaxGCPauseMillis=50">
+          <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:6px">
+            <button class="btn ghost jvm-preset" data-jvm="-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC">G1GC 优化（推荐）</button>
+            <button class="btn ghost jvm-preset" data-jvm="-XX:+UseZGC">ZGC（低延迟）</button>
+            <button class="btn ghost jvm-preset" data-jvm="-Dfile.encoding=UTF-8">UTF-8 编码</button>
+            <button class="btn ghost" id="btn-clear-jvm">清空 JVM 参数</button>
+          </div>
+          <label style="margin-top:12px">游戏参数（加在游戏命令行末尾）</label>
+          <input id="in-gameargs" type="text" placeholder="如 --width 1280 --height 720 --fullscreen">
+        </details>
+
+        <label>下载源（国内强烈建议用 BMCLAPI）</label>
+        <select id="sel-source">
+          <option value="bmclapi">BMCLAPI 国内镜像（推荐）</option>
+          <option value="mojang">Mojang 官方源</option>
+        </select>
+
+        <label>自动下载 Java（按版本自动装对应 Java）</label>
+        <div class="row">
+          <input type="checkbox" id="in-autojava" style="flex:none;width:18px;height:18px">
+          <span class="hint" style="margin:0">启用后启动时自动下载缺失的 Java 运行时</span>
+        </div>
+
+        <label>CurseForge API Key（可选，用 CurseForge 搜索时需填）</label>
+        <input id="in-cfkey" type="text" placeholder="$2a$10$...">
+
+        <div class="settings-divider"></div>
+        <h2 class="settings-h2">🎨 自定义外观（启动器皮肤）</h2>
+        <p class="hint" style="margin-top:2px">自定义启动器自身的界面风格（不是游戏内玩家皮肤）。</p>
+
+        <label>主题色</label>
+        <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap">
+          <input id="in-accent" type="color" value="#2f6ae0" style="width:44px;height:34px;padding:2px;border-radius:8px;flex:none">
+          <div class="swatches" id="accent-swatches"></div>
+        </div>
+
+        <label>背景皮肤（预设）</label>
+        <div class="skin-grid" id="skin-grid"></div>
+
+        <label>自定义背景图（可选，选择本地图片）</label>
+        <div class="row">
+          <input id="in-bg-image" type="text" placeholder="未选择">
+          <button id="btn-pick-bg" class="btn">选择图片</button>
+          <button id="btn-clear-bg" class="btn ghost">清除</button>
+        </div>
+        <p class="hint">支持 jpg / png / webp。清除后回到上方预设背景。</p>
+
+        <div class="row end">
+          <button id="btn-reset-skin" class="btn ghost">恢复默认外观</button>
+        </div>
+
+        <div class="row end">
+          <button id="btn-save" class="btn primary">保存设置</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 关于 -->
+    <section class="page" id="page-about">
+      <h1>关于 Cubik</h1>
+      <div class="card about-card">
+        <div class="about-logo">C</div>
+        <div class="about-name">Cubik</div>
+        <div class="about-ver">版本 <span id="about-ver">1.0.0</span></div>
+        <p class="about-slogan">简洁易用的 Minecraft 启动器</p>
+        <div class="about-links">
+          <button class="btn primary" id="btn-check-update">🔍 检查更新</button>
+          <button class="btn" id="btn-about-repo">项目主页</button>
+          <button class="btn ghost" id="btn-about-issues">反馈问题</button>
+        </div>
+        <p class="hint" id="update-result" style="text-align:center;margin-top:12px;min-height:20px"></p>
+        <div id="update-notes" class="update-notes" style="display:none"></div>
+      </div>
+      <div class="card">
+        <h2>参与与反馈</h2>
+        <ul class="status-list">
+          <li>项目主页 / 源代码：<a href="#" id="about-repo-link"><code>GitHub</code></a></li>
+          <li>问题反馈：<a href="#" id="about-issues-link"><code>GitHub Issues</code></a></li>
+          <li>联系邮箱：<code id="about-email">358670473@qq.com</code></li>
+        </ul>
+        <p class="hint">本项目开源免费，欢迎提出建议或贡献代码。</p>
+      </div>
+      <div class="card">
+        <h2>运行环境</h2>
+        <ul class="status-list">
+          <li>Electron：<code id="about-electron">—</code></li>
+          <li>Node：<code id="about-node">—</code></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2>法律与许可</h2>
+        <div class="legal-links">
+          <button class="btn ghost legal-link" data-doc="LICENSE">📜 开源许可（GPL-3.0）</button>
+          <button class="btn ghost legal-link" data-doc="PRIVACY">🔒 隐私政策</button>
+          <button class="btn ghost legal-link" data-doc="TERMS">📋 用户协议</button>
+          <button class="btn ghost legal-link" data-doc="DISCLAIMER">⚠️ 免责声明</button>
+          <button class="btn ghost legal-link" data-doc="THIRD-PARTY-NOTICES">🧾 第三方许可</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>免责声明</h2>
+        <p class="about-legal">
+          Cubik 是独立的第三方开源启动器，与 Mojang Studios / Microsoft 无任何关联。
+          Minecraft 是 Mojang Studios 的商标。本软件不含任何游戏本体文件，仅提供下载与管理工具。
+          请支持购买正版游戏。
+        </p>
+      </div>
+    </section>
+
+    <!-- 日志 -->
+    <section class="page" id="page-log">
+      <h1>运行日志</h1>
+      <div class="row" style="margin-bottom:12px">
+        <button class="btn ghost" id="btn-log-copy">📋 复制全部</button>
+        <button class="btn ghost" id="btn-log-clear">🗑 清空</button>
+        <span class="hint" id="log-count" style="margin-left:auto"></span>
+      </div>
+      <pre class="log" id="log-box"></pre>
+    </section>
+  </main>
+</div>
+<div class="modal-mask" id="legal-modal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="legal-title">文档</h2>
+      <button class="btn ghost" id="legal-close">✕ 关闭</button>
+    </div>
+    <pre class="legal-body" id="legal-content">加载中…</pre>
+  </div>
+</div>
+<script src="renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+Cubik - Minecraft Launcher
+Copyright (C) 2026 Cubik
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+---
+
+GNU GENERAL PUBLIC LICENSE
+Version 3, 29 June 2007
+
+Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+Everyone is permitted to copy and distribute verbatim copies
+of this license document, but changing it is not allowed.
+
+本程序采用 GNU 通用公共许可证第 3 版（GPL-3.0）授权。
+
+由于 GPL-3.0 全文较长（约 35KB），此处不再逐字内嵌，完整条款请见官方权威文本：
+
+  https://www.gnu.org/licenses/gpl-3.0.txt
+  https://www.gnu.org/licenses/gpl-3.0.html
+
+简要说明（不具法律效力，以官方全文为准）：
+  1. 你可以自由使用、修改、分发本软件。
+  2. 分发时必须附带源代码，并同样以 GPL-3.0 授权。
+  3. 不得将本软件或其衍生作品闭源后再发布。
+  4. 本软件不提供任何担保。
+
+如需完整的 LICENSE 文件，请将上述 gpl-3.0.txt 的内容替换本文件正文。

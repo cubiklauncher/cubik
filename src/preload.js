@@ -1,0 +1,90 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('api', {
+  getConfig: () => ipcRenderer.invoke('cfg:get'),
+  getRam: () => ipcRenderer.invoke('sys:ram'),
+  appInfo: () => ipcRenderer.invoke('app:info'),
+  legal: (d) => ipcRenderer.invoke('app:legal', d),
+  setConfig: (cfg) => ipcRenderer.invoke('cfg:set', cfg),
+  pickDir: () => ipcRenderer.invoke('pick:dir'),
+  pickJava: () => ipcRenderer.invoke('pick:java'),
+  pickFile: (o) => ipcRenderer.invoke('pick:file', o),
+  listVersions: () => ipcRenderer.invoke('mc:versions'),
+  versionInfo: (p) => ipcRenderer.invoke('mc:version-info', p),
+  versionDelete: (p) => ipcRenderer.invoke('mc:version-delete', p),
+  versionLibraries: (p) => ipcRenderer.invoke('mc:libraries', p),
+  modsList: (p) => ipcRenderer.invoke('mods:list', p),
+  modsToggle: (p) => ipcRenderer.invoke('mods:toggle', p),
+  modsDelete: (p) => ipcRenderer.invoke('mods:delete', p),
+  modsAdd: (p) => ipcRenderer.invoke('mods:add', p),
+  modsOpen: (p) => ipcRenderer.invoke('mods:open', p),
+  modSearch: (p) => ipcRenderer.invoke('mod:search', p),
+  modVersions: (p) => ipcRenderer.invoke('mod:versions', p),
+  modInstall: (p) => ipcRenderer.invoke('mod:install', p),
+  checkUpdate: () => ipcRenderer.invoke('app:check-update'),
+  checkUpdateP: (o) => ipcRenderer.invoke('app:check-update', o),
+  downloadUpdate: (o) => ipcRenderer.invoke('app:download-update', o),
+  installUpdate: (o) => ipcRenderer.invoke('app:install-update', o),
+  runUpdate: (o) => ipcRenderer.invoke('app:run-update', o),
+  openUpdateFolder: () => ipcRenderer.invoke('app:open-update-folder'),
+  onUpdateProgress: (cb) => ipcRenderer.on('update:progress', (_e, d) => cb(d)),
+  versionManifest: (p) => ipcRenderer.invoke('mc:manifest', p),
+  installVanilla: (p) => ipcRenderer.invoke('mc:install-vanilla', p),
+  loaderVersions: (p) => ipcRenderer.invoke('loader:versions', p),
+  loaderInstall: (p) => ipcRenderer.invoke('loader:install', p),
+  addonVersions: (p) => ipcRenderer.invoke('addon:versions', p),
+  addonInstall: (p) => ipcRenderer.invoke('addon:install', p),
+  detectJava: () => ipcRenderer.invoke('java:detect'),
+  requiredJava: (v) => ipcRenderer.invoke('java:required', v),
+  launch: (opts) => ipcRenderer.invoke('mc:launch', opts),
+  openPath: (p) => ipcRenderer.invoke('shell:open', p),
+
+  // 微软正版登录
+  msStart: () => ipcRenderer.invoke('auth:ms-start'),
+  msPoll: () => ipcRenderer.invoke('auth:ms-poll'),
+  msRefresh: (o) => ipcRenderer.invoke('auth:ms-refresh', o),
+  msLogout: (o) => ipcRenderer.invoke('auth:ms-logout', o),
+  accounts: () => ipcRenderer.invoke('auth:accounts'),
+  switchAccount: (o) => ipcRenderer.invoke('auth:switch', o),
+  removeAccount: (o) => ipcRenderer.invoke('auth:remove', o),
+  account: () => ipcRenderer.invoke('auth:account'),
+  onAuthStatus: (cb) => ipcRenderer.on('auth:status', (_e, d) => cb(d)),
+
+  // 整合包
+  packSearch: (p) => ipcRenderer.invoke('pack:search', p),
+  packTop: (p) => ipcRenderer.invoke('pack:top', p),
+  packVersions: (p) => ipcRenderer.invoke('pack:versions', p),
+  packInstallFull: (p) => ipcRenderer.invoke('pack:install-full', p),
+  projectDetail: (p) => ipcRenderer.invoke('project:detail', p),
+
+  // 光影包
+  shaderSearch: (p) => ipcRenderer.invoke('shader:search', p),
+  shaderVersions: (p) => ipcRenderer.invoke('shader:versions', p),
+  shaderInstallFull: (p) => ipcRenderer.invoke('shader:install-full', p),
+
+  onInstallLog: (cb) => ipcRenderer.on('install:log', (_e, d) => cb(d)),
+  onInstallProgress: (cb) => ipcRenderer.on('install:progress', (_e, d) => cb(d)),
+
+  // 服务器
+  serverCreate: (o) => ipcRenderer.invoke('server:create', o),
+  serverVersions: (p) => ipcRenderer.invoke('server:versions', p),
+  serverStatus: () => ipcRenderer.invoke('server:status'),
+  serverInfo: (o) => ipcRenderer.invoke('server:info', o),
+  serverStart: (o) => ipcRenderer.invoke('server:start', o),
+  serverStop: () => ipcRenderer.invoke('server:stop'),
+  serverCmd: (c) => ipcRenderer.invoke('server:cmd', c),
+  serverUpdateProps: (o) => ipcRenderer.invoke('server:update-props', o),
+
+  // 内网穿透
+  tunnelDownload: () => ipcRenderer.invoke('tunnel:download'),
+  tunnelStart: (c) => ipcRenderer.invoke('tunnel:start', c),
+  tunnelStop: () => ipcRenderer.invoke('tunnel:stop'),
+  tunnelStatus: () => ipcRenderer.invoke('tunnel:status'),
+  onTunnelLog: (cb) => ipcRenderer.on('tunnel:log', (_e, d) => cb(d)),
+
+  onLog: (cb) => ipcRenderer.on('mc:log', (_e, d) => cb(d)),
+  onProgress: (cb) => ipcRenderer.on('mc:progress', (_e, d) => cb(d)),
+  onClose: (cb) => ipcRenderer.on('mc:close', (_e, d) => cb(d)),
+  onServerLog: (cb) => ipcRenderer.on('server:log', (_e, d) => cb(d)),
+  onServerProgress: (cb) => ipcRenderer.on('server:progress', (_e, d) => cb(d))
+});
