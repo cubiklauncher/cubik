@@ -1,75 +1,75 @@
-﻿{
-    "name":  "cubik",
-    "version":  "1.0.9",
-    "description":  "Cubik - 简洁易用的 Minecraft 启动器（整合包/光影一键安装、原版下载、服务器管理）",
-    "main":  "src/main.js",
-    "scripts":  {
-                    "start":  "electron .",
-                    "dist":  "electron-builder --win",
-                    "dist:portable":  "electron-builder --win portable"
-                },
-    "author":  "Cubik",
-    "license":  "MIT",
-    "dependencies":  {
-                         "minecraft-launcher-core":  "^3.18.1",
-                         "uuid":  "^9.0.1"
-                     },
-    "devDependencies":  {
-                            "electron":  "^31.7.7",
-                            "electron-builder":  "^24.13.3"
-                        },
-    "build":  {
-                  "appId":  "com.cubik.launcher",
-                  "productName":  "Cubik",
-                  "copyright":  "Copyright © 2026 Cubik",
-                  "artifactName":  "Cubik-${version}-${arch}.${ext}",
-                  "directories":  {
-                                      "output":  "dist",
-                                      "buildResources":  "build"
-                                  },
-                  "files":  [
-                                "src/**/*",
-                                "assets/icon.ico",
-                                "assets/icon.png",
-                                "package.json",
-                                "LICENSE",
-                                "PRIVACY.md",
-                                "TERMS.md",
-                                "DISCLAIMER.md",
-                                "THIRD-PARTY-NOTICES.md"
-                            ],
-                  "win":  {
-                              "target":  [
-                                             {
-                                                 "target":  "nsis",
-                                                 "arch":  [
-                                                              "x64"
-                                                          ]
-                                             },
-                                             {
-                                                 "target":  "portable",
-                                                 "arch":  [
-                                                              "x64"
-                                                          ]
-                                             }
-                                         ],
-                              "icon":  "assets/icon.ico",
-                              "signAndEditExecutable":  false
-                          },
-                  "nsis":  {
-                               "oneClick":  false,
-                               "perMachine":  false,
-                               "allowToChangeInstallationDirectory":  true,
-                               "createDesktopShortcut":  true,
-                               "createStartMenuShortcut":  true,
-                               "shortcutName":  "Cubik",
-                               "installerIcon":  "assets/icon.ico",
-                               "uninstallerIcon":  "assets/icon.ico",
-                               "installerHeaderIcon":  "assets/icon.ico",
-                               "deleteAppDataOnUninstall":  false
-                           },
-                  "portable":  {
-                                   "artifactName":  "Cubik-${version}-portable.${ext}"
-                               }
-              }
+{
+  "name": "cubik",
+  "version": "1.0.9",
+  "description": "Cubik - 简洁易用的 Minecraft 启动器（整合包/光影一键安装、原版下载、服务器管理）",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win",
+    "dist:portable": "electron-builder --win portable"
+  },
+  "author": "Cubik",
+  "license": "MIT",
+  "dependencies": {
+    "minecraft-launcher-core": "^3.18.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.cubik.launcher",
+    "productName": "Cubik",
+    "copyright": "Copyright © 2026 Cubik",
+    "artifactName": "Cubik-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "assets/icon.ico",
+      "assets/icon.png",
+      "package.json",
+      "LICENSE",
+      "PRIVACY.md",
+      "TERMS.md",
+      "DISCLAIMER.md",
+      "THIRD-PARTY-NOTICES.md"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Cubik",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
+      "artifactName": "Cubik-${version}-portable.${ext}"
+    }
+  }
 }
