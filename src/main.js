@@ -409,6 +409,53 @@ ipcMain.handle('app:run-update', async (_e, { file }) => {
   }
 });
 
+// 判断当前是否为安装版（exe 位于用户/系统安装目录）还是免安装版
+function detectInstallMode() {
+  try {
+    if (!app.isPackaged) return 'dev';
+    const exe = process.execPath || '';
+    const dir = path.dirname(exe);
+    const lower = exe.toLowerCase();
+    // 免安装版：electron-builder portable 会解压到临时目录运行，路径含 'portable' 或临时目录
+    if (/\bportable\b/i.test(lower)) return 'portable';
+    // 安装版典型路径：%LOCALAPPDATA%\Programs\<app> 或 Program Files
+    if (/\\programs\\/i.test(dir + '\\') || /program files/i.test(lower) || /appdata\\local/i.test(lower)) return 'installed';
+    return 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+// 真正的自动更新：后台下载安装包 → 静默安装（/S）→ 自动重启新版本 → 退出当前进程
+ipcMain.handle('app:auto-update', async (_e, { url, name }) => {
+  const { spawn } = require('child_process');
+  try {
+    if (!url) return { ok: false, error: '没有可下载的更新包' };
+    const dir = path.join(LAUNCHER_DATA, 'updates');
+    fs.mkdirSync(dir, { recursive: true });
+    // 安装包固定名，避免重复堆积；已存在且大小一致则跳过重复下载
+    const dest = path.join(dir, 'Cubik-update-setup.exe');
+    const send = (got, total) => { try { win.webContents.send('update:progress', { got, total }); } catch {} };
+    if (!(fs.existsSync(dest) && fs.statSync(dest).size > 1024)) {
+      await modpack.downloadFile(url, dest, send, null, name || 'update');
+    }
+
+    const mode = detectInstallMode();
+    if (mode === 'portable' || mode === 'dev') {
+      // 免安装版/开发模式无法静默覆盖自身，退化为：下载完成后打开所在文件夹让用户手动替换
+      return { ok: false, mode, file: dest, error: '免安装版不支持自动覆盖，请手动替换（已下载到 updates 文件夹）', fallback: true };
+    }
+
+    // 安装版：静默运行 NSIS 安装器（/S = silent），安装完成后安装器会拉起新版
+    const child = spawn(dest, ['/S'], { detached: true, stdio: 'ignore' });
+    child.unref();
+    setTimeout(() => { try { app.exit(0); } catch { app.quit(); } }, 800);
+    return { ok: true, mode, file: dest };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
 // GitHub API GET（自动跟随重定向、超时、最多重试 2 次）
 function githubGet(path, tries = 2) {
   return new Promise((resolve, reject) => {

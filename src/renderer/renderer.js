@@ -947,17 +947,30 @@ async function runCheckUpdate(silent, prefer) {
   }
 }
 
-// 一键更新：下载 → 运行安装程序 → 退出启动器
+// 一键更新：优先后台下载 + 静默安装并自动重启；免安装版则下载后打开文件夹提示手动替换
 async function autoUpdate(asset) {
   if (!asset || !asset.url) return;
   const wrap = $('upd-prog-wrap');
-  if (wrap) { wrap.style.display = ''; $('upd-prog').style.width = '0%'; $('upd-prog-text').textContent = '开始下载更新包…'; }
-  const r = await window.api.installUpdate({ url: asset.url, name: asset.name });
-  if (!r.ok) { if ($('upd-prog-text')) $('upd-prog-text').textContent = '下载失败：' + r.error; return; }
-  if ($('upd-prog')) $('upd-prog').style.width = '100%';
-  if ($('upd-prog-text')) $('upd-prog-text').textContent = '下载完成，即将启动安装程序并退出…';
-  await new Promise((res) => setTimeout(res, 600));
-  await window.api.runUpdate({ file: r.file });
+  if (wrap) { wrap.style.display = ''; $('upd-prog').style.width = '0%'; $('upd-prog-text').textContent = '正在后台下载更新包…'; }
+  const r = await window.api.autoUpdateSilent({ url: asset.url, name: asset.name });
+  if (r.ok) {
+    if ($('upd-prog')) $('upd-prog').style.width = '100%';
+    if ($('upd-prog-text')) $('upd-prog-text').textContent = '下载完成，正在静默安装并自动重启，请稍候…';
+    return;
+  }
+  // 免安装版：下载到文件夹，交给用户手动替换
+  if (r.fallback) {
+    if ($('upd-prog')) $('upd-prog').style.width = '100%';
+    if ($('upd-prog-text'))
+      $('upd-prog-text').innerHTML =
+        '✔ 免安装版已下载到 updates 文件夹，请关闭本程序后手动覆盖替换。' +
+        '<a href="#" id="upd-open-folder" class="upd-link">打开位置</a>';
+    const of = $('upd-open-folder');
+    if (of) of.onclick = (e) => { e.preventDefault(); window.api.openUpdateFolder(); };
+    window.api.openUpdateFolder();
+    return;
+  }
+  if ($('upd-prog-text')) $('upd-prog-text').textContent = '更新失败：' + (r.error || '未知错误');
 }
 
 // 下载更新包（带进度），完成后提供打开位置

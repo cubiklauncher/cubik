@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('api', {
   checkUpdateP: (o) => ipcRenderer.invoke('app:check-update', o),
   downloadUpdate: (o) => ipcRenderer.invoke('app:download-update', o),
   installUpdate: (o) => ipcRenderer.invoke('app:install-update', o),
+  autoUpdateSilent: (o) => ipcRenderer.invoke('app:auto-update', o),
   runUpdate: (o) => ipcRenderer.invoke('app:run-update', o),
   openUpdateFolder: () => ipcRenderer.invoke('app:open-update-folder'),
   onUpdateProgress: (cb) => ipcRenderer.on('update:progress', (_e, d) => cb(d)),
