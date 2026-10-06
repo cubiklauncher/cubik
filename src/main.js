@@ -476,14 +476,9 @@ function createWindow() {
       // 截图（用于人工核对渲染）—— 切到服务器页
       try {
         await win.webContents.executeJavaScript("document.querySelector('.nav-item[data-page=\"server\"]').click()");
-        await new Promise((r) => setTimeout(r, 800));
+        await new Promise((r) => setTimeout(r, 1000));
         const png = await win.webContents.capturePage();
         require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-srv-shot.png'), png.toPNG());
-        // 滚到聊天卡片再截一张
-        await win.webContents.executeJavaScript("document.querySelector('.chat-card').scrollIntoView({block:'start'})");
-        await new Promise((r) => setTimeout(r, 600));
-        const png2 = await win.webContents.capturePage();
-        require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-srv-chat-shot.png'), png2.toPNG());
       } catch (e) {}
     } catch (e) { console.log('SELFTEST_ERROR ' + e.message); try { require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), 'SELFTEST_ERROR ' + e.message); } catch {} }
     setTimeout(() => app.quit(), 400);
