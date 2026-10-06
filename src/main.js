@@ -651,6 +651,37 @@ ipcMain.handle('mc:versions', () => {
 });
 
 // 解析实例的真实基础 MC 版本号（沿 inheritsFrom 链走到最底层，返回形如 '1.20.1'）
+// 启动前自检：合并版本 JSON，检查每个 library 的 jar 是否为完整 zip。
+// 下载中断/镜像异常会导致 zip 损坏（zip END header not found），游戏启动即崩溃。
+// 发现损坏的则删掉并重新下载（用合并后的版本 JSON 里的 downloads.artifact.url）。
+async function repairCorruptLibraries(mcDir, version, send) {
+  const mp = require('./modpack');
+  if (!mp.isValidZip || !mp.downloadFile) return;
+  let merged;
+  try { merged = mergeVersionJson(mcDir, version); } catch { merged = null; }
+  if (!merged) return;
+  const libs = (merged.libraries || []).filter((l) => l.downloads && l.downloads.artifact);
+  const bad = [];
+  for (const lib of libs) {
+    const art = lib.downloads.artifact;
+    if (!art.path || !/\.jar$/i.test(art.path)) continue;
+    const dest = path.join(mcDir, 'libraries', art.path);
+    if (fs.existsSync(dest) && !mp.isValidZip(dest)) bad.push({ art, dest });
+  }
+  if (!bad.length) return;
+  send('data', `检测到 ${bad.length} 个损坏的依赖库，正在自动修复…`);
+  for (const b of bad) {
+    try { fs.unlinkSync(b.dest); } catch {}
+    const name = b.art.path.split('/').slice(-1)[0];
+    try {
+      await mp.downloadFile(b.art.url, b.dest, null, (m) => send('debug', m), '修复 ' + name, null);
+      send('data', `✔ 已修复 ${name}`);
+    } catch (e) {
+      send('data', `✖ 修复 ${name} 失败：${e && e.message ? e.message : e}`);
+    }
+  }
+}
+
 function resolveBaseMcVersion(mcDir, name) {
   if (!name) return '';
   let cur = name;
@@ -1166,6 +1197,15 @@ ipcMain.handle('mc:launch', async (_e, opts) => {
     // 游戏已关闭：清理启动器闲置内存（回收 V8/GC 后的工作集），降低后台占用
     trimMemoryLater();
   });
+
+  // 启动前自检：扫描该版本依赖的 libraries，修复损坏的 jar（下载中断会导致 zip 损坏，游戏直接崩溃）
+  if (version) {
+    try {
+      await repairCorruptLibraries(cfg.mcDir, version, send);
+    } catch (e) {
+      send('debug', '库完整性自检失败（已跳过）：' + (e && e.message ? e.message : e));
+    }
+  }
 
   let auth;
   try {

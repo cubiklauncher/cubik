@@ -138,10 +138,14 @@ async function ensureVanilla(mcDir, mcVersion, onLog) {
   const verJsonPath = path.join(verDir, mcVersion + '.json');
   const jarPath = path.join(verDir, mcVersion + '.jar');
 
-  // 已有完整文件则跳过
-  if (fs.existsSync(verJsonPath) && fs.existsSync(jarPath)) {
+  // 已有完整文件则跳过（client.jar 需校验 ZIP 完整性，防止旧的损坏文件导致启动崩溃）
+  if (fs.existsSync(verJsonPath) && fs.existsSync(jarPath) && modpack.isValidZip(jarPath)) {
     onLog && onLog(`原版 ${mcVersion} 已存在`);
     return verJsonPath;
+  }
+  if (fs.existsSync(jarPath) && !modpack.isValidZip(jarPath)) {
+    onLog && onLog(`检测到损坏的 client.jar，将重新下载…`);
+    try { fs.unlinkSync(jarPath); } catch {}
   }
 
   onLog && onLog(`准备原版 ${mcVersion}（版本 JSON + client.jar + 依赖库 + 资源）…`);

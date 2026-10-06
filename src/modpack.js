@@ -322,6 +322,37 @@ async function pool(items, concurrency, worker) {
   await Promise.all(runners);
 }
 
+// 校验 .jar/.zip 是否为结构完整的 ZIP（检测下载中断/镜像返回错误内容导致的损坏）
+// 返回 true=有效，false=损坏。非 zip 文件直接返回 true。
+function isValidZip(file) {
+  try {
+    if (!/\.(jar|zip)$/i.test(file)) return true;
+    if (!fs.existsSync(file)) return false;
+    const fd = fs.openSync(file, 'r');
+    try {
+      const size = fs.fstatSync(fd).size;
+      if (size < 22) return false;
+      // 1) 文件头必须是 PK\x03\x04（本地文件头）或 PK\x05\x06（空归档）
+      const head = Buffer.alloc(4);
+      fs.readSync(fd, head, 0, 4, 0);
+      const isPK = head[0] === 0x50 && head[1] === 0x4b &&
+        ((head[2] === 0x03 && head[3] === 0x04) || (head[2] === 0x05 && head[3] === 0x06));
+      if (!isPK) return false;
+      // 2) 尾部必须能找到一个 zip 中央目录结束记录（PK\x05\x06），且位于最后 64KB 内
+      const tailLen = Math.min(65557, size);
+      const tail = Buffer.alloc(tailLen);
+      fs.readSync(fd, tail, 0, tailLen, size - tailLen);
+      const sig = Buffer.from([0x50, 0x4b, 0x05, 0x06]);
+      return tail.lastIndexOf(sig) !== -1;
+    } finally {
+      fs.closeSync(fd);
+    }
+  } catch {
+    // 无法判定时按有效处理，避免误删
+    return true;
+  }
+}
+
 function downloadFile(url, dest, onProgress, onLog, label, fallbackUrl, insecure) {
   const http = require('http');
   return new Promise((resolve, reject) => {
@@ -383,6 +414,11 @@ function downloadFile(url, dest, onProgress, onLog, label, fallbackUrl, insecure
           file.close(() => {
             if (failed) return;
             if (clen > 0 && got !== total) return fail(new Error(`下载不完整 ${url}`));
+            // 下载完整性校验：损坏的 zip/jar 直接当失败处理（触发备用源重下）
+            if (!isValidZip(dest)) {
+              try { fs.unlinkSync(dest); } catch {}
+              return fail(new Error(`文件损坏（zip 不完整，可能下载中断）：${url}`));
+            }
             resolve(dest);
           })
         );
@@ -817,6 +853,7 @@ module.exports = {
   installVanillaVersion,
   downloadFile,
   downloadWithMirrors,
+  isValidZip,
   // 下载源
   SOURCES,
   setSource,
