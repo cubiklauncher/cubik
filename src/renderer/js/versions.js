@@ -48,9 +48,40 @@ async function refreshVersions() {
         </div>
       </div>
       <div class="ver-right">
+        <button class="btn ghost ver-rename-btn" title="重命名版本">${icon('edit')}</button>
+        <button class="btn ghost ver-clone-btn" title="复制为新实例">${icon('plus')}</button>
+        <button class="btn ghost ver-open-btn" title="在文件夹中打开">${icon('folder')}</button>
         <button class="btn ghost ver-manage-btn" title="管理模组与支持库">${icon('settings')} 管理</button>
         <button class="btn danger ver-del-btn" style="display:none" title="删除版本">${icon('trash')} 删除</button>
       </div>`;
+    li.querySelector('.ver-rename-btn').onclick = async (e) => {
+      e.stopPropagation();
+      const nn = prompt(`重命名版本「${v}」为：`, v);
+      if (nn === null) return;
+      const t = nn.trim();
+      if (!t || t === v) return;
+      const r = await window.api.versionRename({ name: v, newName: t });
+      if (r && r.ok) {
+        log('data', `已重命名版本：${v} → ${r.name}`);
+        if (selectedVersion === v) selectedVersion = r.name;
+        if (cfg.version === v) cfg.version = r.name;
+        await refreshVersions();
+        try { updateHomeVersion(); } catch {}
+      } else alert('重命名失败：' + ((r && r.error) || '未知错误'));
+    };
+    li.querySelector('.ver-clone-btn').onclick = async (e) => {
+      e.stopPropagation();
+      const nn = prompt(`复制「${v}」为新实例（留空自动命名）：`, v + '-副本');
+      if (nn === null) return;
+      const r = await window.api.versionClone({ name: v, newName: nn.trim() });
+      if (r && r.ok) { log('data', `已复制实例：${v} → ${r.name}`); await refreshVersions(); }
+      else alert('复制失败：' + ((r && r.error) || '未知错误'));
+    };
+    li.querySelector('.ver-open-btn').onclick = async (e) => {
+      e.stopPropagation();
+      const r = await window.api.versionOpen({ name: v });
+      if (!r || !r.ok) alert('打开失败：' + ((r && r.error) || '未知错误'));
+    };
     li.querySelector('.ver-manage-btn').onclick = (e) => { e.stopPropagation(); openVersionDetail(v); };
     li.querySelector('.ver-del-btn').onclick = async (e) => {
       e.stopPropagation();

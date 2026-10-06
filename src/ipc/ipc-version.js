@@ -114,6 +114,71 @@ ipcMain.handle('mc:version-delete', (_e, { name }) => {
   } catch (e) { return { ok: false, error: e.message }; }
 });
 
+// 重命名版本（同时更新目录名、内部 json/jar 文件名）
+ipcMain.handle('mc:version-rename', (_e, { name, newName }) => {
+  try {
+    const cfg = loadConfig();
+    const nn = String(newName || '').trim();
+    if (!nn) return { ok: false, error: '新名称不能为空' };
+    if (!/^[^\\/:*?"<>|]+$/.test(nn)) return { ok: false, error: '名称含非法字符' };
+    const vdir = path.join(cfg.mcDir, 'versions');
+    const src = path.join(vdir, name);
+    if (!fs.existsSync(src)) return { ok: false, error: '版本不存在' };
+    if (name === nn) return { ok: true, name: nn };
+    if (fs.existsSync(path.join(vdir, nn))) return { ok: false, error: '已存在同名版本' };
+    // 先重命名目录内的同名 json/jar，再重命名目录
+    ['json', 'jar'].forEach((ext) => {
+      const a = path.join(src, name + '.' + ext);
+      const b = path.join(src, nn + '.' + ext);
+      if (fs.existsSync(a) && !fs.existsSync(b)) { try { fs.renameSync(a, b); } catch {} }
+    });
+    try { fs.renameSync(src, path.join(vdir, nn)); }
+    catch { fs.cpSync(src, path.join(vdir, nn), { recursive: true }); fs.rmSync(src, { recursive: true, force: true }); }
+    // 同步实例级独立设置（如有）
+    if (cfg.instanceOverrides && cfg.instanceOverrides[name]) {
+      cfg.instanceOverrides[nn] = cfg.instanceOverrides[name];
+      delete cfg.instanceOverrides[name];
+    }
+    if (cfg.version === name) cfg.version = nn;
+    saveConfig(cfg);
+    return { ok: true, name: nn };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
+// 复制一个版本为新的独立实例（完整目录拷贝，可另起启动设置）
+ipcMain.handle('mc:version-clone', (_e, { name, newName }) => {
+  try {
+    const cfg = loadConfig();
+    const vdir = path.join(cfg.mcDir, 'versions');
+    const src = path.join(vdir, name);
+    if (!fs.existsSync(src)) return { ok: false, error: '版本不存在' };
+    let base = String(newName || '').trim() || (name + '-副本');
+    if (!/^[^\\/:*?"<>|]+$/.test(base)) return { ok: false, error: '名称含非法字符' };
+    let final = base;
+    let i = 2;
+    while (fs.existsSync(path.join(vdir, final))) { final = base + '_' + i; i++; }
+    fs.cpSync(src, path.join(vdir, final), { recursive: true });
+    // 目录内同名 json/jar 需要一并改名，避免扫描时识别不到
+    ['json', 'jar'].forEach((ext) => {
+      const a = path.join(vdir, final, name + '.' + ext);
+      const b = path.join(vdir, final, final + '.' + ext);
+      if (fs.existsSync(a) && !fs.existsSync(b)) { try { fs.renameSync(a, b); } catch {} }
+    });
+    return { ok: true, name: final };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
+// 在文件管理器中打开某个版本的目录
+ipcMain.handle('mc:version-open', (_e, { name }) => {
+  try {
+    const cfg = loadConfig();
+    const dir = path.join(cfg.mcDir, 'versions', name);
+    if (!fs.existsSync(dir)) return { ok: false, error: '版本不存在' };
+    shell.openPath(dir);
+    return { ok: true };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
 // 列出某个版本引用的支持库（含继承链），标注本地是否存在
 ipcMain.handle('mc:libraries', (_e, { name }) => {
   try {

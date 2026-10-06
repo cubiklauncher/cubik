@@ -588,6 +588,12 @@ pre.srv-log {
 .version-list li .ver-name { font-weight: 700; font-size: 14px; margin-bottom: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .version-list li .ver-right { display: flex; align-items: center; gap: 8px; flex: none; }
 .ver-manage-btn, .ver-del-btn { padding: 7px 12px; font-size: 12px; }
+/* 实例卡片上的小图标按钮（重命名/复制/打开文件夹） */
+.ver-right .ver-rename-btn, .ver-right .ver-clone-btn, .ver-right .ver-open-btn {
+  padding: 5px; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-soft);
+}
+.ver-right .ver-rename-btn:hover, .ver-right .ver-clone-btn:hover, .ver-right .ver-open-btn:hover { color: var(--accent); }
 .btn.danger { background: linear-gradient(135deg,#ff8a8a,#e05555); color: #fff; border: 1px solid rgba(255,255,255,.4); }
 .btn.danger:hover { background: linear-gradient(135deg,#ff9a9a,#d64545); }
 .manage-bar { margin: 6px 0 12px; padding: 10px 14px; border-radius: 11px; background: rgba(255, 235, 235, .55); border: 1px solid rgba(255,180,180,.6); }
