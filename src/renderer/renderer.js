@@ -70,7 +70,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (btn.dataset.page === 'shader' && !shaderLoaded) loadShaderTop();
     if (btn.dataset.page === 'data') loadDataPage();
     if (btn.dataset.page === 'mod' && !modPageLoaded) loadModPage();
-    if (btn.dataset.page === 'server') { refreshNetInfo(); refreshServerBackup(); loadAutoBackup(); checkServerUpdateUI(true); }
+    if (btn.dataset.page === 'server') { refreshNetInfo(); refreshServerBackup(); loadAutoBackup(); checkServerUpdateUI(true); try { loadServerMods(); } catch {} }
     if (btn.dataset.page === 'vanilla' && !window.__vanLoaded) { window.__vanLoaded = true; loadVanillaVersions(); }
     if (btn.dataset.page === 'versions') refreshVersions();
   };
@@ -2339,6 +2339,140 @@ if ($('btn-toggle-online')) $('btn-toggle-online').onclick = async () => {
 };
 if ($('btn-copy-lan')) $('btn-copy-lan').onclick = () => copyText($('net-lan').dataset.copy || $('net-lan').textContent, $('btn-copy-lan'));
 if ($('btn-copy-pub')) $('btn-copy-pub').onclick = () => copyText($('net-pub').dataset.copy || $('net-pub').textContent, $('btn-copy-pub'));
+
+// ---------- 服务器装 Mod ----------
+let srvModDirPath = null;
+async function loadServerMods() {
+  const ul = $('srvm-list');
+  if (!ul) return;
+  ul.innerHTML = '<li class="empty">加载中…</li>';
+  const r = await window.api.srvModList({});
+  if (!r || !r.ok) { ul.innerHTML = `<li class="empty">读取失败：${esc((r && r.error) || '')}</li>`; return; }
+  srvModDirPath = r.dir;
+  // 顶部信息
+  const typeLabel = { paper: 'Paper', spigot: 'Spigot', fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge', vanilla: '原版' }[r.type] || (r.type || '未知');
+  $('srvm-type').textContent = '服务端：' + typeLabel;
+  $('srvm-mcver').textContent = '游戏版本：' + (r.mcVersion || '未知');
+  const sup = r.supports === true ? '✅ 可装 Mod' : r.supports === false ? '⚠ 需插件（非 Mod）' : '—（请先创建服务器）';
+  $('srvm-support').textContent = 'Mod 支持：' + sup;
+  $('srvm-support').style.color = r.supports === false ? '#e0a030' : '';
+
+  const list = r.list || [];
+  $('srvm-count').textContent = list.length ? `共 ${list.length} 个` : '';
+  if (!list.length) {
+    const msg = r.type === 'unknown' || !r.type ? '还没有服务器，请先在上方创建服务器' : (r.supports === false ? '当前服务端是 ' + typeLabel + '，请用「插件」而非 Mod' : '还没有装 Mod，在上方搜索并安装吧');
+    ul.innerHTML = `<li class="empty">${msg}</li>`;
+    return;
+  }
+  ul.innerHTML = list.map((m) => {
+    const sz = m.size ? (m.size / 1048576).toFixed(1) + ' MB' : '';
+    return `
+    <li class="mod-item${m.disabled ? ' off' : ''}">
+      <div class="mod-left">
+        <div class="mod-name" title="${esc(m.file)}">${esc(m.file.replace(/\.disabled$/i, ''))}</div>
+        <div class="ver-tags"><span class="tg">${sz}</span>${m.disabled ? '<span class="tg">已停用</span>' : ''}</div>
+      </div>
+      <div class="mod-actions">
+        <label class="switch" title="${m.disabled ? '启用' : '停用'}"><input type="checkbox" class="srvm-toggle" data-file="${esc(m.file)}" ${m.disabled ? '' : 'checked'}><span></span></label>
+        <button class="btn mini ghost srvm-del" data-file="${esc(m.file)}" title="删除">🗑</button>
+      </div>
+    </li>`;
+  }).join('');
+  ul.querySelectorAll('.srvm-toggle').forEach((cb) => {
+    cb.onchange = async () => {
+      const file = cb.dataset.file;
+      const wantDisabled = !cb.checked;
+      const rr = await window.api.srvModToggle({ file, disabled: wantDisabled });
+      if (!rr || !rr.ok) { alert('操作失败：' + ((rr && rr.error) || '未知错误')); cb.checked = !cb.checked; return; }
+      loadServerMods();
+    };
+  });
+  ul.querySelectorAll('.srvm-del').forEach((btn) => {
+    btn.onclick = async () => {
+      const file = btn.dataset.file;
+      if (!confirm('确定删除这个 Mod？\n' + file)) return;
+      const rr = await window.api.srvModDelete({ file });
+      if (!rr || !rr.ok) return alert('删除失败：' + ((rr && rr.error) || '未知错误'));
+      loadServerMods();
+    };
+  });
+}
+
+async function searchServerMods(query) {
+  const grid = $('srvm-store-list');
+  if (!grid) return;
+  grid.style.display = 'grid';
+  grid.innerHTML = '<div class="empty">加载中…</div>';
+  $('srvm-ver-panel').style.display = 'none';
+  const info = await window.api.srvModList({});
+  const mcVersion = info && info.mcVersion ? info.mcVersion : '';
+  const loaderMap = { fabric: 'fabric', forge: 'forge', neoforge: 'neoforge' };
+  const loader = info && loaderMap[info.type] ? loaderMap[info.type] : '';
+  if (info && info.supports === false) {
+    grid.innerHTML = `<div class="empty">当前服务端是 ${esc(info.type)}，它用的是「插件」而不是 Mod。<br>请到服务端目录的 plugins 文件夹放插件，或换成 Fabric/Forge/NeoForge 服务端。</div>`;
+    return;
+  }
+  const p = { kind: 'mod', query };
+  if (mcVersion) p.mcVersion = mcVersion;
+  if (loader) p.loader = loader;
+  const r = await window.api.searchAll(p);
+  if (!r || !r.ok) { grid.innerHTML = `<div class="empty">搜索失败：${esc((r && r.error) || '')}</div>`; return; }
+  $('srvm-filter').textContent = `筛选条件：MC ${mcVersion || '不限'}${loader ? ' · ' + loader : ' · 无加载器'}`;
+  if (!r.list || !r.list.length) { grid.innerHTML = '<div class="empty">未找到兼容该服务器版本/加载器的 Mod</div>'; return; }
+  renderCards(grid, r.list, (p2) => openServerModVersions(p2, { mcVersion, loader }));
+}
+
+async function openServerModVersions(pack, filter) {
+  const panel = $('srvm-ver-panel');
+  const ul = $('srvm-ver-list');
+  panel.style.display = 'block';
+  $('srvm-ver-title').textContent = '选择要装到服务器的版本：' + pack.title;
+  ul.innerHTML = '<li class="empty">加载中…</li>';
+  const source = pack.source || 'modrinth';
+  const res = await window.api.packVersions({
+    source, id: pack.id,
+    mc: filter && filter.mcVersion ? filter.mcVersion : undefined,
+    loader: filter && filter.loader ? filter.loader : undefined
+  });
+  if (!res || !res.ok) { ul.innerHTML = `<li class="empty">加载失败：${esc((res && res.error) || '')}</li>`; return; }
+  // 兼容旧版本：若未筛到，回退拉全部版本
+  let list = res.list || [];
+  if (!list.length) {
+    const all = await window.api.packVersions({ source, id: pack.id });
+    list = (all && all.ok ? all.list : []) || [];
+    if (list.length) $('srvm-ver-title').textContent = '（无完全匹配的版本，显示全部）要装到服务器的版本：' + pack.title;
+  }
+  renderVersions(ul, list, (v) => installServerMod(pack, v, filter));
+}
+
+async function installServerMod(pack, v, filter) {
+  const f = (v.files || []).find((x) => x.primary) || (v.files || [])[0];
+  if (!f) return alert('该版本没有可下载文件');
+  const wrap = $('srvm-progress-wrap');
+  const bar = $('srvm-progress');
+  wrap.style.display = 'block';
+  bar.style.width = '25%';
+  log('data', `开始下载服务端 Mod：${pack.title} / ${f.filename}`);
+  const r = await window.api.srvModInstall({ url: f.url, filename: f.filename });
+  if (r && r.ok) {
+    bar.style.width = '100%';
+    alert('已安装到服务器 mods 文件夹：\n' + f.filename + (filter && filter.mcVersion ? `\n\n（筛选：MC ${filter.mcVersion}${filter.loader ? ' · ' + filter.loader : ''}）` : '') + '\n\n重启服务器后生效。');
+    loadServerMods();
+    setTimeout(() => { wrap.style.display = 'none'; bar.style.width = '0'; }, 1500);
+  } else {
+    bar.style.width = '0';
+    wrap.style.display = 'none';
+    alert('安装失败：' + ((r && r.error) || '未知错误'));
+  }
+}
+
+if ($('btn-srvm-search')) $('btn-srvm-search').onclick = () => searchServerMods($('in-srvm-query').value.trim());
+if ($('in-srvm-query')) $('in-srvm-query').onkeydown = (e) => { if (e.key === 'Enter') searchServerMods($('in-srvm-query').value.trim()); };
+if ($('btn-srvm-refresh')) $('btn-srvm-refresh').onclick = () => loadServerMods();
+if ($('btn-srvm-open')) $('btn-srvm-open').onclick = () => window.api.srvModOpen({});
+if (window.api.onSrvModProgress) window.api.onSrvModProgress((d) => {
+  if (d && d.total) { const bar = $('srvm-progress'); if (bar) bar.style.width = Math.round((d.got / d.total) * 100) + '%'; }
+});
 
 // ---------- 服务器存档备份 ----------
 function fmtTime(ms) {

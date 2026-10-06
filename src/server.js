@@ -914,4 +914,85 @@ async function updateServerJar(dir, onLog, onProgress) {
   return { ok: true, build: lb.build, mcVersion: det.mcVersion };
 }
 
-module.exports = { createServer, startServer, stopServer, sendCommand, listServerVersions, isRunning, getState, requestOnlineList, serverJvmArgs, serverInfo, getLanIP, getPublicIP, readServerPort, updateServerProperties, parseServerLine, setOnlineFromListLine, getOnlinePlayers, resetOnline, quickServerDefaults, detectServer, checkServerUpdate, updateServerJar, paperLatestBuild };
+// ---------- 服务端 Mod 管理 ----------
+// 只在 Fabric / Forge / NeoForge 服务端里放 mod；Paper/Vanilla 用插件而不是 mod。
+function serverModsDir(dir) {
+  return path.join(dir, 'mods');
+}
+
+// 判断该服务端类型是否支持 Mod
+function serverSupportsMods(type) {
+  return type === 'fabric' || type === 'forge' || type === 'neoforge';
+}
+
+// 列出服务端 mods 目录下的模组（.jar / .jar.disabled）
+function listServerMods(dir) {
+  const md = serverModsDir(dir);
+  if (!dir || !fs.existsSync(md)) return { ok: true, dir: md, list: [], supports: null };
+  const det = detectServer(dir);
+  let names = [];
+  try { names = fs.readdirSync(md); } catch (e) { return { ok: false, error: e.message }; }
+  const list = names
+    .filter((n) => /\.jar(\.disabled)?$/i.test(n))
+    .map((n) => {
+      const full = path.join(md, n);
+      let size = 0, mtime = 0;
+      try { const st = fs.statSync(full); size = st.size; mtime = st.mtimeMs; } catch {}
+      return {
+        file: n,
+        size,
+        mtime,
+        disabled: /\.disabled$/i.test(n),
+      };
+    })
+    .sort((a, b) => (a.disabled - b.disabled) || a.file.localeCompare(b.file));
+  return { ok: true, dir: md, list, supports: serverSupportsMods(det.type), type: det.type, mcVersion: det.mcVersion };
+}
+
+// 从任意 URL 安装一个 mod 到服务端 mods 目录（支持进度回调）
+async function installServerMod(dir, opts = {}, onProgress, onLog) {
+  const { url, filename } = opts;
+  if (!dir || !fs.existsSync(dir)) throw new Error('服务器目录不存在，请先创建/选择服务器');
+  if (!url) throw new Error('缺少下载地址');
+  const det = detectServer(dir);
+  if (det.type === 'paper' || det.type === 'spigot' || det.type === 'vanilla') {
+    onLog && onLog(`⚠ 当前服务端是 ${det.current || det.type}，通常用「插件」而不是 Mod。已照常放入 mods 目录，但可能不会生效。`);
+  }
+  const md = serverModsDir(dir);
+  fs.mkdirSync(md, { recursive: true });
+  let name = filename || decodeURIComponent(url.split('/').pop().split('?')[0]) || 'mod.jar';
+  name = name.replace(/[\\/:*?"<>|]/g, '_');
+  if (!/\.jar$/i.test(name)) name += '.jar';
+  const dest = path.join(md, name);
+  onLog && onLog(`下载 Mod：${name}`);
+  const tmp = dest + '.download';
+  await get(url, tmp, onProgress);
+  if (fs.existsSync(dest)) { try { fs.unlinkSync(dest); } catch {} }
+  fs.renameSync(tmp, dest);
+  onLog && onLog(`已安装到 ${path.join('mods', name)}`);
+  return { ok: true, file: name, dir: md };
+}
+
+// 启用/停用一个 mod（改名 .disabled）
+function toggleServerMod(dir, file, disabled) {
+  const md = serverModsDir(dir);
+  const clean = path.basename(file);
+  const isDis = /\.disabled$/i.test(clean);
+  const base = isDis ? clean.replace(/\.disabled$/i, '') : clean;
+  const from = path.join(md, isDis ? base + '.disabled' : base);
+  const to = path.join(md, disabled ? base + '.disabled' : base);
+  if (!fs.existsSync(from)) return { ok: false, error: '文件不存在：' + clean };
+  fs.renameSync(from, to);
+  return { ok: true, file: path.basename(to) };
+}
+
+// 删除一个 mod
+function deleteServerMod(dir, file) {
+  const md = serverModsDir(dir);
+  const target = path.join(md, path.basename(file));
+  if (!fs.existsSync(target)) return { ok: false, error: '文件不存在' };
+  fs.unlinkSync(target);
+  return { ok: true };
+}
+
+module.exports = { createServer, startServer, stopServer, sendCommand, listServerVersions, isRunning, getState, requestOnlineList, serverJvmArgs, serverInfo, getLanIP, getPublicIP, readServerPort, updateServerProperties, parseServerLine, setOnlineFromListLine, getOnlinePlayers, resetOnline, quickServerDefaults, detectServer, checkServerUpdate, updateServerJar, paperLatestBuild, serverModsDir, serverSupportsMods, listServerMods, installServerMod, toggleServerMod, deleteServerMod };

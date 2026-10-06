@@ -617,6 +617,32 @@
         <textarea id="invite-text" class="invite-text" rows="4" readonly placeholder="点击「生成邀请信息」…"></textarea>
       </div>
 
+      <div class="card" id="srv-mod-card">
+        <h2>🧩 服务器装 Mod</h2>
+        <p class="hint">给服务器装模组 Mod（<b>仅 Fabric / Forge / NeoForge 服务端有效</b>）。会自动按服务器当前的游戏版本与加载器筛选兼容 Mod，下载到服务器的 <code>mods</code> 文件夹。
+          <b>装完需重启服务器生效</b>；Paper / 原版服务端请用「插件」而不是 Mod。</p>
+        <div class="srvw-summary">
+          <span class="srv-chip" id="srvm-type">服务端：—</span>
+          <span class="srv-chip" id="srvm-mcver">游戏版本：—</span>
+          <span class="srv-chip" id="srvm-support">Mod 支持：—</span>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <input id="in-srvm-query" type="text" placeholder="搜索 Mod，如 sodium / JEI / 小地图 / 机械动力（支持中文）">
+          <button class="btn primary" id="btn-srvm-search">搜索</button>
+          <button class="btn ghost" id="btn-srvm-refresh">🔄 刷新已装</button>
+          <button class="btn ghost" id="btn-srvm-open">📂 打开 mods 文件夹</button>
+        </div>
+        <p class="hint" id="srvm-filter" style="margin-top:6px"></p>
+        <div class="progress-bar" style="margin-top:8px;display:none" id="srvm-progress-wrap"><div class="progress-inner" id="srvm-progress"></div></div>
+        <div class="pack-grid" id="srvm-store-list" style="display:none"></div>
+        <div id="srvm-ver-panel" style="display:none">
+          <h3 id="srvm-ver-title" style="margin:10px 0"></h3>
+          <ul class="version-list" id="srvm-ver-list"></ul>
+        </div>
+        <h3 style="margin:14px 0 8px">已装 Mod <span class="hint" id="srvm-count" style="font-weight:400"></span></h3>
+        <ul class="mod-list" id="srvm-list"><li class="empty">加载中…</li></ul>
+      </div>
+
       <div class="card" id="srv-backup-card">
         <h2>💾 服务器存档备份</h2>
         <p class="hint">把服务器世界（主世界 <code id="srvw-name">world</code> + 下界 + 末地）一起打包备份，防止炸图、误删、换版本搞坏。备份存在服务器目录下的 <code>.backups\worlds</code>。

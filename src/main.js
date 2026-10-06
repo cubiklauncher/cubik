@@ -437,6 +437,14 @@ function createWindow() {
         srv.srvwList = !!document.getElementById('srvw-list');
         srv.srvAuto = !!document.getElementById('chk-auto-backup');
         srv.srvUpdCard = !!document.getElementById('btn-srvu-check');
+        srv.srvModCard = !!document.getElementById('btn-srvm-search');
+        srv.srvModListEl = !!document.getElementById('srvm-list');
+        try {
+          const mr = await window.api.srvModList({});
+          srv.srvModOk = !!(mr && mr.ok);
+          srv.srvModType = mr && mr.type;
+          srv.srvModCount = mr && mr.list ? mr.list.length : -1;
+        } catch (e) { srv.srvModErr = String(e && e.message); }
         srv.srvUpdApply = !!document.getElementById('btn-srvu-apply');
         // 资源列表加载计时（验证不再被中文名爬取阻塞）
         try {
@@ -2533,6 +2541,37 @@ ipcMain.handle('server:status', () => ({ ok: true, running: serverMgr.isRunning(
 ipcMain.handle('server:quick-defaults', () => ({ ok: true, ...serverMgr.quickServerDefaults() }));
 
 ipcMain.handle('server:info', async (_e, { dir }) => serverMgr.serverInfo(dir || (cfg && cfg.serverDir) || ''));
+
+// ---------- 服务端 Mod 管理 ----------
+const srvModDir = (d) => d || loadConfig().serverDir || path.join(loadConfig().mcDir, 'server');
+ipcMain.handle('srvmod:list', (_e, { dir }) => {
+  try { return serverMgr.listServerMods(srvModDir(dir)); }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('srvmod:install', async (_e, { dir, url, filename }) => {
+  try {
+    const r = await serverMgr.installServerMod(
+      srvModDir(dir), { url, filename },
+      (got, total) => { if (win && !win.isDestroyed()) win.webContents.send('srvmod:progress', { got, total }); },
+      (m) => { if (win && !win.isDestroyed()) win.webContents.send('server:log', m + '\n'); }
+    );
+    return r;
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('srvmod:toggle', (_e, { dir, file, disabled }) => {
+  try { return serverMgr.toggleServerMod(srvModDir(dir), file, disabled); }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('srvmod:delete', (_e, { dir, file }) => {
+  try { return serverMgr.deleteServerMod(srvModDir(dir), file); }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('srvmod:open', (_e, { dir }) => {
+  const md = serverMgr.serverModsDir(srvModDir(dir));
+  try { fs.mkdirSync(md, { recursive: true }); } catch {}
+  shell.openPath(md);
+  return { ok: true, dir: md };
+});
 
 ipcMain.handle('server:stop', () => serverMgr.stopServer());
 ipcMain.handle('server:cmd', (_e, cmd) => serverMgr.sendCommand(cmd));
