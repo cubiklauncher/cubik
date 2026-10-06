@@ -2603,8 +2603,10 @@ function exitServerManage() {
 }
 if ($('btn-srv-manage-back')) $('btn-srv-manage-back').onclick = () => exitServerManage();
 
-if ($('btn-srv-new')) $('btn-srv-new').onclick = async () => {
+async function doNewServer() {
   // 新建：推荐一个默认目录（D:\mc-server、 D:\mc-server2 … 自动避开已存在）并引导用户选择/新建文件夹
+  const dirEl = $('in-srv-dir');
+  if (!dirEl) { alert('界面未就绪，请重新打开服务器页再试'); return; }
   let base = 'D:\\mc-server';
   try {
     const lr = await window.api.serverList();
@@ -2613,17 +2615,18 @@ if ($('btn-srv-new')) $('btn-srv-new').onclick = async () => {
     while (used.has(cand.toLowerCase())) { n += 1; cand = base + n; }
     base = cand;
   } catch {}
-  $('in-srv-dir').value = base;
+  dirEl.value = base;
   if ($('srv-options')) $('srv-options').open = true;
   log('data', '新建服务器：已填入建议目录 ' + base + '，可直接用或点「选择文件夹/新建文件夹」换成其它位置，然后选类型与版本点「创建服务器」');
-  const form = $('in-srv-dir').closest('.card');
+  const form = dirEl.closest('.card');
   if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
   // 关键：若 MC 版本列表还在“加载中”，帮用户等它加载完（否则看起来就像“新建不了”）
   const verSel = $('sel-srv-mcver');
-  if (verSel && (verSel.disabled || !verSel.value || /加载中/.test(verSel.options[0] ? verSel.options[0].textContent : ''))) {
+  const stillLoading = (s) => !!s && (s.disabled || !s.value || /加载中/.test(s.options[0] ? s.options[0].textContent : ''));
+  if (stillLoading(verSel)) {
     const t0 = Date.now();
     const type = $('sel-srv-type').value;
-    while (verSel.disabled || !verSel.value || /加载中/.test(verSel.options[0] ? verSel.options[0].textContent : '')) {
+    while (stillLoading(verSel)) {
       if (Date.now() - t0 > 12000) break;
       await new Promise((r) => setTimeout(r, 200));
     }
@@ -2634,7 +2637,12 @@ if ($('btn-srv-new')) $('btn-srv-new').onclick = async () => {
       log('error', '版本列表加载较慢或失败：请检查网络，或在「服务器类型」下拉里重新选一次重试。');
     }
   }
-};
+}
+// 暴露给按钮绑定 / 自动化测试 / 错误重试
+window.__doNewServer = doNewServer;
+if ($('btn-srv-new')) {
+  $('btn-srv-new').addEventListener('click', () => { doNewServer().catch((e) => log('error', '新建服务器出错：' + (e && e.message ? e.message : e))); });
+}
 if ($('btn-srv-add-existing')) $('btn-srv-add-existing').onclick = async () => {
   const dir = await window.api.pickDir();
   if (!dir) return;

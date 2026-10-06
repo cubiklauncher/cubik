@@ -303,9 +303,11 @@ function createWindow() {
             if (nb) {
               nb.addEventListener('click', function onclk(){ clicked = true; }, true);
               nb.click();
-              await new Promise(x => setTimeout(x, 1500));
+              await new Promise(x => setTimeout(x, 300));
             }
             r.handlerFired = clicked;
+            // 捕获点击处理函数内部的异常（防止处理器抛错而不弹出提示）
+            try { await window.__doNewServer(); r.awaitOk = true; } catch (e) { r.awaitErr = String(e && e.message); }
             r.dirFilled = (document.getElementById('in-srv-dir') || {}).value || '';
             r.listStayed = document.getElementById('srv-list-card').style.display !== 'none';
             r.mvHidden = document.getElementById('srv-manage-view').style.display === 'none';
