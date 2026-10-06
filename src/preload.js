@@ -86,6 +86,7 @@ contextBridge.exposeInMainWorld('api', {
   onLog: (cb) => ipcRenderer.on('mc:log', (_e, d) => cb(d)),
   onProgress: (cb) => ipcRenderer.on('mc:progress', (_e, d) => cb(d)),
   onClose: (cb) => ipcRenderer.on('mc:close', (_e, d) => cb(d)),
+  onCollectGarbage: (cb) => ipcRenderer.on('mc:collect', () => cb()),
   onServerLog: (cb) => ipcRenderer.on('server:log', (_e, d) => cb(d)),
   onServerProgress: (cb) => ipcRenderer.on('server:progress', (_e, d) => cb(d))
 });

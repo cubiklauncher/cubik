@@ -5,7 +5,7 @@ compatibility_date = "2024-11-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "cubik-telemetry"
-database_id = "REPLACE_WITH_YOUR_DATABASE_ID"
+database_id = "17c505f3-3928-4857-aae7-8c81a90941ca"
 
 [vars]
 ALLOW_ORIGIN = "https://wodefa66666.github.io"

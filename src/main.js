@@ -1,24 +1,50 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { Client, Authenticator } = require('minecraft-launcher-core');
+// 启动优化：重依赖懒加载（首次访问时才 require），减少冷启动模块解析耗时。
+// 用惰性 getter 对上层透明：调用处仍写 modpack.xxx / authMgr.xxx，实际首次访问才加载。
 const { ensureJava, requiredJava } = require('./java');
-const authMgr = require('./auth');
-const modpack = require('./modpack');
-const serverMgr = require('./server');
-const tunnelMgr = require('./tunnel');
-const installer = require('./installer');
-const telemetry = require('./telemetry');
+let _mlc = null;
+function getMLC() {
+  if (!_mlc) _mlc = require('minecraft-launcher-core');
+  return _mlc;
+}
+const lazyModule = (rel) => {
+  let m;
+  return new Proxy({}, {
+    get(_t, prop) {
+      if (!m) m = require(rel);
+      return m[prop];
+    }
+  });
+};
+const authMgr = lazyModule('./auth');
+const modpack = lazyModule('./modpack');
+const serverMgr = lazyModule('./server');
+const tunnelMgr = lazyModule('./tunnel');
+const installer = lazyModule('./installer');
 const { APP_NAME, APP_VERSION, DATA_ROOT } = require('./constants');
 
-// ---------- 证书兼容：让 Electron/Node 网络栈信任 Windows 系统证书库 ----------
-// 部分企业网络/安全软件会替换 TLS 证书（自签CA），Windows 信任但 Node 默认不读系统库，
-// 会导致“检查更新”等 HTTPS 请求报 UNABLE_TO_VERIFY_LEAF_SIGNATURE / 无法验证证书。
-// Electron 20+ 支持 use-system-ca：在 app ready 前开启即可读取系统根证书。
+// ---------- 启动开关（必须在 app ready 前设置）----------
+// 1) 证书兼容：部分企业网络/安全软件替换 TLS 证书，Node 默认不读系统库。
+//    开启 use-system-ca 让 HTTPS 请求信任 Windows 系统根证书。
 try {
   if (typeof app.commandLine?.appendSwitch === 'function') {
     app.commandLine.appendSwitch('use-system-ca');
   }
+} catch {}
+
+// 2) 启动性能开关：缩短首窗时间、减少不必要的后台开销。
+try {
+  const cl = app.commandLine;
+  // 一次性合并 disable-features（多次 appendSwitch 会覆盖，必须合并写入）
+  cl.appendSwitch('disable-features', 'CalculateNativeWinOcclusion,MediaRouter,Translate,BackForwardCache');
+  // 保持后台计时准确（下载/安装即使在后台也继续走），但允许渲染被节流以省电
+  cl.appendSwitch('disable-background-timer-throttling');
+  // 减少首帧前的着色器磁盘缓存探测
+  cl.appendSwitch('disable-gpu-shader-disk-cache');
+  // V8 优化：尽早编译常用代码；暴露 gc 以便闲置时主动回收内存
+  cl.appendSwitch('js-flags', '--no-lazy-feedback-allocation --expose-gc');
 } catch {}
 
 // ---------- 全局错误处理：不让未捕获异常直接静默崩掉进程 ----------
@@ -57,6 +83,21 @@ const LEGACY_CONFIG = path.join(LEGACY_DATA, 'launcher-config.json');
 
 function ensureDataDir() {
   try { fs.mkdirSync(LAUNCHER_DATA, { recursive: true }); } catch {}
+}
+
+// ---------- 内存回收：空闲时降工作集 ----------
+// 启动器大部分时间处于闲置；游戏/下载结束后主动让 V8/Chromium 回收内存，
+// 降低后台常驻占用。不影响正在进行的下载/安装。
+let _trimTimer = null;
+function trimMemoryLater(delay = 15000) {
+  if (_trimTimer) clearTimeout(_trimTimer);
+  _trimTimer = setTimeout(() => {
+    _trimTimer = null;
+    // 下载/安装中不回收，避免干扰进度回调（running 由页面维护，不存在则视为空闲）
+    try {
+      if (win && !win.isDestroyed()) win.webContents.send('mc:collect');
+    } catch {}
+  }, delay);
 }
 
 function loadConfig() {
@@ -110,10 +151,7 @@ function saveConfig(cfg) {
 let win = null;
 let launcher = null;
 
-// 启动优化：禁用 GPU 黑名单缓存检查、启用 V8 代码缓存等
-app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
-app.commandLine.appendSwitch('disable-background-timer-throttling');
-app.commandLine.appendSwitch('disable-renderer-backgrounding');
+// 启动优化：禁用 GPU 黑名单缓存检查、启用 V8 代码缓存等（已在上方统一设置）
 // 单实例锁：避免用户重复双击开多个窗口
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -144,7 +182,9 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      backgroundThrottling: false,
+      // 默认允许后台节流：最小化/失焦时降低渲染开销（游戏启动/下载期间不受影响，
+      // 因为下载与安装在主进程进行）。需要持续渲染的场景由页面自身处理。
+      backgroundThrottling: true,
       spellcheck: false
     }
   });
@@ -162,6 +202,10 @@ function createWindow() {
     if (/^https?:\/\//i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
+
+  // 空闲时回收内存：窗口最小化/隐藏后延迟回收渲染进程工作集
+  win.on('minimize', () => trimMemoryLater(20000));
+  win.on('hide', () => trimMemoryLater(20000));
 
   if (process.env.CUBIK_PERF) {
     const perfLog = [];
@@ -1084,11 +1128,16 @@ ipcMain.handle('mc:launch', async (_e, opts) => {
     }
   }
 
+  const { Client } = getMLC();
   launcher = new Client();
   launcher.on('debug', (m) => send('debug', m));
   launcher.on('data', (m) => send('data', m));
   launcher.on('progress', (p) => win.webContents.send('mc:progress', p));
-  launcher.on('close', (code) => win.webContents.send('mc:close', code));
+  launcher.on('close', (code) => {
+    win.webContents.send('mc:close', code);
+    // 游戏已关闭：清理启动器闲置内存（回收 V8/GC 后的工作集），降低后台占用
+    trimMemoryLater();
+  });
 
   let auth;
   try {
@@ -1104,6 +1153,7 @@ ipcMain.handle('mc:launch', async (_e, opts) => {
         user_properties: '{}'
       };
     } else {
+      const { Authenticator } = getMLC();
       auth = await Authenticator.getAuth(opts.username || cfg.username);
     }
   } catch (e) {

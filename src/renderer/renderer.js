@@ -97,6 +97,8 @@ async function init() {
   ]);
   cfg = config || {};
   appInfo = info || {};
+  // 性能模式：尽早应用，避免带着毛玻璃跑首屏（initAppearance 会再同步一次）
+  if (cfg.perfMode) document.body.classList.add('perf-mode');
   if (appInfo.version) {
     $('about-ver').textContent = appInfo.version;
     $('home-app-ver').textContent = `${appInfo.name || 'Cubik'} v${appInfo.version}`;
@@ -215,6 +217,18 @@ async function init() {
     $('btn-launch').textContent = '▶ 启动游戏';
     $('progress-text').textContent = '游戏已退出';
   });
+
+  // 主进程请求回收内存（游戏退出/闲置时）：清掉大对象引用并触发 GC，
+  // 配合后台节流降低启动器常驻内存。
+  if (window.api.onCollectGarbage) {
+    window.api.onCollectGarbage(() => {
+      try {
+        window.__dlPrev = null;
+        window.__dlSpeed = 0;
+        if (typeof window.gc === 'function') window.gc();
+      } catch {}
+    });
+  }
 }
 
 function updateHomeVersion() {
@@ -1093,10 +1107,17 @@ function initAppearance(cfg) {
   currentSkin = cfg.skin || 'aurora';
   if ($('in-accent')) $('in-accent').value = cfg.accentColor || '#2f6ae0';
   if ($('in-bg-image')) $('in-bg-image').value = cfg.bgImage || '';
+  if ($('in-perf-mode')) $('in-perf-mode').checked = !!cfg.perfMode;
   applyAppearance();
 }
 
+// 性能模式：切换 body.perf-mode，关闭毛玻璃/动画等重特效
+function applyPerfMode(on) {
+  document.body.classList.toggle('perf-mode', !!on);
+}
+
 if ($('in-accent')) $('in-accent').oninput = applyAppearance;
+if ($('in-perf-mode')) $('in-perf-mode').onchange = () => applyPerfMode($('in-perf-mode').checked);
 if ($('btn-pick-bg')) $('btn-pick-bg').onclick = async () => {
   const p = await window.api.pickFile({ filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp'] }] });
   if (p) { $('in-bg-image').value = p; applyAppearance(); }
@@ -1136,6 +1157,8 @@ $('btn-save').onclick = async () => {
   cfg.accentColor = $('in-accent').value;
   cfg.skin = currentSkin;
   cfg.bgImage = $('in-bg-image').value.trim();
+  cfg.perfMode = $('in-perf-mode') ? $('in-perf-mode').checked : false;
+  applyPerfMode(cfg.perfMode);
   await window.api.setConfig(cfg);
   $('st-mcdir').textContent = cfg.mcDir;
   $('home-account').textContent = cfg.username;

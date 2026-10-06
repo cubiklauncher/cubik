@@ -13,3 +13,8 @@ tmp-*.png
 Thumbs.db
 .DS_Store
 tmp-*.py
+
+# perf/本地密钥
+perf-out.txt
+server-telemetry/.admin_token
+.wrangler/

@@ -662,3 +662,28 @@ body[data-skin="graphite"] { --text: #1c2130; }
 .acct-cur { font-size: 11px; color: var(--accent); font-weight: 700; background: rgba(80,130,240,.12); padding: 1px 7px; border-radius: 8px; }
 .acct-item-actions { display: flex; gap: 6px; flex: none; }
 .btn.mini { padding: 4px 10px; font-size: 12px; }
+
+/* ============================================================
+   性能模式（body.perf-mode）
+   关闭高开销的实时模糊、背景动画与光晕，改用纯色半透明。
+   目标：显著降低 GPU 合成与内存占用，低配/集显设备更流畅。
+   ============================================================ */
+body.perf-mode *,
+body.perf-mode *::before,
+body.perf-mode *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  animation: none !important;
+  transition-duration: 1ms !important;
+}
+body.perf-mode::before { display: none !important; }  /* 漂移光晕层 */
+body.perf-mode .glass,
+body.perf-mode .card,
+body.perf-mode .sidebar,
+body.perf-mode .modal {
+  background: rgba(248, 250, 255, 0.92) !important;
+  box-shadow: 0 4px 16px rgba(31, 45, 90, 0.10) !important;
+}
+body.perf-mode .card::after,
+body.perf-mode .sidebar::after { display: none !important; }
+body.perf-mode .sidebar { background: rgba(246, 249, 255, 0.96) !important; }
