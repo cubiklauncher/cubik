@@ -1295,24 +1295,40 @@ if ($('sel-mod-target')) $('sel-mod-target').onchange = async () => {
 async function loadServerVersions() {
   const type = $('sel-srv-type').value;
   const sel = $('sel-srv-mcver');
+  const t0 = Date.now();
+  const myReq = ++srvVerReqSeq;
+  sel.disabled = true;
   sel.innerHTML = '<option>加载中…</option>';
-  const r = await window.api.serverVersions({ type });
-  if (!r.ok) { sel.innerHTML = '<option>加载失败</option>'; return; }
-  sel.innerHTML = '';
-  r.list.forEach((v) => {
-    const id = typeof v === 'string' ? v : v.id;
-    const o = document.createElement('option');
-    o.value = id;
-    o.textContent = id;
-    sel.appendChild(o);
-  });
-  // 默认选个常见版本
-  const prefer = ['1.21.4', '1.21.1', '1.20.6', '1.20.4', '1.20.1', '1.19.4', '1.18.2', '1.16.5'];
-  for (const p of prefer) {
-    if (r.list.some((v) => (typeof v === 'string' ? v : v.id) === p)) { sel.value = p; break; }
+  let r;
+  try {
+    r = await window.api.serverVersions({ type });
+  } catch (e) {
+    r = { ok: false, error: e.message || String(e) };
   }
+  // 丢弃过期响应（用户又切了类型）
+  if (myReq !== srvVerReqSeq) return;
+  sel.disabled = false;
+  if (!r || !r.ok) {
+    sel.innerHTML = '<option value="">加载失败，请重试</option>';
+    log('data', `获取 ${type} 可用版本失败：${(r && r.error) || '未知错误'}`);
+    return;
+  }
+  const ids = r.list.map((v) => (typeof v === 'string' ? v : v.id)).filter(Boolean);
+  if (!ids.length) { sel.innerHTML = '<option value="">该类型暂无可用版本</option>'; return; }
+  sel.innerHTML = '';
+  ids.forEach((id) => {
+    const o = document.createElement('option');
+    o.value = id; o.textContent = id; sel.appendChild(o);
+  });
+  // 默认选个常见版本（优先常见正式版，否则选第一个）
+  const prefer = ['1.21.4', '1.21.1', '1.21', '1.20.6', '1.20.4', '1.20.1', '1.19.4', '1.18.2', '1.16.5'];
+  let picked = '';
+  for (const p of prefer) { if (ids.includes(p)) { picked = p; break; } }
+  sel.value = picked || ids[0];
+  log('data', `服务端类型 ${type}：加载到 ${ids.length} 个可用版本（${Date.now() - t0}ms），当前选 ${sel.value}`);
 }
-$('sel-srv-type').onchange = loadServerVersions;
+let srvVerReqSeq = 0;
+$('sel-srv-type').onchange = () => loadServerVersions();
 
 // ---------- Java ----------
 async function detectJava() {

@@ -500,6 +500,24 @@ function createWindow() {
         } catch (e) { srv.mcmodOk = false; srv.mcmodErr = String(e && e.message); }
         // mcmod 源下拉选项
         try { srv.mcmodOption = !!document.querySelector('#sel-modsrc option[value="mcmod"]') && !!document.querySelector('#sel-mod-source option[value="mcmod"]'); } catch {}
+        // 服务端类型切换 → MC 版本下拉随之更新
+        try {
+          const nav = document.querySelector('.nav-item[data-page="server"]');
+          if (nav) { nav.click(); await new Promise(r => setTimeout(r, 400)); }
+          const typeSel = document.getElementById('sel-srv-type');
+          const verSel = document.getElementById('sel-srv-mcver');
+          const snap = async (t) => {
+            typeSel.value = t;
+            typeSel.dispatchEvent(new Event('change'));
+            await new Promise(r => setTimeout(r, 3500));
+            return { n: verSel.options.length, v: verSel.value };
+          };
+          srv.srvTypePaper = await snap('paper');
+          srv.srvTypeNeo = await snap('neoforge');
+          srv.srvTypeNeo2 = await snap('neoforge');
+          srv.srvTypeForge = await snap('forge');
+          srv.srvTypeFabric = await snap('fabric');
+        } catch (e) { srv.srvTypeErr = String(e && e.message); }
         // 服务器页卡片顺序（验证重排）
         srv.srvCardOrder = [...document.querySelectorAll('#page-server .card, #page-server details.card')].map(function(c){
           var h = c.querySelector('h2') || c.querySelector('.tut-summary') || c.querySelector('summary');

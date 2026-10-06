@@ -231,6 +231,9 @@ async function vanillaManifest() {
   return manifestCache;
 }
 
+// 服务端版本列表缓存（按类型，15 分钟内有效，避免频繁切类型时重复拉取）
+const serverVerCache = {};
+
 async function vanillaServerUrl(mcVersion) {
   const manifest = await vanillaManifest();
   const v = manifest.versions.find((x) => x.id === mcVersion);
@@ -313,6 +316,15 @@ async function neoforgeInstallerUrl(mcVersion) {
 
 // 按类型返回可用版本列表
 async function listServerVersions(type) {
+  const key = type || 'vanilla';
+  const c = serverVerCache[key];
+  if (c && Date.now() - c.t < 15 * 60 * 1000 && c.list.length) return c.list;
+  const list = await _listServerVersionsRaw(key);
+  if (list && list.length) serverVerCache[key] = { t: Date.now(), list };
+  return list;
+}
+
+async function _listServerVersionsRaw(type) {
   if (type === 'paper') {
     return await paperVersions();
   }
@@ -331,6 +343,25 @@ async function listServerVersions(type) {
         if (mm) vers.add(mm[1]);
       }
       const releases = m.versions.filter((v) => v.type === 'release' && vers.has(v.id)).map((v) => v.id);
+      if (releases.length) return releases;
+    } catch {}
+    return m.versions.filter((v) => v.type === 'release').map((v) => v.id);
+  }
+  if (type === 'neoforge') {
+    // NeoForge 版本号形如 21.1.256，对应 MC 版本按官方“版本映射”规则推算（21.1→1.21.1）
+    try {
+      const xml = await getText('https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml');
+      const vers = [...xml.matchAll(/<version>([^<]+)<\/version>/g)].map((x) => x[1]);
+      const mcSet = new Set();
+      for (const v of vers) {
+        // 形如 20.4.x → 1.20.4，21.1.x → 1.21.1，21.0.x → 1.21
+        const mm = v.match(/^(\d+)\.(\d+)\.\d+/);
+        if (!mm) continue;
+        const a = mm[1], b = mm[2];
+        const mc = b === '0' ? `1.${a}` : `1.${a}.${b}`;
+        mcSet.add(mc);
+      }
+      const releases = m.versions.filter((v) => v.type === 'release' && mcSet.has(v.id)).map((v) => v.id);
       if (releases.length) return releases;
     } catch {}
     return m.versions.filter((v) => v.type === 'release').map((v) => v.id);
