@@ -450,9 +450,42 @@ function downloadFile(url, dest, onProgress, onLog, label, fallbackUrl, insecure
 // ---------- Modrinth ----------
 const MODRINTH = 'https://api.modrinth.com/v2';
 
-// ---------- 中文常用名（联网获取 + 缓存） ----------
-// 思路：用 item 的英文名去 MCBBS 镜像 / MC 百科搜索，匹配到中文条目名则当作“中文常用名”
+// ---------- 中文常用名（联网获取 + 持久化缓存） ----------
+// 思路：用 item 的英文名去 MC 百科搜索，匹配到中文条目名则当作“中文常用名”。
+// 重要：中文名是“锦上添花”，绝不能阻塞列表渲染——列表先秒出，中文名后台补全后再推送更新。
 const zhAliasCache = new Map();
+let zhCacheLoaded = false;
+
+function zhCacheFile() {
+  const root = process.env.CUBIK_DATA_ROOT || 'D:\\CubikLauncher';
+  return path.join(root, 'cache', 'zh_names.json');
+}
+function loadZhCache() {
+  if (zhCacheLoaded) return;
+  zhCacheLoaded = true;
+  try {
+    const f = zhCacheFile();
+    if (fs.existsSync(f)) {
+      const obj = JSON.parse(fs.readFileSync(f, 'utf8'));
+      for (const [k, v] of Object.entries(obj)) zhAliasCache.set(k, v);
+    }
+  } catch {}
+}
+let zhSaveTimer = null;
+function saveZhCacheSoon() {
+  if (zhSaveTimer) return;
+  zhSaveTimer = setTimeout(() => {
+    zhSaveTimer = null;
+    try {
+      const obj = {};
+      for (const [k, v] of zhAliasCache) obj[k] = v;
+      const f = zhCacheFile();
+      fs.mkdirSync(path.dirname(f), { recursive: true });
+      fs.writeFileSync(f, JSON.stringify(obj), 'utf8');
+    } catch {}
+  }, 3000);
+  if (zhSaveTimer.unref) zhSaveTimer.unref();
+}
 
 // 清理标题：去掉英文原名/括号尾巴，仅保留中文常用名
 function cleanZhTitle(raw, query) {
@@ -548,29 +581,42 @@ async function zhNameFromSearchEngine(name) {
   }
 }
 
-// 对外：给一批 item 补中文常用名（并发受限、失败静默）
-async function attachZhNames(items) {
-  if (!Array.isArray(items) || !items.length) return items;
-  const limit = 8; // 只给前 N 个补，避免请求过多
-  const slice = items.slice(0, limit);
-  // 串行执行（带节流），避免并发触发 mcmod 限流
-  for (const it of slice) {
-    const key = String(it.title || '').toLowerCase();
-    if (zhAliasCache.has(key)) {
-      it.zhName = zhAliasCache.get(key);
-      continue;
+// 同步：仅用本地缓存快速填 zhName，不发起任何网络请求（列表先用它渲染）
+function fillZhNamesFromCache(items) {
+  if (!Array.isArray(items)) return items;
+  loadZhCache();
+  for (const it of items) {
+    if (it.zhName === undefined) {
+      const key = String(it.title || '').toLowerCase();
+      it.zhName = zhAliasCache.has(key) ? zhAliasCache.get(key) : '';
     }
+  }
+  return items;
+}
+
+// 兼容旧调用：同步返回（只填缓存，不联网，不阻塞）
+async function attachZhNames(items) {
+  return fillZhNamesFromCache(items);
+}
+
+// 异步后台补全：返回 [{title, zhName}] 列表（仅含新查到中文名的项）。
+// 用于列表先渲染后，拿到结果再局部更新卡片。
+async function enrichZhNames(items, limit = 8) {
+  if (!Array.isArray(items) || !items.length) return [];
+  loadZhCache();
+  const results = [];
+  let n = 0;
+  for (const it of items) {
+    if (n >= limit) break;
+    const key = String(it.title || '').toLowerCase();
+    if (zhAliasCache.has(key)) continue; // 已缓存（无论有无中文名）不再查
     const zh = await zhNameFromSearchEngine(it.title);
     zhAliasCache.set(key, zh);
-    it.zhName = zh;
+    saveZhCacheSoon();
+    n++;
+    if (zh) results.push({ title: it.title, zhName: zh });
   }
-  slice.forEach((it) => {
-    if (it.zhName === undefined) it.zhName = '';
-  });
-  items.forEach((it) => {
-    if (it.zhName === undefined) it.zhName = '';
-  });
-  return items;
+  return results;
 }
 
 async function searchModrinth(query, limit = 20, projectType = 'modpack') {
@@ -925,6 +971,7 @@ async function searchAll(kind, query, opts = {}) {
 
 module.exports = {
   attachZhNames,
+  enrichZhNames,
   searchModrinth,
   modrinthVersions,
   searchCurseForge,

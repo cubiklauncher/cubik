@@ -28,6 +28,27 @@ const { APP_NAME, APP_VERSION, DATA_ROOT } = require('./constants');
 // 供 modpack 等模块解析缓存路径
 process.env.CUBIK_DATA_ROOT = DATA_ROOT;
 
+// 后台补全中文常用名：列表先返回，查到后再推送局部更新（不阻塞渲染）
+let zhEnrichRunning = false;
+function backgroundEnrichZh(list) {
+  if (!Array.isArray(list) || !list.length) return;
+  // 串行化，避免多个页同时爬取导致 mcmod 限流
+  const run = async () => {
+    if (zhEnrichRunning) return;
+    zhEnrichRunning = true;
+    try {
+      const updates = await modpack.enrichZhNames(list, 8);
+      if (updates && updates.length && win && !win.isDestroyed()) {
+        try { win.webContents.send('pack:zhname', updates); } catch {}
+      }
+    } catch {} finally {
+      zhEnrichRunning = false;
+    }
+  };
+  // 延迟一点，让列表渲染先完成
+  setTimeout(run, 400);
+}
+
 // ---------- 启动开关（必须在 app ready 前设置）----------
 // 1) 证书兼容：部分企业网络/安全软件替换 TLS 证书，Node 默认不读系统库。
 //    开启 use-system-ca 让 HTTPS 请求信任 Windows 系统根证书。
@@ -417,6 +438,13 @@ function createWindow() {
         srv.srvAuto = !!document.getElementById('chk-auto-backup');
         srv.srvUpdCard = !!document.getElementById('btn-srvu-check');
         srv.srvUpdApply = !!document.getElementById('btn-srvu-apply');
+        // 资源列表加载计时（验证不再被中文名爬取阻塞）
+        try {
+          const tp = performance.now();
+          const pr = await window.api.packTop({ type: 'modpack', offset: 0 });
+          srv.packTopMs = Math.round(performance.now() - tp);
+          srv.packTopN = pr && pr.list ? pr.list.length : 0;
+        } catch (e) { srv.packTopMs = -1; }
         // 服务器页卡片顺序（验证重排）
         srv.srvCardOrder = [...document.querySelectorAll('#page-server .card, #page-server details.card')].map(function(c){
           var h = c.querySelector('h2') || c.querySelector('.tut-summary') || c.querySelector('summary');
@@ -1340,7 +1368,8 @@ ipcMain.handle('mod:search', async (_e, { source, query, version, mc, loader }) 
     const list = source === 'curseforge'
       ? await modpack.searchModsCurseforge(query, mcV, ld)
       : await modpack.searchModsModrinth(query, mcV, ld);
-    await modpack.attachZhNames(list);
+    modpack.attachZhNames(list);
+    backgroundEnrichZh(list);
     return { ok: true, list, mc: mcV, loader: ld };
   } catch (e) { return { ok: false, error: e.message }; }
 });
@@ -1570,7 +1599,8 @@ ipcMain.handle('import:version', (_e, { name }) => {
 ipcMain.handle('rpack:search', async (_e, { query }) => {
   try {
     const list = await modpack.searchResourcepacks(query || '');
-    await modpack.attachZhNames(list);
+    modpack.attachZhNames(list);
+    backgroundEnrichZh(list);
     return { ok: true, list };
   } catch (e) { return { ok: false, error: e.message }; }
 });
@@ -2152,7 +2182,8 @@ function humanizeError(raw) {
 ipcMain.handle('search:all', async (_e, { kind, query, mcVersion, loader }) => {
   try {
     const list = await modpack.searchAll(kind || 'modpack', query, { mcVersion, loader });
-    await modpack.attachZhNames(list);
+    modpack.attachZhNames(list);
+    backgroundEnrichZh(list);
     return { ok: true, list };
   } catch (e) {
     return { ok: false, error: e.message };
@@ -2166,7 +2197,8 @@ ipcMain.handle('pack:search', async (_e, { source, query, type }) => {
       source === 'curseforge'
         ? await modpack.searchCurseForge(query)
         : await modpack.searchByType(query, type || 'modpack');
-    await modpack.attachZhNames(list);
+    modpack.attachZhNames(list);
+    backgroundEnrichZh(list);
     return { ok: true, list };
   } catch (e) {
     return { ok: false, error: e.message };
@@ -2237,7 +2269,8 @@ ipcMain.handle('shader:install-full', async (_e, { id, versionId }) => {
 ipcMain.handle('pack:top', async (_e, { type, offset }) => {
   try {
     const list = await modpack.topProjects(type || 'modpack', 20, offset || 0);
-    await modpack.attachZhNames(list);
+    modpack.attachZhNames(list);
+    backgroundEnrichZh(list);
     return { ok: true, list };
   } catch (e) {
     return { ok: false, error: e.message };
@@ -2248,7 +2281,8 @@ ipcMain.handle('pack:top', async (_e, { type, offset }) => {
 ipcMain.handle('shader:search', async (_e, { query }) => {
   try {
     const list = await modpack.searchShaders(query);
-    await modpack.attachZhNames(list);
+    modpack.attachZhNames(list);
+    backgroundEnrichZh(list);
     return { ok: true, list };
   } catch (e) {
     return { ok: false, error: e.message };

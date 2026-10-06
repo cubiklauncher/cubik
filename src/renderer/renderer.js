@@ -213,6 +213,23 @@ async function init() {
   defer(() => loadServerVersions());
 
   window.api.onLog((d) => log(d.level, d.msg));
+// 后台补全的中文常用名到达时，局部更新已渲染的卡片（按标题匹配）
+if (window.api.onPackZhName) {
+  window.api.onPackZhName((updates) => {
+    if (!Array.isArray(updates) || !updates.length) return;
+    const map = new Map(updates.map((u) => [String(u.title || '').trim(), u.zhName]));
+    document.querySelectorAll('.pack-card').forEach((card) => {
+      const titleEl = card.querySelector('.pk-title');
+      if (!titleEl) return;
+      if (titleEl.querySelector('.pk-zh')) return;
+      // 只取标题的纯文本（不含后续可能追加的标签）
+      const raw = (titleEl.firstChild && titleEl.firstChild.nodeType === 3
+        ? titleEl.firstChild.textContent : titleEl.textContent) || '';
+      const zh = map.get(raw.trim());
+      if (zh) titleEl.insertAdjacentHTML('beforeend', `<span class="pk-zh">${esc(zh)}</span>`);
+    });
+  });
+}
   // 全局绑定服务器聊天监听（不依赖是否切到服务器页，避免错过早期日志）
   try { ensureChatGlobals(); } catch {}
   window.api.onProgress((p) => {

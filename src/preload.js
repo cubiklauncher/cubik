@@ -136,6 +136,7 @@ contextBridge.exposeInMainWorld('api', {
   onServerChat: (cb) => ipcRenderer.on('server:chat', (_e, d) => cb(d)),
   onServerOnline: (cb) => ipcRenderer.on('server:online', (_e, d) => cb(d)),
   onServerAutoBackup: (cb) => ipcRenderer.on('server:autobackup', (_e, d) => cb(d)),
+  onPackZhName: (cb) => ipcRenderer.on('pack:zhname', (_e, d) => cb(d)),
 
   // 内网穿透
   tunnelDownload: () => ipcRenderer.invoke('tunnel:download'),
