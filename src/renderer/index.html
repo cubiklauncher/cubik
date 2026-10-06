@@ -21,12 +21,15 @@
         <button class="nav-item active" data-page="home"><span class="ni-ico">🏠</span><span class="ni-label">主页</span></button>
       </div>
       <div class="nav-group">
-        <div class="nav-group-title">游戏</div>
+        <div class="nav-group-title">开始游戏</div>
         <button class="nav-item" data-page="versions"><span class="ni-ico">📦</span><span class="ni-label">版本管理</span></button>
         <button class="nav-item" data-page="vanilla"><span class="ni-ico">⬇️</span><span class="ni-label">原版下载</span></button>
         <button class="nav-item" data-page="modpack"><span class="ni-ico">🧩</span><span class="ni-label">整合包</span></button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">资源</div>
         <button class="nav-item" data-page="mod"><span class="ni-ico">🔧</span><span class="ni-label">Mod 下载</span></button>
-        <button class="nav-item" data-page="shader"><span class="ni-ico">✨</span><span class="ni-label">光影包</span></button>
+        <button class="nav-item" data-page="shader"><span class="ni-ico">✨</span><span class="ni-label">光影 / 资源包</span></button>
         <button class="nav-item" data-page="data"><span class="ni-ico">🗄️</span><span class="ni-label">存档与备份</span></button>
       </div>
       <div class="nav-group">
@@ -35,10 +38,10 @@
         <button class="nav-item" data-page="account"><span class="ni-ico">👤</span><span class="ni-label">账号</span></button>
       </div>
       <div class="nav-group">
-        <div class="nav-group-title">其他</div>
+        <div class="nav-group-title">系统</div>
         <button class="nav-item" data-page="settings"><span class="ni-ico">⚙️</span><span class="ni-label">设置</span></button>
-        <button class="nav-item" data-page="about"><span class="ni-ico">ℹ️</span><span class="ni-label">关于</span></button>
         <button class="nav-item" data-page="log"><span class="ni-ico">📜</span><span class="ni-label">运行日志</span></button>
+        <button class="nav-item" data-page="about"><span class="ni-ico">ℹ️</span><span class="ni-label">关于</span></button>
       </div>
     </nav>
     <div class="sidebar-foot">
@@ -438,22 +441,6 @@
         </div>
       </div>
 
-      <details class="card usage tut-collapse" open>
-        <summary class="tut-summary">📖 使用说明</summary>
-        <div class="tut-inner">
-        <ol class="usage-list">
-          <li><b>选目录</b>：指定一个空文件夹作为服务器目录（如 <code>D:\mc-server</code>），不要用已有游戏目录。</li>
-          <li><b>选类型与版本</b>：原版 Vanilla（最原味）；<b>Paper</b>（插件服，性能好，推荐）；Fabric（可装模组）。选好对应 MC 版本。</li>
-          <li><b>分配内存</b>：小服 2G 够用，人多的服建议 4G+。拖动滑块即可，Paper 会自动应用 Aikar 调优参数。</li>
-          <li><b>点“创建服务器”</b>：自动下载服务端 jar、写好 eula.txt / server.properties / start.bat。</li>
-          <li><b>启动/停止</b>：点“▶ 启动服务器”开服；下方日志区可看输出；点“⏹ 停止”关服。</li>
-          <li><b>发指令</b>：在下边输入框直接输服务器指令（如 <code>op 你的名字</code>、<code>say hello</code>、<code>stop</code>），回车即发送到后台。</li>
-          <li><b>联机</b>：同一局域网用本机内网 IP + 端口（默认 25565）进入；公网联机见下方「🔌 端口映射教程」。</li>
-        </ol>
-        <p class="hint">提示：首次启动会生成世界，稍等片刻；开服前请确认已接受 Minecraft EULA（创建时已自动写入）。</p>
-        </div>
-      </details>
-
       <div class="card form">
         <label>服务器目录</label>
         <div class="row">
@@ -593,16 +580,6 @@
       </div>
 
       <!-- 一键邀请 -->
-      <div class="card invite-card">
-        <h2>📨 一键邀请朋友</h2>
-        <p class="hint" style="margin-top:2px">生成一段可直接粘贴给朋友的邀请信息（含服务器地址）。“复制邀请”后发给朋友，他在游戏里「多人游戏 → 直接连接 / 添加服务器」粘贴即可进服。</p>
-        <div class="invite-actions">
-          <button class="btn primary" id="btn-invite-gen">生成邀请信息</button>
-          <button class="btn" id="btn-copy-invite">复制邀请</button>
-          <button class="btn ghost" id="btn-copy-addr">只复制地址</button>
-        </div>
-        <textarea id="invite-text" class="invite-text" rows="4" readonly placeholder="点击「生成邀请信息」…"></textarea>
-      </div>
       <div class="card">
         <h2>🌐 联机地址（把这个发给朋友）</h2>
         <div class="net-grid">
@@ -627,6 +604,17 @@
         <div class="row end">
           <button id="btn-net-refresh" class="btn">🔄 刷新地址</button>
         </div>
+      </div>
+
+      <div class="card invite-card">
+        <h2>📨 一键邀请朋友</h2>
+        <p class="hint" style="margin-top:2px">生成一段可直接粘贴给朋友的邀请信息（含服务器地址）。“复制邀请”后发给朋友，他在游戏里「多人游戏 → 直接连接 / 添加服务器」粘贴即可进服。</p>
+        <div class="invite-actions">
+          <button class="btn primary" id="btn-invite-gen">生成邀请信息</button>
+          <button class="btn" id="btn-copy-invite">复制邀请</button>
+          <button class="btn ghost" id="btn-copy-addr">只复制地址</button>
+        </div>
+        <textarea id="invite-text" class="invite-text" rows="4" readonly placeholder="点击「生成邀请信息」…"></textarea>
       </div>
 
       <div class="card" id="srv-backup-card">
@@ -670,6 +658,22 @@
         <pre class="log" id="tun-log" style="height:180px">隧道日志将显示在这里…</pre>
       </details>
       <pre class="log" id="srv-log" style="height:300px"></pre>
+
+      <details class="card usage tut-collapse">
+        <summary class="tut-summary">📖 使用说明（新手必读）</summary>
+        <div class="tut-inner">
+        <ol class="usage-list">
+          <li><b>选目录</b>：指定一个空文件夹作为服务器目录（如 <code>D:\mc-server</code>），不要用已有游戏目录。</li>
+          <li><b>选类型与版本</b>：原版 Vanilla（最原味）；<b>Paper</b>（插件服，性能好，推荐）；Fabric（可装模组）。选好对应 MC 版本。</li>
+          <li><b>分配内存</b>：小服 2G 够用，人多的服建议 4G+。拖动滑块即可，Paper 会自动应用 Aikar 调优参数。</li>
+          <li><b>点“创建服务器”</b>：自动下载服务端 jar、写好 eula.txt / server.properties / start.bat。</li>
+          <li><b>启动/停止</b>：点“▶ 启动服务器”开服；下方日志区可看输出；点“⏹ 停止”关服。</li>
+          <li><b>发指令</b>：在下边输入框直接输服务器指令（如 <code>op 你的名字</code>、<code>say hello</code>、<code>stop</code>），回车即发送到后台。</li>
+          <li><b>联机</b>：同一局域网用本机内网 IP + 端口（默认 25565）进入；公网联机见下方「🔌 端口映射教程」。</li>
+        </ol>
+        <p class="hint">提示：首次启动会生成世界，稍等片刻；开服前请确认已接受 Minecraft EULA（创建时已自动写入）。</p>
+        </div>
+      </details>
 
       <details class="card usage tut-collapse">
         <summary class="tut-summary">🔌 端口映射教程（让外网朋友连上你的服务器）</summary>

@@ -414,6 +414,14 @@ function createWindow() {
         // 新增：服务器存档备份卡
         srv.srvwCard = !!document.getElementById('btn-srvw-backup');
         srv.srvwList = !!document.getElementById('srvw-list');
+        // 服务器页卡片顺序（验证重排）
+        srv.srvCardOrder = [...document.querySelectorAll('#page-server .card, #page-server details.card')].map(function(c){
+          var h = c.querySelector('h2') || c.querySelector('.tut-summary') || c.querySelector('summary');
+          if (h) return h.textContent.trim().replace(/[\s\S]*$/,'').slice(0,16);
+          if (c.classList.contains('srv-status-card')) return '状态';
+          if (c.querySelector('label')) return '建服表单';
+          return c.className.slice(0,16);
+        }).join(' | ');
         // 新增：存档与备份页 / 资源包 / 实例设置
         srv.dataNav = !!document.querySelector('.nav-item[data-page="data"]');
         document.querySelector('.nav-item[data-page="data"]').click();
@@ -484,6 +492,13 @@ function createWindow() {
       })()`);
       console.log('SELFTEST_STATE ' + state);
       try { require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), 'SELFTEST_STATE ' + state); } catch {}
+      // 回到主页截图（用于人工核对侧边栏分组/顺序）
+      try {
+        await win.webContents.executeJavaScript(`document.querySelector('.nav-item[data-page="home"]').click()`);
+        await new Promise((r) => setTimeout(r, 700));
+        const pngNav = await win.webContents.capturePage();
+        require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-nav-shot.png'), pngNav.toPNG());
+      } catch (e) {}
       // 截图（用于人工核对渲染）—— 切到服务器页
       try {
         await win.webContents.executeJavaScript("document.querySelector('.nav-item[data-page=\"server\"]').click()");
@@ -502,6 +517,20 @@ function createWindow() {
         await new Promise((r) => setTimeout(r, 800));
         const png = await win.webContents.capturePage();
         require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-srv-shot.png'), png.toPNG());
+        // 额外截图1：服务器页顶部（状态 + 建服表单）
+        try {
+          await win.webContents.executeJavaScript(`document.getElementById('page-server').scrollIntoView({block:'start'}); document.querySelector('.content').scrollTop = 0;`);
+          await new Promise((r) => setTimeout(r, 500));
+          const pngTop = await win.webContents.capturePage();
+          require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-srv-top.png'), pngTop.toPNG());
+        } catch (e) {}
+        // 额外截图2：服务器页“联机地址→一键邀请→使用说明”区域
+        try {
+          await win.webContents.executeJavaScript(`document.getElementById('tunnel-card').scrollIntoView({block:'end'});`);
+          await new Promise((r) => setTimeout(r, 500));
+          const pngBot = await win.webContents.capturePage();
+          require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-srv-bot.png'), pngBot.toPNG());
+        } catch (e) {}
         // 额外：滚动到服务器存档备份卡并截图
         try {
           await win.webContents.executeJavaScript(`(() => {
