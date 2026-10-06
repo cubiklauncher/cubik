@@ -2126,6 +2126,25 @@ $('btn-srv-pick').onclick = async () => {
   const p = await window.api.pickDir();
   if (p) $('in-srv-dir').value = p;
 };
+$('btn-srv-quick').onclick = async () => {
+  // 一键快速建服：自动应用推荐配置（Paper + 推荐内存），填好默认目录后直接创建
+  const d = await window.api.serverQuickDefaults();
+  if (d && d.ok) {
+    $('sel-srv-type').value = d.type || 'paper';
+    await loadServerVersions();
+    if ($('in-srv-mem')) $('in-srv-mem').value = d.memory;
+    if ($('in-srv-mem-range')) $('in-srv-mem-range').value = d.memory;
+    if ($('srv-mem-label')) $('srv-mem-label').textContent = d.memory + ' MB';
+  }
+  if (!$('in-srv-dir').value.trim()) {
+    const mc = ($('in-mcdir') && $('in-mcdir').value.trim()) || 'D:\\.minecraft';
+    const base = mc.replace(/[\\/]versions.*$/, '').replace(/[\\/]\.minecraft$/, '');
+    $('in-srv-dir').value = ($('in-mcdir') ? mc.split('\\').slice(0, -1).join('\\') : 'D:') + '\\mc-server';
+  }
+  $('srv-log').textContent += '\n===== ⚡ 一键快速建服（自动推荐配置）=====\n';
+  $('btn-srv-create').click();
+};
+
 $('btn-srv-create').onclick = async () => {
   const opts = {
     dir: $('in-srv-dir').value.trim(),
@@ -2153,6 +2172,9 @@ $('btn-srv-create').onclick = async () => {
 $('btn-srv-start').onclick = async () => {
   const dir = $('in-srv-dir').value.trim();
   $('srv-log').textContent += '\n===== 启动服务器 =====\n';
+  bindChat();
+  // 记录主机名（用于聊天栏区分自己的消息）
+  try { myHostName = ($('in-username') && $('in-username').value.trim()) || 'Host'; } catch {}
   const r = await window.api.serverStart({
     dir,
     javaPath: $('in-java').value.trim(),
@@ -2160,6 +2182,7 @@ $('btn-srv-start').onclick = async () => {
     type: $('sel-srv-type').value
   });
   if (!r.ok) $('srv-log').textContent += '启动失败：' + r.error + '\n';
+  else setTimeout(refreshOnline, 1500);
 };
 $('btn-srv-stop').onclick = async () => { await window.api.serverStop(); };
 
@@ -2279,5 +2302,124 @@ $('btn-launch').onclick = async () => {
     }
   }
 };
+
+// ---------- 服务器聊天栏 + 在线玩家 ----------
+let chatBound = false;
+let myHostName = 'Host';
+
+function chatAppend(html) {
+  const box = $('chat-log');
+  if (!box) return;
+  const hint = box.querySelector('.chat-hint');
+  if (hint) hint.remove();
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  // 限制最多 400 条
+  while (box.children.length > 400) box.removeChild(box.firstChild);
+}
+
+function chatRenderOnline(o) {
+  const n = $('chat-online-n');
+  const badge = $('chat-online');
+  const wrap = $('chat-players');
+  if (n) n.textContent = (o && o.count) || 0;
+  if (badge) badge.classList.toggle('off', !(o && o.running));
+  if (!wrap) return;
+  const players = (o && o.players) || [];
+  wrap.innerHTML = players.length
+    ? players.map((p) => `<span class="chat-player">${esc(p)}</span>`).join('')
+    : '<span class="chat-empty">暂无玩家在线</span>';
+}
+
+function bindChat() {
+  if (chatBound) return;
+  chatBound = true;
+
+  if (window.api.onServerChat) {
+    window.api.onServerChat((ev) => {
+      if (!ev) return;
+      if (ev.type === 'chat') {
+        const mine = ev.name === myHostName;
+        chatAppend(`<div class="chat-msg chat${mine ? ' mine' : ''}"><span class="cm-name">${esc(ev.name)}:</span><span class="cm-text">${esc(ev.text)}</span></div>`);
+      } else if (ev.type === 'join') {
+        chatAppend(`<div class="chat-sys join">➜ ${esc(ev.name)} 加入了游戏</div>`);
+      } else if (ev.type === 'leave') {
+        chatAppend(`<div class="chat-sys leave">➜ ${esc(ev.name)} 离开了游戏</div>`);
+      } else if (ev.type === 'death') {
+        chatAppend(`<div class="chat-sys death">☠ ${esc(ev.text)}</div>`);
+      } else if (ev.type === 'system' && ev.text) {
+        chatAppend(`<div class="chat-sys">${esc(ev.text)}</div>`);
+      }
+    });
+  }
+  if (window.api.onServerOnline) {
+    window.api.onServerOnline((o) => chatRenderOnline(o));
+  }
+
+  const send = async () => {
+    const inp = $('in-chat-msg');
+    const text = (inp.value || '').trim();
+    if (!text) return;
+    const r = await window.api.serverSay({ text, name: myHostName });
+    if (r && r.ok) {
+      chatAppend(`<div class="chat-msg chat mine"><span class="cm-name">${esc(myHostName)}:</span><span class="cm-text">${esc(text)}</span></div>`);
+      inp.value = '';
+    } else {
+      chatAppend(`<div class="chat-sys">发送失败：${esc((r && r.error) || '服务器未运行')}</div>`);
+    }
+  };
+  if ($('btn-chat-send')) $('btn-chat-send').onclick = send;
+  if ($('in-chat-msg')) $('in-chat-msg').onkeydown = (e) => { if (e.key === 'Enter') send(); };
+}
+
+// 切到服务器页时刷新在线状态
+async function refreshOnline() {
+  try {
+    const r = await window.api.serverOnline();
+    if (r && r.ok) chatRenderOnline({ count: r.online.count, players: r.online.players, running: r.running });
+  } catch {}
+}
+
+// ---------- 一键邀请 ----------
+let lastInvite = '';
+let lastAddr = '';
+async function genInvite() {
+  const dir = ($('in-srv-dir') || {}).value ? $('in-srv-dir').value.trim() : '';
+  const r = await window.api.serverInfo({ dir });
+  const cfg = await window.api.getConfig();
+  const motd = (r && r.motd) || 'Minecraft Server';
+  const port = (r && r.port) || 25565;
+  const lan = (r && r.lanAddr) || '';
+  const pub = (r && r.publicAddr) || '';
+  lastAddr = lan || pub || '';
+  const lines = [];
+  lines.push(`【${motd}】邀请你一起玩 Minecraft！`);
+  if (lan) lines.push(`同一局域网：${lan}`);
+  if (pub) lines.push(`远程联机：${pub}`);
+  if (!lan && !pub) lines.push('（未检测到可用地址，请先启动服务器并检查网络）');
+  lines.push('进服方法：游戏里「多人游戏 → 添加服务器」粘贴地址即可。');
+  lastInvite = lines.join('\n');
+  const ta = $('invite-text');
+  if (ta) ta.value = lastInvite;
+  return lastInvite;
+}
+
+if ($('btn-invite-gen')) $('btn-invite-gen').onclick = () => genInvite();
+if ($('btn-copy-invite')) $('btn-copy-invite').onclick = async (e) => {
+  const t = lastInvite || (await genInvite());
+  await copyText(t, e.target);
+};
+if ($('btn-copy-addr')) $('btn-copy-addr').onclick = async (e) => {
+  const t = lastAddr || (await genInvite(), lastAddr);
+  await copyText(t, e.target);
+};
+
+// 切到服务器也：初始化聊天栏 + 刷新在线
+const _origNav = document.querySelectorAll('.nav-item');
+document.querySelectorAll('.nav-item[data-page="server"]').forEach((b) => {
+  b.addEventListener('click', () => { bindChat(); setTimeout(refreshOnline, 300); });
+});
 
 init();

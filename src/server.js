@@ -9,6 +9,77 @@ const os = require('os');
 let serverProc = null;
 const UA = { 'User-Agent': 'Cubik/1.0' };
 
+// ---------- 在线玩家 / 聊天追踪 ----------
+// 从服务端 stdout 行中解析玩家进/出/聊天/死亡等事件。
+// 兼容 Vanilla / Paper / Forge / Fabric 常见输出格式。
+const onlinePlayers = new Set();
+let _pendingKick = null;
+
+// 去掉 ANSI 颜色码
+function stripAnsi(s) {
+  return String(s).replace(/\x1b\[[0-9;]*m/g, '');
+}
+
+// 解析一行服务端输出，返回结构化事件或 null
+function parseServerLine(raw) {
+  const line = stripAnsi(raw).replace(/\r$/, '');
+  if (!line.trim()) return null;
+  const ts = Date.now();
+
+  // 玩家加入："<name> joined the game" / "<name> joined the game (" / "<name>[/ip:端口] logged in with entity id ..."
+  let m =
+    line.match(/\]:\s*([A-Za-z0-9_]{1,16})\s+joined the game/) ||
+    line.match(/\]:\s*([A-Za-z0-9_]{1,16})\[[^\]]*\]\s+logged in with entity id/);
+  if (m) {
+    const name = m[1];
+    onlinePlayers.add(name);
+    return { type: 'join', name, online: onlinePlayers.size };
+  }
+
+  // 玩家离开："<name> left the game" / "<name> lost connection: ..."
+  m =
+    line.match(/\]:\s*([A-Za-z0-9_]{1,16})\s+left the game/) ||
+    line.match(/\]:\s*([A-Za-z0-9_]{1,16})\s+lost connection:/);
+  if (m) {
+    const name = m[1];
+    onlinePlayers.delete(name);
+    return { type: 'leave', name, online: onlinePlayers.size };
+  }
+
+  // 聊天消息："[Not Secure] <name> 内容" 或 "<name> 内容"（Paper/Vanilla 常见）
+  m = line.match(/\]:\s*(?:\[[^\]]*\]\s*)?<([A-Za-z0-9_]{1,16})>\s?(.*)$/);
+  if (m) {
+    return { type: 'chat', name: m[1], text: m[2], online: onlinePlayers.size };
+  }
+
+  // 系统提示（含加入/离开的彩色提示），如 "[CHAT] xxx"、"* xxx joined"
+  if (/\]:\s*\*?\s*[A-Za-z0-9_]{1,16}\s+(joined|left)\b/.test(line)) {
+    return { type: 'system', text: line.replace(/^.*\]:\s*/, '') };
+  }
+
+  // 死亡/成就等广播（可选）
+  m = line.match(/\]:\s*([A-Za-z0-9_]{1,16})\s+(was slain|was killed|drowned|blew up|fell|burned|starved|died|hit the ground|withered away|was shot)/);
+  if (m) return { type: 'death', name: m[1], text: line.replace(/^.*\]:\s*/, '') };
+
+  return null;
+}
+
+// 主动同步在线名单（从日志中的 } 行或 list 命令输出解析）
+function setOnlineFromListLine(line) {
+  // 形如: "There are 2 of a max of 20 players online: Alex, Steve"
+  const m = stripAnsi(line).match(/There are (\d+) of a max of \d+ players online:?\s*(.*)$/);
+  if (!m) return false;
+  const names = (m[2] || '').split(',').map((s) => s.trim()).filter(Boolean);
+  onlinePlayers.clear();
+  names.forEach((n) => onlinePlayers.add(n));
+  return true;
+}
+
+function getOnlinePlayers() {
+  return { count: onlinePlayers.size, players: [...onlinePlayers] };
+}
+function resetOnline() { onlinePlayers.clear(); }
+
 function getJSON(url, tries = 3) {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
@@ -219,6 +290,17 @@ async function listServerVersions(type) {
   return m.versions.filter((v) => v.type === 'release').map((v) => v.id);
 }
 
+// ---------- 智能建服默认值：按内存/CPU 推荐类型与内存分配 ----------
+function quickServerDefaults() {
+  const totalGB = os.totalmem() / 1024 / 1024 / 1024;
+  const cpus = os.cpus().length;
+  // 服务器内存：总内存的 50%，夹在 1.5G~8G 之间，取 512 整数倍
+  let mem = Math.round(Math.min(8192, Math.max(1536, totalGB * 1024 * 0.5)) / 512) * 512;
+  // 类型：默认 Paper（性能好、兼容插件、启动快）；低配建议 Paper 而非 Forge
+  const type = 'paper';
+  return { type, memory: String(mem), totalGB: Math.round(totalGB), cpus };
+}
+
 // ---------- server.properties 优化 ----------
 function defaultProperties(mem, opts = {}) {
   const o = opts || {};
@@ -322,6 +404,18 @@ function writeForgeStartScripts(dir, type, memory, onLog) {
 // 创建服务器
 async function createServer(opts, onProgress, onLog) {
   const { dir, type, mcVersion, memory } = opts;
+
+  // —— 预检：参数校验，避免下游报晦涩错误 ——
+  if (!dir) throw new Error('未指定服务器目录');
+  if (!mcVersion) throw new Error('未选择 Minecraft 版本');
+  if (!type) throw new Error('未选择服务端类型');
+  if (fs.existsSync(dir)) {
+    // 目录里已有服务器？询问是否覆盖（这里仅提示，不阻断）
+    const hasServer = fs.existsSync(path.join(dir, 'server.jar')) ||
+      fs.existsSync(path.join(dir, 'run.bat')) ||
+      fs.existsSync(path.join(dir, 'server.properties'));
+    if (hasServer) onLog && onLog('⚠ 该目录已存在服务器文件，将保留配置、仅补充缺失部分');
+  }
   fs.mkdirSync(dir, { recursive: true });
   onLog && onLog(`创建服务器目录: ${dir}`);
 
@@ -590,4 +684,4 @@ function updateServerProperties(dir, updates = {}) {
   return { ok: true };
 }
 
-module.exports = { createServer, startServer, stopServer, sendCommand, listServerVersions, isRunning, serverJvmArgs, serverInfo, getLanIP, getPublicIP, readServerPort, updateServerProperties };
+module.exports = { createServer, startServer, stopServer, sendCommand, listServerVersions, isRunning, serverJvmArgs, serverInfo, getLanIP, getPublicIP, readServerPort, updateServerProperties, parseServerLine, setOnlineFromListLine, getOnlinePlayers, resetOnline, quickServerDefaults };

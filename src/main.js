@@ -2223,15 +2223,49 @@ ipcMain.handle('server:start', async (_e, { dir, javaPath, memory, type }) => {
       win.webContents.send('server:log', '未找到 Java，将尝试系统 java：' + e.message + '\n');
     }
   }
-  return serverMgr.startServer(dir, jp, memory, type, (m) => win.webContents.send('server:log', m + '\n'), (d) => win.webContents.send('server:log', d));
+  return serverMgr.startServer(dir, jp, memory, type, (m) => win.webContents.send('server:log', m + '\n'), (d) => {
+    win.webContents.send('server:log', d);
+    // 逐行解析：提取聊天/进退/在线人数事件，推送给渲染层
+    try {
+      for (const rawLine of String(d).split(/\r?\n/)) {
+        if (!rawLine.trim()) continue;
+        if (serverMgr.setOnlineFromListLine(rawLine)) {
+          win.webContents.send('server:online', serverMgr.getOnlinePlayers());
+          continue;
+        }
+        const ev = serverMgr.parseServerLine(rawLine);
+        if (ev) {
+          win.webContents.send('server:chat', ev);
+          if (ev.type === 'join' || ev.type === 'leave') {
+            win.webContents.send('server:online', serverMgr.getOnlinePlayers());
+          }
+        }
+      }
+    } catch {}
+  });
 });
 
 ipcMain.handle('server:status', () => ({ ok: true, running: serverMgr.isRunning() }));
+ipcMain.handle('server:quick-defaults', () => ({ ok: true, ...serverMgr.quickServerDefaults() }));
 
 ipcMain.handle('server:info', async (_e, { dir }) => serverMgr.serverInfo(dir || (cfg && cfg.serverDir) || ''));
 
 ipcMain.handle('server:stop', () => serverMgr.stopServer());
 ipcMain.handle('server:cmd', (_e, cmd) => serverMgr.sendCommand(cmd));
+// 发送聊天消息到服务器（主机在聊天栏发消息 → 以主机身份广播到游戏内）
+ipcMain.handle('server:say', (_e, { text, name }) => {
+  if (!serverMgr.isRunning()) return { ok: false, error: '服务器未运行' };
+  const msg = String(text || '').trim().slice(0, 240);
+  if (!msg) return { ok: false, error: '消息为空' };
+  // 用 tellraw 广播消息，带发送者名字（比 say 更灵活，可自定义格式）
+  const safe = msg.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const who = String(name || 'Host').replace(/["\\]/g, '').slice(0, 16);
+  const json = JSON.stringify([{ text: '[' + who + '] ', color: 'gold' }, { text: msg, color: 'white' }]);
+  serverMgr.sendCommand('tellraw @a ' + json);
+  return { ok: true };
+});
+ipcMain.handle('server:online', () => ({ ok: true, online: serverMgr.getOnlinePlayers(), running: serverMgr.isRunning() }));
+ipcMain.handle('server:reset-online', () => { serverMgr.resetOnline(); return { ok: true }; });
 ipcMain.handle('server:update-props', (_e, { dir, updates }) => serverMgr.updateServerProperties(dir, updates));
 
 // ---------- 内网穿透 ----------

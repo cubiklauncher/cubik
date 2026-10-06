@@ -113,11 +113,16 @@ contextBridge.exposeInMainWorld('api', {
   serverCreate: (o) => ipcRenderer.invoke('server:create', o),
   serverVersions: (p) => ipcRenderer.invoke('server:versions', p),
   serverStatus: () => ipcRenderer.invoke('server:status'),
+  serverQuickDefaults: () => ipcRenderer.invoke('server:quick-defaults'),
   serverInfo: (o) => ipcRenderer.invoke('server:info', o),
   serverStart: (o) => ipcRenderer.invoke('server:start', o),
   serverStop: () => ipcRenderer.invoke('server:stop'),
   serverCmd: (c) => ipcRenderer.invoke('server:cmd', c),
   serverUpdateProps: (o) => ipcRenderer.invoke('server:update-props', o),
+  serverSay: (o) => ipcRenderer.invoke('server:say', o),
+  serverOnline: () => ipcRenderer.invoke('server:online'),
+  onServerChat: (cb) => ipcRenderer.on('server:chat', (_e, d) => cb(d)),
+  onServerOnline: (cb) => ipcRenderer.on('server:online', (_e, d) => cb(d)),
 
   // 内网穿透
   tunnelDownload: () => ipcRenderer.invoke('tunnel:download'),
