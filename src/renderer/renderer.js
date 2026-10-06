@@ -1090,7 +1090,17 @@ async function loadModStore(query) {
   list.innerHTML = '<div class="empty">加载中…</div>';
   $('mod-ver-panel').style.display = 'none';
   if (source === 'mcmod') {
-    if (!query) { list.innerHTML = '<div class="empty">输入中文关键词搜索 MC 百科</div>'; $('mod-store-filter').textContent = ''; return; }
+    if (!query) {
+      // 无关键词：显示 MC百科热门 Mod（带封面）
+      list.innerHTML = '<div class="empty">加载热门…</div>';
+      const r = await window.api.mcmodHot({ kind: 'mod', limit: 30 });
+      if (!r.ok) { list.innerHTML = `<div class="empty">加载失败：${esc(r.error)}
+</div>`; $('mod-store-filter').textContent = ''; return; }
+      if (!r.list.length) list.innerHTML = '<div class="empty">暂时取不到热门列表，可直接在上方输入关键词搜索</div>';
+      else renderMcmodCards(list, r.list, (p) => openMcmodDetail(p));
+      $('mod-store-filter').textContent = '来源：MC百科 · 🔥 热门 Mod（按下载量，输入关键词可搜索）';
+      return;
+    }
     const r = await window.api.mcmodSearch({ query, kind: 'mod' });
     if (!r.ok) { list.innerHTML = `<div class="empty">搜索失败：${esc(r.error)}</div>`; $('mod-store-filter').textContent = ''; return; }
     if (!r.list.length) list.innerHTML = '<div class="empty">MC百科未找到结果</div>';
@@ -1213,7 +1223,14 @@ async function loadModPageGrid(query) {
   $('mod-qver-panel').style.display = 'none';
   // MC百科（mcmod）中文搜索源
   if (source === 'mcmod') {
-    if (!query) { grid.innerHTML = '<div class="empty">输入中文关键词搜索 MC 百科（如 机械动力 / 小地图 / JEI）</div>'; return; }
+    if (!query) {
+      const r = await window.api.mcmodHot({ kind: 'mod', limit: 30 });
+      if (!r.ok) { grid.innerHTML = `<div class="empty">加载失败：${esc(r.error)}</div>`; return; }
+      $('mod-list-title').textContent = '🔥 MC百科 热门 Mod（按下载量）';
+      if (!r.list.length) { grid.innerHTML = '<div class="empty">暂时取不到热门列表，可直接在上方输入中文名搜索</div>'; return; }
+      renderMcmodCards(grid, r.list, (p) => openMcmodDetail(p));
+      return;
+    }
     const r = await window.api.mcmodSearch({ query, kind: 'mod' });
     if (!r.ok) { grid.innerHTML = `<div class="empty">搜索失败：${esc(r.error)}</div>`; return; }
     $('mod-list-title').textContent = `🔍 MC百科搜索结果：${query}`;
@@ -1239,11 +1256,14 @@ function renderMcmodCards(container, list, onPick) {
     const card = document.createElement('div');
     card.className = 'pack-card';
     const enHtml = p.enName ? `<span class="pk-zh" style="background:rgba(120,150,220,.12);color:var(--text-soft)">${esc(p.enName)}</span>` : '';
+    const iconHtml = p.icon
+      ? `<div class="pk-icon"><img src="${esc(p.icon)}" referrerpolicy="no-referrer" onerror="this.style.display='none';this.parentNode.classList.add('pk-icon-fallback')"></div>`
+      : '<div class="pk-icon pk-icon-fallback"></div>';
     card.innerHTML = `
-      <div class="pk-icon pk-icon-fallback"></div>
+      ${iconHtml}
       <div class="pk-body">
         <div class="pk-title">${esc(p.title)}
-          ${p.zhName ? `<span class="pk-zh">${esc(p.zhName)}</span>` : ''}${enHtml}
+          ${p.zhName && p.zhName !== p.title ? `<span class="pk-zh">${esc(p.zhName)}</span>` : ''}${enHtml}
         </div>
         <div class="pk-desc">${esc(p.description || '')}</div>
         <div class="pk-meta">

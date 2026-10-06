@@ -2478,6 +2478,14 @@ ipcMain.handle('mcmod:search', async (_e, { query, kind } = {}) => {
     return { ok: false, error: e.message };
   }
 });
+ipcMain.handle('mcmod:hot', async (_e, { kind, limit } = {}) => {
+  try {
+    const r = await mcmod.hotMods(limit || 30, kind === 'modpack' ? 'modpack' : 'mod');
+    return r;
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
 ipcMain.handle('mcmod:prereqs', async (_e, { id, kind } = {}) => {
   try {
     const r = await mcmod.fetchPrereqs(id, kind === 'modpack' ? 'modpack' : 'class');

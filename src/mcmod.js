@@ -111,6 +111,90 @@ function parseSearchResults(html, kindFilter = '') {
   return out;
 }
 
+// 解析百科「热门 Mod」列表页（modlist.html，按下载量/热度排序）
+// 结构：<div class="modlist-block">
+//   <div class="cover"><a href="/class/{id}.html"><img src="//i.mcmod.cn/class/cover/..."/></a></div>
+//   <div class="title"><p class="name"><a>中文名</a></p><p class="ename"><a>英文名</a></p></div>
+//   <div class="intro">...简介...</div>
+function parseModlist(html) {
+  const out = [];
+  const re = /<div class="modlist-block">([\s\S]*?)<\/div><\/div>/g;
+  const blocks = html.match(/<div class="modlist-block">[\s\S]*?(?=<div class="modlist-block">|<div class="modlist-pages-block">|$)/g) || [];
+  for (const block of blocks) {
+    const linkM = block.match(/href="\/?(?:www\.mcmod\.cn\/)?(class|modpack)\/(\d+)\.html"/);
+    if (!linkM) continue;
+    const kind = linkM[1] === 'modpack' ? 'modpack' : 'mod';
+    const id = linkM[2];
+    const nameM = block.match(/<p class="name">\s*<a[^>]*>([\s\S]*?)<\/a>/);
+    const enM = block.match(/<p class="ename">\s*<a[^>]*>([\s\S]*?)<\/a>/);
+    const coverM = block.match(/<div class="cover">[\s\S]*?<img[^>]+src="([^"]+)"/);
+    const introM = block.match(/<div class="intro">[\s\S]*?<span>([\s\S]*?)<\/span>/);
+    const title = stripTags(nameM ? nameM[1] : '').trim();
+    if (!title) continue;
+    let icon = coverM ? coverM[1] : '';
+    if (icon && icon.startsWith('//')) icon = 'https:' + icon;
+    out.push({
+      source: 'mcmod',
+      id,
+      title,
+      zhName: title,
+      enName: stripTags(enM ? enM[1] : '').trim(),
+      description: stripTags(introM ? introM[1] : '').slice(0, 200),
+      authors: '',
+      url: `https://www.mcmod.cn/${kind === 'modpack' ? 'modpack' : 'class'}/${id}.html`,
+      mcmodUrl: `https://www.mcmod.cn/${kind === 'modpack' ? 'modpack' : 'class'}/${id}.html`,
+      kind,
+      categories: [],
+      downloads: 0,
+      icon,
+    });
+  }
+  return out;
+}
+
+// 图标内存缓存（避免重复拉同一页）
+const iconCache = new Map();
+
+// 取百科某条目的封面图标（class/modpack 页里的 og:image 或封面图）
+async function fetchIcon(id, kind = 'class') {
+  const key = (kind === 'modpack' ? 'modpack:' : 'class:') + id;
+  if (iconCache.has(key)) return iconCache.get(key);
+  try {
+    const url = `https://www.mcmod.cn/${kind === 'modpack' ? 'modpack' : 'class'}/${id}.html`;
+    const html = await getText(url);
+    // 优先 og:image
+    let m = html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i) || html.match(/<meta[^>]+content="([^"]+)"[^>]+property="og:image"/i);
+    let s = '';
+    if (m && m[1]) s = m[1];
+    else {
+      // 其次找 class cover 图
+      m = html.match(/(?:src|href)="(\/\/i\.mcmod\.cn\/class\/cover\/[^"]+)"/i) || html.match(/(?:src|href)="([^"]*\/class\/cover\/[^"]+)"/i);
+      if (m && m[1]) s = m[1];
+    }
+    if (!s) { iconCache.set(key, ''); return ''; }
+    if (s.startsWith('//')) s = 'https:' + s;
+    else if (s.startsWith('/')) s = 'https://www.mcmod.cn' + s;
+    // 归一化尺寸后缀：@480x / @480x360 这类可能 404，统一改成可用的 @170x115.jpg
+    s = s.replace(/@[0-9]+x[0-9]*(\.(jpg|jpeg|png|webp))?$/i, '@170x115.jpg');
+    iconCache.set(key, s);
+    return s;
+  } catch { return ''; }
+}
+
+// 热门 Mod（按下载量排序）
+async function hotMods(limit = 30, kind = 'mod') {
+  const file = kind === 'modpack' ? 'modpack' : 'modlist';
+  const url = `https://www.mcmod.cn/${file}.html?sort=downloads`;
+  let html = '';
+  for (let attempt = 0; attempt < 3; attempt++) {
+    html = await getText(url);
+    if (html.includes('modlist-block')) break;
+    await new Promise((r) => setTimeout(r, 600 + attempt * 700));
+  }
+  const list = parseModlist(html);
+  return { ok: true, list: list.slice(0, limit) };
+}
+
 // 搜索（中文优先）
 // 注意：mcmod 对频繁请求会返回「壳页」（约 20KB，无搜索结果列表），需检测并重试。
 async function searchMcmod(query, kindFilter = '') {
@@ -123,7 +207,24 @@ async function searchMcmod(query, kindFilter = '') {
     // 壳页：等待后重试
     await new Promise((r) => setTimeout(r, 600 + attempt * 700));
   }
-  return parseSearchResults(html, kindFilter);
+  let results = parseSearchResults(html, kindFilter);
+  // 搜索结果页不带图标，并发补全前 N 条的封面（限制并发，避免被限流）
+  try { await attachIcons(results, 12); } catch {}
+  return results;
+}
+
+// 给搜索结果补全图标（限制并发 4，失败不阻断）
+async function attachIcons(items, limit = 12) {
+  const targets = items.filter((it) => it && !it.icon && it.id).slice(0, limit);
+  let i = 0;
+  const workers = Array.from({ length: Math.min(4, targets.length) }, async () => {
+    while (i < targets.length) {
+      const it = targets[i++];
+      const icon = await fetchIcon(it.id, it.kind === 'modpack' ? 'modpack' : 'class');
+      if (icon) it.icon = icon;
+    }
+  });
+  await Promise.all(workers);
 }
 
 // 解析一个百科条目的「前置 Mod / 依赖关系」
@@ -199,4 +300,4 @@ async function attachPrereqs(items, limit = 8) {
   return items;
 }
 
-module.exports = { searchMcmod, fetchPrereqs, attachPrereqs, parseSearchResults };
+module.exports = { searchMcmod, fetchPrereqs, attachPrereqs, parseSearchResults, hotMods, parseModlist, fetchIcon };

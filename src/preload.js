@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('api', {
   sourceList: () => ipcRenderer.invoke('source:list'),
   searchAll: (p) => ipcRenderer.invoke('search:all', p),
   mcmodSearch: (p) => ipcRenderer.invoke('mcmod:search', p),
+  mcmodHot: (p) => ipcRenderer.invoke('mcmod:hot', p),
   mcmodPrereqs: (p) => ipcRenderer.invoke('mcmod:prereqs', p),
   installVanilla: (p) => ipcRenderer.invoke('mc:install-vanilla', p),
   loaderVersions: (p) => ipcRenderer.invoke('loader:versions', p),
