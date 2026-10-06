@@ -13,9 +13,13 @@ const renderer = R('src/renderer/renderer.js');
 const html = R('src/renderer/index.html');
 
 // 1. IPC 通道一致性
+const ipcDir = path.join(__dirname, 'src', 'ipc');
+const ipcFiles = fs.existsSync(ipcDir) ? fs.readdirSync(ipcDir).filter((f) => /^ipc-.*\.js$/.test(f)) : [];
+const ipcMainSources = ipcFiles.map((f) => ({ file: 'src/ipc/' + f, code: R('src/ipc/' + f) }));
 const invokesMain = [...main.matchAll(/ipcMain\.handle\(\s*['"]([^'"]+)['"]/g)].map((m) => m[1]);
 const installer = (() => { try { return R('src/installer.js'); } catch { return ''; } })();
 invokesMain.push(...[...installer.matchAll(/ipcMain\.handle\(\s*['"]([^'"]+)['"]/g)].map((m) => m[1]));
+for (const s of ipcMainSources) invokesMain.push(...[...s.code.matchAll(/ipcMain\.handle\(\s*['"]([^'"]+)['"]/g)].map((m) => m[1]));
 const invokesPre = [...preload.matchAll(/ipcRenderer\.invoke\(\s*['"]([^'"]+)['"]/g)].map((m) => m[1]);
 const setPre = new Set(invokesPre);
 const missPre = invokesMain.filter((c) => !setPre.has(c));
@@ -38,6 +42,9 @@ if (missDom.length) bad('DOM id: HTML 缺少', missDom.join(',')); else ok('DOM 
 
 // 4. 模块语法
 const files = ['src/main.js', 'src/preload.js', 'src/server.js', 'src/modpack.js', 'src/installer.js', 'src/constants.js', 'src/auth.js', 'src/java.js', 'src/telemetry.js', 'src/tunnel.js', 'src/backup.js', 'src/selftest.js', 'src/renderer/renderer.js'];
+// 纳入 src/ipc/*.js
+const _ipcDir = path.join(__dirname, 'src', 'ipc');
+if (fs.existsSync(_ipcDir)) for (const f of fs.readdirSync(_ipcDir)) if (/\.js$/.test(f)) files.push('src/ipc/' + f);
 console.log('=== 模块语法 ===');
 for (const f of files) {
   try { new Function(R(f)); console.log('  OK  ' + f); }
@@ -46,7 +53,7 @@ for (const f of files) {
 
 // 5. require 依赖可解析性
 console.log('=== require 依赖 ===');
-const jsFiles = files.filter((f) => /^src\/[^/]+\.js$/.test(f));
+const jsFiles = files.filter((f) => /^src\/(ipc\/)?[^/]+\.js$/.test(f));
 const missReq = [];
 for (const f of jsFiles) {
   const src = R(f);
