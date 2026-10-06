@@ -445,6 +445,13 @@ function createWindow() {
           srv.packTopMs = Math.round(performance.now() - tp);
           srv.packTopN = pr && pr.list ? pr.list.length : 0;
         } catch (e) { srv.packTopMs = -1; }
+        // 中文搜索优化验证（含中文时应能命中）
+        try {
+          const cr = await window.api.searchAll({ kind: 'mod', query: '钠', mcVersion: '1.20.1', loader: 'fabric' });
+          srv.zhSearchOk = !!(cr && cr.ok && cr.list && cr.list.length);
+          srv.zhSearchFirst = (cr && cr.list && cr.list[0]) ? cr.list[0].title : '';
+          srv.zhSearchN = cr && cr.list ? cr.list.length : 0;
+        } catch (e) { srv.zhSearchOk = false; }
         // 服务器页卡片顺序（验证重排）
         srv.srvCardOrder = [...document.querySelectorAll('#page-server .card, #page-server details.card')].map(function(c){
           var h = c.querySelector('h2') || c.querySelector('.tut-summary') || c.querySelector('summary');

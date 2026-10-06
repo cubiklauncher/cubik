@@ -619,6 +619,28 @@ async function enrichZhNames(items, limit = 8) {
   return results;
 }
 
+// ---------- 中文搜索优化 ----------
+const zhsearch = require('./zhsearch');
+
+// 把多个词条的搜索结果合并去重
+function mergeResults(lists) {
+  const merged = [];
+  const seen = new Set();
+  for (const list of lists) {
+    if (!Array.isArray(list)) continue;
+    for (const it of list) {
+      const key = (it.source || '') + ':' + (it.id || it.slug || it.title);
+      const titleKey = String(it.title || '').toLowerCase().replace(/\s+/g, '');
+      if (seen.has(key) || (titleKey && seen.has('t:' + titleKey))) continue;
+      seen.add(key);
+      if (titleKey) seen.add('t:' + titleKey);
+      merged.push(it);
+    }
+  }
+  merged.sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
+  return merged;
+}
+
 async function searchModrinth(query, limit = 20, projectType = 'modpack') {
   const facet = JSON.stringify([[`project_type:${projectType}`]]);
   const url = `${MODRINTH}/search?query=${encodeURIComponent(query)}&facets=${encodeURIComponent(facet)}&limit=${limit}`;
@@ -636,11 +658,20 @@ async function searchModrinth(query, limit = 20, projectType = 'modpack') {
 }
 
 async function searchByType(query, type) {
-  return searchModrinth(query, 30, type);
+  // 中文搜索优化：含中文时扩展英文词并合并
+  const extra = zhsearch.expandQuery(query, 3);
+  if (!extra.length) return searchModrinth(query, 30, type);
+  const terms = [query, ...extra];
+  const lists = await Promise.all(terms.map((q) => searchModrinth(q, 30, type).catch(() => [])));
+  return mergeResults(lists);
 }
 
 async function searchShaders(query) {
-  return searchModrinth(query, 30, 'shader');
+  const extra = zhsearch.expandQuery(query, 3);
+  if (!extra.length) return searchModrinth(query, 30, 'shader');
+  const terms = [query, ...extra];
+  const lists = await Promise.all(terms.map((q) => searchModrinth(q, 30, 'shader').catch(() => [])));
+  return mergeResults(lists);
 }
 
 // 资源包搜索（Modrinth project_type:resourcepack）
@@ -860,6 +891,17 @@ async function curseforgeProject(id) {
 // ---------- Mod 下载专用 ----------
 // Modrinth 搜索 mod（可按 MC 版本 + 加载器筛选）
 async function searchModsModrinth(query, mcVersion, loader, limit = 24) {
+  // 中文搜索优化：含中文时扩展英文词并合并
+  const extra = zhsearch.expandQuery(query, 3);
+  if (extra.length) {
+    const terms = [query, ...extra];
+    const lists = await Promise.all(terms.map((q) => searchModsModrinthRaw(q, mcVersion, loader, limit).catch(() => [])));
+    return mergeResults(lists).slice(0, limit);
+  }
+  return searchModsModrinthRaw(query, mcVersion, loader, limit);
+}
+
+async function searchModsModrinthRaw(query, mcVersion, loader, limit = 24) {
   const facets = [['project_type:mod']];
   if (mcVersion) facets.push([`versions:${mcVersion}`]);
   if (loader) facets.push([`categories:${String(loader).toLowerCase()}`]);
@@ -937,6 +979,21 @@ async function curseforgeModFiles(id, mcVersion, loader) {
 // ---------- 综合搜索：同时查 Modrinth + CurseForge，合并去重 ----------
 // kind: 'modpack' | 'mod' | 'shader'
 async function searchAll(kind, query, opts = {}) {
+  const { mcVersion, loader, limit = 24 } = opts;
+  // 中文搜索优化：若查询含中文，扩展出英文关键词，分别搜索后合并
+  const extraTerms = zhsearch.expandQuery(query, 4);
+  const terms = [query, ...extraTerms].filter((t, i, a) => t && a.indexOf(t) === i);
+  // 词很多时限制并发总量（每词 Morinth+CurseForge）
+  const useTerms = terms.slice(0, 4);
+
+  const settled = await Promise.allSettled(useTerms.map((q) => searchAllTerms(kind, q, { mcVersion, loader, limit })));
+  const lists = settled.filter((s) => s.status === 'fulfilled').map((s) => s.value);
+  const merged = mergeResults(lists).slice(0, limit);
+  return merged;
+}
+
+// 单个词的 Modrinth + CurseForge 并发搜索（供 searchAll 多词扩展使用）
+async function searchAllTerms(kind, query, opts = {}) {
   const { mcVersion, loader, limit = 24 } = opts;
   const tasks = [];
   // Modrinth
