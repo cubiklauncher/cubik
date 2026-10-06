@@ -694,6 +694,24 @@ body[data-skin="graphite"] { --text: #1c2130; }
   border: 1px solid rgba(120,150,220,.22); padding: 5px 12px; border-radius: 999px; }
 .srv-chip b { color: var(--accent); }
 
+/* ---------- 多服务器列表 ---------- */
+.srv-servers { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.srv-item { display: flex; align-items: center; gap: 12px; padding: 11px 13px; border-radius: 13px;
+  background: rgba(255,255,255,.55); border: 1px solid rgba(120,150,220,.18); transition: .15s; cursor: pointer; }
+.srv-item:hover { border-color: rgba(120,150,220,.4); background: rgba(255,255,255,.78); }
+.srv-item.active { border-color: var(--accent); background: linear-gradient(135deg, rgba(120,150,220,.14), rgba(120,150,220,.06));
+  box-shadow: 0 0 0 1px var(--accent) inset; }
+.srv-item .srv-item-main { flex: 1; min-width: 0; }
+.srv-item .srv-item-name { font-size: 14px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 7px; }
+.srv-item .srv-item-dir { font-size: 11.5px; color: var(--text-mute); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srv-item .srv-item-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px; }
+.srv-item .srv-item-tags .tg { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: rgba(120,150,220,.12); color: var(--text-soft); }
+.srv-item .srv-item-tags .tg.on { background: rgba(63,174,90,.16); color: #2e8b47; }
+.srv-item .srv-item-tags .tg.miss { background: rgba(224,90,90,.14); color: #c0392b; }
+.srv-item .srv-item-badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+  background: var(--accent); color: #fff; flex: none; }
+.srv-item .srv-item-actions { display: flex; gap: 6px; flex: none; }
+
 /* ---------- 服务器存档备份 ---------- */
 .srvw-summary { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .srvw-list { display: flex; flex-direction: column; gap: 8px; }

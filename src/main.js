@@ -140,6 +140,19 @@ function loadConfig() {
       c.serverDir = path.join(DEFAULT_MC_DIR, 'server');
     if (c.downloadSource === 'bmclapi') applySource('bmclapi');
     if (c.cfApiKey) modpack.setCfKey(c.cfApiKey);
+    // 多服务器列表：保证结构完整、并与 serverDir 同步
+    if (!Array.isArray(c.servers)) c.servers = [];
+    c.servers = c.servers.filter((s) => s && typeof s.dir === 'string' && s.dir);
+    c.servers.forEach((s) => { if (!s.id) s.id = 'srv_' + Math.random().toString(36).slice(2, 9); if (!s.name) s.name = path.basename(s.dir) || 'Server'; });
+    // 若列表为空，用当前 serverDir 初始化一条默认项
+    if (!c.servers.length && c.serverDir) {
+      c.servers.push({ id: 'srv_default', name: path.basename(c.serverDir) || 'Server', dir: c.serverDir, type: '', mcVersion: '', memory: 2048 });
+    }
+    if (!c.activeServerId || !c.servers.some((s) => s.id === c.activeServerId)) {
+      c.activeServerId = c.servers.length ? c.servers[0].id : '';
+    }
+    const act = c.servers.find((s) => s.id === c.activeServerId);
+    if (act) c.serverDir = act.dir;
     return c;
   } catch {
     return {
@@ -151,7 +164,9 @@ function loadConfig() {
       autoJava: true,
       downloadSource: 'bmclapi',
       cfApiKey: '',
-      serverDir: path.join(DEFAULT_MC_DIR, 'server')
+      serverDir: path.join(DEFAULT_MC_DIR, 'server'),
+      servers: [{ id: 'srv_default', name: 'server', dir: path.join(DEFAULT_MC_DIR, 'server'), type: '', mcVersion: '', memory: 2048 }],
+      activeServerId: 'srv_default'
     };
   }
 }
@@ -439,6 +454,14 @@ function createWindow() {
         srv.srvUpdCard = !!document.getElementById('btn-srvu-check');
         srv.srvModCard = !!document.getElementById('btn-srvm-search');
         srv.srvModListEl = !!document.getElementById('srvm-list');
+        srv.srvListCard = !!document.getElementById('srv-list-box');
+        srv.srvListNewBtn = !!document.getElementById('btn-srv-new');
+        try {
+          const sl = await window.api.serverList();
+          srv.srvListOk = !!(sl && sl.ok);
+          srv.srvListN = sl && sl.list ? sl.list.length : -1;
+          srv.srvListActive = sl && sl.activeServerId;
+        } catch (e) { srv.srvListErr = String(e && e.message); }
         try {
           const mr = await window.api.srvModList({});
           srv.srvModOk = !!(mr && mr.ok);
@@ -2539,6 +2562,98 @@ ipcMain.handle('server:start', async (_e, { dir, javaPath, memory, type }) => {
 
 ipcMain.handle('server:status', () => ({ ok: true, running: serverMgr.isRunning(), ...serverMgr.getState() }));
 ipcMain.handle('server:quick-defaults', () => ({ ok: true, ...serverMgr.quickServerDefaults() }));
+
+// ---------- 多服务器管理 ----------
+ipcMain.handle('server:list', async () => {
+  try {
+    const c = loadConfig();
+    const list = await Promise.all((c.servers || []).map(async (s) => {
+      let info = {};
+      try { info = serverMgr.detectServer(s.dir) || {}; } catch {}
+      const exists = !!(s.dir && fs.existsSync(s.dir));
+      const running = serverMgr.isRunning() && serverMgr.getState().dir === s.dir;
+      return {
+        ...s,
+        exists,
+        running,
+        detectedType: info.type || '',
+        detectedType2: info.current || '',
+        detectedMc: info.mcVersion || '',
+        isActive: s.id === c.activeServerId,
+      };
+    }));
+    return { ok: true, list, activeServerId: c.activeServerId || '' };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
+ipcMain.handle('server:add', async (_e, opts = {}) => {
+  try {
+    const c = loadConfig();
+    if (!Array.isArray(c.servers)) c.servers = [];
+    const dir = String(opts.dir || '').trim();
+    if (!dir) throw new Error('请指定服务器目录');
+    if (c.servers.some((s) => path.resolve(s.dir) === path.resolve(dir))) throw new Error('该目录已在列表中');
+    let info = {};
+    try { info = serverMgr.detectServer(dir) || {}; } catch {}
+    const srv = {
+      id: 'srv_' + Math.random().toString(36).slice(2, 9),
+      name: String(opts.name || path.basename(dir) || 'Server').slice(0, 40),
+      dir,
+      type: opts.type || info.type || '',
+      mcVersion: opts.mcVersion || info.mcVersion || '',
+      memory: parseInt(opts.memory, 10) || 2048,
+    };
+    c.servers.push(srv);
+    c.activeServerId = srv.id;
+    c.serverDir = srv.dir;
+    saveConfig(c);
+    return { ok: true, server: srv, activeServerId: srv.id };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
+ipcMain.handle('server:remove', async (_e, { id }) => {
+  try {
+    const c = loadConfig();
+    if (!Array.isArray(c.servers)) c.servers = [];
+    const srv = c.servers.find((s) => s.id === id);
+    if (!srv) throw new Error('未找到该服务器');
+    if (serverMgr.isRunning() && serverMgr.getState().dir === srv.dir) throw new Error('该服务器正在运行，请先停止再移除');
+    c.servers = c.servers.filter((s) => s.id !== id);
+    if (c.activeServerId === id) {
+      c.activeServerId = c.servers.length ? c.servers[0].id : '';
+      c.serverDir = c.servers.length ? c.servers[0].dir : path.join(DEFAULT_MC_DIR, 'server');
+    }
+    saveConfig(c);
+    return { ok: true, activeServerId: c.activeServerId };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
+ipcMain.handle('server:switch', async (_e, { id }) => {
+  try {
+    const c = loadConfig();
+    const srv = (c.servers || []).find((s) => s.id === id);
+    if (!srv) throw new Error('未找到该服务器');
+    if (serverMgr.isRunning()) {
+      const st = serverMgr.getState();
+      if (st.dir && st.dir !== srv.dir) throw new Error('当前服务器正在运行，请先停止再切换');
+    }
+    c.activeServerId = srv.id;
+    c.serverDir = srv.dir;
+    saveConfig(c);
+    return { ok: true, server: srv, activeServerId: srv.id };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
+ipcMain.handle('server:rename', async (_e, { id, name }) => {
+  try {
+    const c = loadConfig();
+    const srv = (c.servers || []).find((s) => s.id === id);
+    if (!srv) throw new Error('未找到该服务器');
+    srv.name = String(name || '').trim().slice(0, 40) || srv.name;
+    saveConfig(c);
+    return { ok: true, server: srv };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
 
 ipcMain.handle('server:info', async (_e, { dir }) => serverMgr.serverInfo(dir || (cfg && cfg.serverDir) || ''));
 

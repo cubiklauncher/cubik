@@ -70,7 +70,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (btn.dataset.page === 'shader' && !shaderLoaded) loadShaderTop();
     if (btn.dataset.page === 'data') loadDataPage();
     if (btn.dataset.page === 'mod' && !modPageLoaded) loadModPage();
-    if (btn.dataset.page === 'server') { refreshNetInfo(); refreshServerBackup(); loadAutoBackup(); checkServerUpdateUI(true); try { loadServerMods(); } catch {} }
+    if (btn.dataset.page === 'server') { refreshNetInfo(); refreshServerBackup(); loadAutoBackup(); checkServerUpdateUI(true); try { loadServerMods(); } catch {} try { loadServerList(); } catch {} }
     if (btn.dataset.page === 'vanilla' && !window.__vanLoaded) { window.__vanLoaded = true; loadVanillaVersions(); }
     if (btn.dataset.page === 'versions') refreshVersions();
   };
@@ -2228,6 +2228,16 @@ $('btn-srv-create').onclick = async () => {
       $('srv-log').textContent += '\n✖ 创建失败：' + ((r && r.error) || '未知错误') + '\n';
     } else {
       $('srv-log').textContent += '\n✔ 创建完成！现在可以点「▶ 启动服务器」开服。\n';
+      // 自动把新建的服务器加入列表并设为当前
+      try {
+        const lr = await window.api.serverList();
+        const already = lr && lr.ok && (lr.list || []).some((s) => s.dir === opts.dir);
+        if (!already) {
+          const ar = await window.api.serverAdd({ dir: opts.dir, name: opts.dir.split(/[\\/]/).pop() || 'Server', type: opts.type, mcVersion: opts.mcVersion, memory: parseInt(opts.memory, 10) || 2048 });
+          if (ar && ar.ok) srvActiveId = ar.activeServerId;
+        }
+        await loadServerList();
+      } catch {}
     }
   } catch (e) {
     $('srv-log').textContent += '\n✖ 创建异常：' + (e.message || e) + '\n';
@@ -2339,6 +2349,129 @@ if ($('btn-toggle-online')) $('btn-toggle-online').onclick = async () => {
 };
 if ($('btn-copy-lan')) $('btn-copy-lan').onclick = () => copyText($('net-lan').dataset.copy || $('net-lan').textContent, $('btn-copy-lan'));
 if ($('btn-copy-pub')) $('btn-copy-pub').onclick = () => copyText($('net-pub').dataset.copy || $('net-pub').textContent, $('btn-copy-pub'));
+
+// ---------- 多服务器列表 ----------
+let srvActiveId = '';
+async function loadServerList() {
+  const box = $('srv-list-box');
+  if (!box) return;
+  box.innerHTML = '<div class="empty">加载中…</div>';
+  const r = await window.api.serverList();
+  if (!r || !r.ok) { box.innerHTML = `<div class="empty">读取失败：${esc((r && r.error) || '')}</div>`; return; }
+  srvActiveId = r.activeServerId || '';
+  const list = r.list || [];
+  $('srv-list-count').textContent = list.length ? `共 ${list.length} 个` : '';
+  if (!list.length) {
+    box.innerHTML = '<div class="srvw-empty">还没有服务器，点下方「新建服务器」或「添加已有服务器目录」</div>';
+    return;
+  }
+  const typeLabel = (t) => ({ vanilla: '原版', paper: 'Paper', spigot: 'Spigot', fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge' }[t] || t || '未知');
+  box.innerHTML = list.map((s) => {
+    const t = s.detectedType || s.type || '';
+    const mc = s.detectedMc || s.mcVersion || '';
+    const tags = [
+      `<span class="tg">${esc(typeLabel(t))}</span>`,
+      mc ? `<span class="tg">MC ${esc(mc)}</span>` : '',
+      s.running ? '<span class="tg on">● 运行中</span>' : '',
+      !s.exists ? '<span class="tg miss">目录不存在</span>' : '',
+    ].join('');
+    return `
+    <div class="srv-item${s.isActive ? ' active' : ''}" data-id="${esc(s.id)}">
+      <div class="srv-item-main">
+        <div class="srv-item-name">${esc(s.name)}${s.isActive ? '<span class="srv-item-badge">当前</span>' : ''}</div>
+        <div class="srv-item-dir" title="${esc(s.dir)}">${esc(s.dir)}</div>
+        <div class="srv-item-tags">${tags}</div>
+      </div>
+      <div class="srv-item-actions">
+        <button class="btn mini srv-rename" data-id="${esc(s.id)}" title="重命名">✏️</button>
+        <button class="btn mini ghost srv-remove" data-id="${esc(s.id)}" title="移出列表">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+  // 点击卡片切换
+  box.querySelectorAll('.srv-item').forEach((el) => {
+    el.onclick = async (e) => {
+      if (e.target.closest('.srv-rename') || e.target.closest('.srv-remove')) return;
+      const id = el.dataset.id;
+      if (id === srvActiveId) return;
+      const rr = await window.api.serverSwitch({ id });
+      if (!rr || !rr.ok) return alert('切换失败：' + ((rr && rr.error) || '未知错误'));
+      log('data', `已切换到服务器：${rr.server.name}（${rr.server.dir}）`);
+      await syncServerDirToUI();
+      await loadServerList();
+      refreshServerBackup(); loadServerMods(); refreshServerStatus(); checkServerUpdateUI(true);
+    };
+  });
+  box.querySelectorAll('.srv-rename').forEach((b) => {
+    b.onclick = async (e) => {
+      e.stopPropagation();
+      const id = b.dataset.id;
+      const cur = list.find((s) => s.id === id);
+      const name = prompt('重命名服务器：', cur ? cur.name : '');
+      if (name == null) return;
+      const rr = await window.api.serverRename({ id, name });
+      if (!rr || !rr.ok) return alert('重命名失败：' + ((rr && rr.error) || '未知错误'));
+      loadServerList();
+    };
+  });
+  box.querySelectorAll('.srv-remove').forEach((b) => {
+    b.onclick = async (e) => {
+      e.stopPropagation();
+      const id = b.dataset.id;
+      const cur = list.find((s) => s.id === id);
+      if (!confirm('从列表移除服务器？\n' + (cur ? cur.name + '\n' + cur.dir : '') + '\n\n（只从列表移除，不会删除服务器文件）')) return;
+      const rr = await window.api.serverRemove({ id });
+      if (!rr || !rr.ok) return alert('移除失败：' + ((rr && rr.error) || '未知错误'));
+      await syncServerDirToUI();
+      loadServerList();
+      refreshServerBackup(); loadServerMods(); refreshServerStatus(); checkServerUpdateUI(true);
+    };
+  });
+}
+
+// 把当前激活服务器的目录同步到建服表单/内存/端口等
+async function syncServerDirToUI() {
+  const r = await window.api.serverList();
+  if (!r || !r.ok) return;
+  const act = (r.list || []).find((s) => s.id === r.activeServerId);
+  if (!act) return;
+  srvActiveId = act.id;
+  if ($('in-srv-dir')) $('in-srv-dir').value = act.dir;
+  // 同步到界面配置
+  if (typeof cfg === 'object' && cfg) { cfg.serverDir = act.dir; cfg.activeServerId = act.id; }
+  // 版本/类型回填（若已识别到）
+  if (act.detectedMc && $('sel-srv-mcver')) {
+    const opt = [...$('sel-srv-mcver').options].find((o) => o.value === act.detectedMc);
+    if (opt) $('sel-srv-mcver').value = act.detectedMc;
+  }
+  if ((act.detectedType || act.type) && $('sel-srv-type')) {
+    const t = act.detectedType || act.type;
+    const opt = [...$('sel-srv-type').options].find((o) => o.value === t);
+    if (opt) $('sel-srv-type').value = t;
+  }
+  if (act.memory && window.srvMemSlider) window.srvMemSlider.set(act.memory);
+}
+
+if ($('btn-srv-new')) $('btn-srv-new').onclick = async () => {
+  // 新建：清空目录，引导用户填一个新目录
+  $('in-srv-dir').value = '';
+  $('in-srv-dir').focus();
+  document.querySelector('#srv-options') && ($('srv-options').open = true);
+  log('data', '新建服务器：请填写服务器目录，选择类型与版本后点「创建服务器」');
+  // 滚到建服表单
+  const form = $('in-srv-dir').closest('.card');
+  if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+if ($('btn-srv-add-existing')) $('btn-srv-add-existing').onclick = async () => {
+  const dir = await window.api.pickDir();
+  if (!dir) return;
+  const r = await window.api.serverAdd({ dir, name: dir.split(/[\\/]/).pop() || 'Server' });
+  if (!r || !r.ok) return alert('添加失败：' + ((r && r.error) || '未知错误'));
+  log('data', `已添加服务器：${r.server.name}（${r.server.dir}）`);
+  await syncServerDirToUI();
+  loadServerList();
+  refreshServerBackup(); loadServerMods(); refreshServerStatus(); checkServerUpdateUI(true);
+};
 
 // ---------- 服务器装 Mod ----------
 let srvModDirPath = null;

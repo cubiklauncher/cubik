@@ -426,6 +426,17 @@
     <section class="page" id="page-server">
       <h1>Minecraft 服务器</h1>
 
+      <!-- 多服务器列表 -->
+      <div class="card" id="srv-list-card">
+        <h2 style="display:flex;align-items:center;gap:10px">🗂️ 我的服务器 <span class="hint" id="srv-list-count" style="font-weight:400;margin-left:auto"></span></h2>
+        <p class="hint" style="margin-top:2px">管理多个服务器：点一下即可切换当前服务器（目录、Mod、存档、更新等都会跟着切）。</p>
+        <div id="srv-list-box" class="srv-servers"><div class="empty">加载中…</div></div>
+        <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap">
+          <button class="btn primary" id="btn-srv-new">➕ 新建服务器</button>
+          <button class="btn" id="btn-srv-add-existing">📂 添加已有服务器目录</button>
+        </div>
+      </div>
+
       <!-- 状态条 -->
       <div class="card srv-status-card">
         <div class="srv-status-left">
