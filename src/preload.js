@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld('api', {
   modSearch: (p) => ipcRenderer.invoke('mod:search', p),
   modVersions: (p) => ipcRenderer.invoke('mod:versions', p),
   modInstall: (p) => ipcRenderer.invoke('mod:install', p),
+  modDeps: (p) => ipcRenderer.invoke('mod:deps', p),
+  modInstallDep: (p) => ipcRenderer.invoke('mod:install-dep', p),
   checkUpdate: () => ipcRenderer.invoke('app:check-update'),
   checkUpdateP: (o) => ipcRenderer.invoke('app:check-update', o),
   downloadUpdate: (o) => ipcRenderer.invoke('app:download-update', o),

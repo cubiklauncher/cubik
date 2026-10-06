@@ -1,6 +1,6 @@
 // constants.js - 全应用共享的品牌与常量
 const APP_NAME = 'Cubik';
-const APP_VERSION = '1.0.46';
+const APP_VERSION = '1.0.47';
 const APP_SLOGAN = '简洁易用的 Minecraft 启动器';
 const OFFICIAL_SITE = 'https://github.com/wodefa66666/cubik';
 const REPO_URL = 'https://github.com/wodefa66666/cubik';

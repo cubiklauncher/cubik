@@ -1683,6 +1683,27 @@ ipcMain.handle('mod:install', async (_e, { version, url, filename }) => {
   } catch (e) { return { ok: false, error: e.message }; }
 });
 
+// 查询某个 mod 版本的「前置 Mod」（依赖）
+ipcMain.handle('mod:deps', async (_e, { source, id, fileId, versionId, mcVersion, loader }) => {
+  try {
+    return await modpack.modDependencies({ source, id, fileId, versionId, mcVersion, loader });
+  } catch (e) { return { ok: false, error: e.message, dependencies: [] }; }
+});
+
+// 下载一个前置 Mod 到实例的 mods 文件夹（成功后返回文件名，交给前端标记已装）
+ipcMain.handle('mod:install-dep', async (_e, { version, url, filename }) => {
+  try {
+    const cfg = loadConfig();
+    const dir = path.join(cfg.mcDir, 'versions', version, 'mods');
+    fs.mkdirSync(dir, { recursive: true });
+    const dest = path.join(dir, filename);
+    const send = (m) => win.webContents.send('install:log', m + '\n');
+    await modpack.downloadFile(url, dest, null, send, filename);
+    send(`✔ 已下载前置 Mod: ${filename}`);
+    return { ok: true, file: dest };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
 // ---------- 存档 / 实例备份 / 截图 / 导入（backup.js） ----------
 ipcMain.handle('world:list', () => {
   try { return { ok: true, list: backup.listWorlds(loadConfig().mcDir) }; }

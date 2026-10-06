@@ -948,9 +948,11 @@ async function curseforgeModFiles(id, mcVersion, loader) {
     id: f.id,
     name: f.displayName,
     version: f.fileName,
+    releaseType: f.releaseType,
     mc: f.gameVersions || [],
     downloads: f.downloadCount || 0,
     date: f.fileDate,
+    _deps: f.dependencies || [],
     files: [{ url: f.downloadUrl, filename: f.fileName, primary: true }]
   }));
 }
@@ -1005,6 +1007,123 @@ async function searchAllTerms(kind, query, opts = {}) {
   return merged;
 }
 
+// ---------- 前置 Mod（依赖）解析 ----------
+const DEP_TYPE = { required: 'required', optional: 'optional', incompatible: 'incompatible', embedded: 'embedded' };
+
+// 根据 mcVersion / loader 从 Modrinth 找某项目最合适的版本（返回 version 对象或 null）
+async function modrinthPickVersion(projectId, mcVersion, loader) {
+  const qs = [];
+  if (mcVersion) qs.push('game_versions=' + encodeURIComponent(JSON.stringify([mcVersion])));
+  if (loader) qs.push('loaders=' + encodeURIComponent(JSON.stringify([String(loader).toLowerCase()])));
+  const url = `${MODRINTH}/project/${projectId}/version` + (qs.length ? '?' + qs.join('&') : '');
+  let data;
+  try { data = JSON.parse(await get(url, { 'User-Agent': 'Cubik/1.0' })); } catch { return null; }
+  let list = Array.isArray(data) ? data.slice() : [];
+  if (!list.length && (mcVersion || loader)) {
+    // 严格筛选无结果 → 放宽版本，仅按 loader
+    const qs2 = loader ? '?loaders=' + encodeURIComponent(JSON.stringify([String(loader).toLowerCase()])) : '';
+    try { const alt = JSON.parse(await get(`${MODRINTH}/project/${projectId}/version` + qs2, { 'User-Agent': 'Cubik/1.0' })); if (Array.isArray(alt)) list = alt.slice(); } catch {}
+  }
+  if (!list.length) return null;
+  // 优先正式版，其次按发布时间倒序
+  list.sort((a, b) => {
+    const ra = a.version_type === 'release' ? 0 : a.version_type === 'beta' ? 1 : 2;
+    const rb = b.version_type === 'release' ? 0 : b.version_type === 'beta' ? 1 : 2;
+    if (ra !== rb) return ra - rb;
+    return new Date(b.date_published) - new Date(a.date_published);
+  });
+  return list[0];
+}
+
+function modrinthVersionToFile(v) {
+  if (!v) return null;
+  const f = (v.files || []).find((x) => x.primary) || (v.files || [])[0];
+  if (!f) return null;
+  return { url: f.url, filename: f.filename, size: f.size };
+}
+
+// 取 Modrinth 某 version 的依赖，并补全每个依赖的标题/图标/可下载文件
+// 若只给了 projectId（没给 versionId），自动挑一个兼容当前 mcVersion/loader 的版本
+async function modrinthVersionDeps(versionId, mcVersion, loader, projectId) {
+  let vid = versionId;
+  if (!vid && projectId) {
+    const picked = await modrinthPickVersion(projectId, mcVersion, loader);
+    vid = picked && picked.id;
+  }
+  if (!vid) return { ok: true, source: 'modrinth', dependencies: [] };
+  const raw = JSON.parse(await get(`${MODRINTH}/version/${vid}`, { 'User-Agent': 'Cubik/1.0' }));
+  const deps = (raw && raw.dependencies) || [];
+  const out = [];
+  for (const d of deps) {
+    const type = DEP_TYPE[d.dependency_type] || d.dependency_type || 'unknown';
+    let title = '', icon = '', id = '', slug = '', resolved = null;
+    if (d.project_id) {
+      id = d.project_id;
+      try {
+        const p = await modrinthProject(d.project_id);
+        title = p.title || ''; icon = p.icon || ''; slug = p.slug || '';
+      } catch {}
+      if (type === 'required' || type === 'optional') {
+        try {
+          const v = d.version_id ? await modrinthVersionById(d.version_id) : await modrinthPickVersion(d.project_id, mcVersion, loader);
+          resolved = modrinthVersionToFile(v);
+          if (resolved && !title) title = d.project_id;
+          if (v && v.name) resolved.version = v.name;
+        } catch {}
+      }
+    } else if (d.version_id) {
+      try { const v = await modrinthVersionById(d.version_id); resolved = modrinthVersionToFile(v); title = (v && v.name) || ''; } catch {}
+    }
+    out.push({ type, source: 'modrinth', id, slug, title, icon, file: resolved });
+  }
+  return { ok: true, source: 'modrinth', dependencies: out };
+}
+
+async function modrinthVersionById(versionId) {
+  return JSON.parse(await get(`${MODRINTH}/version/${versionId}`, { 'User-Agent': 'Cubik/1.0' }));
+}
+
+// CurseForge：files 接口返回 dependencies（{modId, relationType}）
+// relationType: 1=EmbeddedLibrary 2=OptionalDependency 3=RequiredDependency 4=Tool 5=Incompatible 6=Include
+const CF_REL = { 1: 'embedded', 2: 'optional', 3: 'required', 4: 'tool', 5: 'incompatible', 6: 'embedded' };
+
+async function curseforgeFileDeps(modId, fileId, mcVersion, loader) {
+  const files = await curseforgeModFiles(modId, mcVersion, loader);
+  let f = files.find((x) => String(x.id) === String(fileId)) || files[0];
+  let rawDeps = (f && f._deps) || null;
+  // curseforgeModFiles 未带 _deps 时，直接查原始接口补上
+  if (!rawDeps) {
+    try {
+      const data = await cfGet(`/mods/${modId}/files/${fileId || (f && f.id)}`);
+      rawDeps = (data && data.data && data.data.dependencies) || [];
+    } catch { rawDeps = []; }
+  }
+  const out = [];
+  for (const d of rawDeps || []) {
+    const type = CF_REL[d.relationType] || 'required';
+    if (!d.modId) continue;
+    let title = '', icon = '', slug = '';
+    try { const p = await curseforgeProject(d.modId); title = p.title || ''; icon = p.icon || ''; } catch {}
+    let file = null;
+    if (type === 'required' || type === 'optional') {
+      try {
+        const fl = await curseforgeModFiles(d.modId, mcVersion, loader);
+        const pick = (fl.find((x) => x.releaseType === 1) || fl[0]);
+        const pf = pick && ((pick.files || []).find((x) => x.primary) || (pick.files || [])[0]);
+        if (pf) file = { url: pf.url, filename: pf.filename, version: pick.version };
+      } catch {}
+    }
+    out.push({ type, source: 'curseforge', id: d.modId, slug, title: title || `Mod #${d.modId}`, icon, file });
+  }
+  return { ok: true, source: 'curseforge', dependencies: out };
+}
+
+// 统一入口：解析一个 mod 版本的前置
+async function modDependencies({ source, id, fileId, versionId, mcVersion, loader }) {
+  if (source === 'curseforge') return curseforgeFileDeps(id, fileId, versionId, mcVersion, loader);
+  return modrinthVersionDeps(versionId, mcVersion, loader, id);
+}
+
 module.exports = {
   sources,
   attachZhNames,
@@ -1041,5 +1160,8 @@ module.exports = {
   // 下载源
   SOURCES,
   setSource,
-  getSource
+  getSource,
+  // 前置 Mod（依赖）
+  modDependencies,
+  modrinthPickVersion
 };

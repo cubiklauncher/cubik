@@ -2174,6 +2174,14 @@ async function openDetail(kind, pack) {
     : await window.api.packVersions({ source, id: pack.id, version: isMod ? ($('sel-detail-target') && $('sel-detail-target').value) || '' : undefined });
   if (!res.ok) { ul.innerHTML = `<li class="empty">加载失败：${res.error}</li>`; return; }
   renderVersions(ul, res.list, (v) => installVersion(v));
+  // Mod：立刻展示第一个兼容版本的前置（下载前就能看到）
+  if (isMod && res.list && res.list.length) {
+    try { await showModDeps(res.list[0], pack, $('sel-detail-target') && $('sel-detail-target').value); } catch {}
+  } else if (!isMod) {
+    const dt = $('detail-deps-title'), dl = $('detail-deps-list');
+    if (dt) dt.style.display = 'none';
+    if (dl) dl.style.display = 'none';
+  }
 }
 
 // 填充 Mod 详情页的“安装到版本”下拉
@@ -2219,6 +2227,105 @@ $('btn-detail-page').onclick = () => {
 };
 
 // 渲染版本列表
+// ---------- 前置 Mod（依赖）展示与安装 ----------
+// 把已装/已下载的文件名记下来，避免重复安装
+const installedDepNames = new Set();
+
+async function showModDeps(v, pack, target) {
+  const titleEl = $('detail-deps-title');
+  const listEl = $('detail-deps-list');
+  if (!titleEl || !listEl) return;
+  titleEl.style.display = 'block';
+  listEl.style.display = 'block';
+  titleEl.textContent = '📦 前置 Mod（依赖）';
+  listEl.innerHTML = '<li class="empty">查询前置中…</li>';
+  window.__hasRequiredDeps = false;
+
+  // 当前目标实例的 MC 版本 / 加载器
+  let mcVersion = '', loader = '';
+  try {
+    const mi = await window.api.versionInfo({ name: target });
+    if (mi && mi.ok) { mcVersion = mi.info.mcVersion || ''; loader = (mi.info.loader && mi.info.loader !== '原版') ? mi.info.loader : ''; }
+  } catch {}
+
+  const source = (detailCtx && detailCtx.source) || pack.source || 'modrinth';
+  const r = await window.api.modDeps({
+    source,
+    id: pack.id,
+    versionId: v.id,
+    mcVersion,
+    loader: loader || undefined
+  });
+  if (!r || !r.ok) {
+    titleEl.style.display = 'none'; listEl.style.display = 'none';
+    return;
+  }
+  const deps = (r.dependencies || []).filter((d) => d.type === 'required' || d.type === 'optional' || d.type === 'incompatible');
+  if (!deps.length) {
+    titleEl.textContent = '📦 前置 Mod（依赖）';
+    listEl.innerHTML = '<li class="empty">✅ 无前置 Mod（可直接用）</li>';
+    return;
+  }
+
+  const required = deps.filter((d) => d.type === 'required');
+  const optional = deps.filter((d) => d.type === 'optional');
+  window.__hasRequiredDeps = required.length > 0;
+
+  titleEl.textContent = `📦 前置 Mod（依赖）${required.length ? ` — ⚠️ ${required.length} 个必需` : ''}`;
+  listEl.innerHTML = '';
+
+  const makeRow = (d, kindLabel, cls) => {
+    const li = document.createElement('li');
+    const icon = d.icon ? `<img src="${esc(d.icon)}" referrerpolicy="no-referrer" style="width:32px;height:32px;border-radius:6px;object-fit:cover;flex:none" onerror="this.style.display='none'">` : '';
+    const canInstall = d.file && d.file.url;
+    const fileTag = canInstall ? `<span class="tg" style="font-size:11px">${esc(d.file.filename)}</span>` : '';
+    li.innerHTML = `
+      <div class="ver-left" style="display:flex;align-items:center;gap:10px;min-width:0">
+        ${icon}
+        <div style="min-width:0">
+          <div class="ver-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.title || d.slug || d.id)}</div>
+          <div class="ver-tags"><span class="tg ${cls}">${kindLabel}</span>${fileTag}</div>
+        </div>
+      </div>
+      <div class="ver-right"></div>`;
+    const right = li.querySelector('.ver-right');
+    if (canInstall) {
+      const btn = document.createElement('button');
+      btn.className = 'btn mini';
+      btn.textContent = installedDepNames.has(d.file.filename) ? '已安装' : '安装';
+      if (installedDepNames.has(d.file.filename)) btn.disabled = true;
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        btn.disabled = true; btn.textContent = '安装中…';
+        const rr = await window.api.modInstallDep({ version: target, url: d.file.url, filename: d.file.filename });
+        if (rr && rr.ok) {
+          installedDepNames.add(d.file.filename);
+          btn.textContent = '已安装';
+          addStep(`已安装前置：${d.title || d.file.filename}`, 'done');
+        } else {
+          btn.disabled = false; btn.textContent = '重试';
+          addStep(`前置安装失败：${d.title} — ${(rr && rr.error) || ''}`, 'err');
+        }
+      };
+      right.appendChild(btn);
+    } else {
+      right.innerHTML = '<span class="hint" style="margin:0">无适配版本</span>';
+    }
+    return li;
+  };
+
+  required.forEach((d) => listEl.appendChild(makeRow(d, '必需前置', 'dl')));
+  optional.forEach((d) => listEl.appendChild(makeRow(d, '可选前置', 'mc')));
+
+  const incompat = deps.filter((d) => d.type === 'incompatible');
+  incompat.forEach((d) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<div class="ver-left"><div class="ver-name" style="color:#f87171">⛔ ${esc(d.title || d.id)}</div><div class="ver-tags"><span class="tg" style="background:rgba(248,113,113,.15);color:#f87171">不兼容</span></div></div>`;
+    listEl.appendChild(li);
+  });
+}
+
+// ---------- 前置 Mod 面板--------
 function renderVersions(ul, list, onDownload) {
   ul.innerHTML = '';
   if (!list.length) { ul.innerHTML = '<li class="empty">没有可用版本</li>'; return; }
@@ -2237,6 +2344,13 @@ function renderVersions(ul, list, onDownload) {
       <div class="ver-right">${dlTag}<button class="ver-download-btn">安装</button></div>`;
     li.querySelector('.ver-download-btn').onclick = (e) => { e.stopPropagation(); onDownload(v); };
     li.onclick = () => onDownload(v);
+    // Mod：点选版本时先刷新前置预览（不下载）
+    li.querySelector('.ver-download-btn').addEventListener('mouseenter', () => {
+      if (detailCtx && detailCtx.kind === 'mod') {
+        const t = $('sel-detail-target') && $('sel-detail-target').value;
+        showModDeps(v, detailCtx.pack, t).catch(() => {});
+      }
+    });
     ul.appendChild(li);
   });
 }
@@ -2265,7 +2379,9 @@ async function installVersion(v) {
       addStep('下载完成', 'done');
       $('detail-progress').style.width = '100%';
       $('detail-progress-text').textContent = '下载完成';
-      alert(`已下载到「${target}」的 mods 文件夹：\n${f.filename}`);
+      // 下载成功后：自动拉取并展示/安装前置 Mod
+      try { await showModDeps(v, pack, target); } catch {}
+      alert(`已下载到「${target}」的 mods 文件夹：\n${f.filename}` + (window.__hasRequiredDeps ? '\n\n⚠️ 该 Mod 有必需前置，请看下方「前置 Mod」列表并安装' : ''));
     } else {
       addStep('下载失败：' + (r ? r.error : '未知错误'), 'err');
       $('detail-progress-text').textContent = '下载失败';
