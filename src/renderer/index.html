@@ -48,13 +48,24 @@
 
   <!-- 右侧内容 -->
   <main class="content">
+    <!-- 全局下载/安装进度条（切到任何页面都能看到） -->
+    <div id="global-progress" class="global-progress" style="display:none">
+      <div class="gp-head">
+        <span class="gp-label" id="gp-label">下载中…</span>
+        <span class="gp-pct" id="gp-pct"></span>
+        <button class="gp-jump" id="gp-jump" title="前往详情页">查看</button>
+        <button class="gp-close" id="gp-close" title="隐藏">✕</button>
+      </div>
+      <div class="gp-bar"><div class="gp-inner" id="gp-inner"></div></div>
+    </div>
     <!-- 主页 -->
     <section class="page active" id="page-home">
       <h1>主页</h1>
       <div class="card hero">
         <div class="hero-version">
           <span class="label">当前版本</span>
-          <span class="value" id="home-version">未选择</span>
+          <span class="value ver-switch" id="home-version" title="点击切换版本">未选择</span>
+          <div class="home-ver-pop" id="home-ver-pop" style="display:none"></div>
         </div>
         <div class="hero-account">
           <span class="label">当前账号</span>
@@ -749,6 +760,18 @@
           <button id="btn-clear-bg" class="btn ghost">清除</button>
         </div>
         <p class="hint">支持 jpg / png / webp。清除后回到上方预设背景。</p>
+
+        <div class="settings-divider"></div>
+        <h2 class="settings-h2">🧭 使用习惯</h2>
+        <p class="hint" style="margin-top:2px">让启动器更贴合你的使用方式。</p>
+        <label class="row" style="align-items:center;gap:10px">
+          <input id="in-min-on-launch" type="checkbox" style="flex:none;width:18px;height:18px">
+          <span>启动游戏后自动最小化启动器</span>
+        </label>
+        <label class="row" style="align-items:center;gap:10px">
+          <input id="in-notify-done" type="checkbox" style="flex:none;width:18px;height:18px">
+          <span>下载 / 安装完成时弹系统通知</span>
+        </label>
 
         <div class="settings-divider"></div>
         <h2 class="settings-h2">⚡ 性能</h2>

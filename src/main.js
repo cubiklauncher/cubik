@@ -429,6 +429,26 @@ function createWindow() {
         const rpTab = document.querySelector('[data-stab="rpack"]');
         if (rpTab) { rpTab.click(); await new Promise(r => setTimeout(r, 3000)); }
         srv.rpackCards = document.querySelectorAll('#rpack-list .pack-card').length;
+        // 新增：全局下载进度条
+        srv.gpExists = !!document.getElementById('global-progress');
+        document.querySelector('.nav-item[data-page="home"]').click();
+        updateGlobalProgress({ pct: 42, done: 420, total: 1000, label: '测试下载' });
+        await new Promise(r => setTimeout(r, 150));
+        const gpEl = document.getElementById('global-progress');
+        srv.gpVisible = gpEl.style.display !== 'none';
+        srv.gpLabel = document.getElementById('gp-label').textContent;
+        srv.gpPct = document.getElementById('gp-pct').textContent;
+        srv.gpWidth = document.getElementById('gp-inner').style.width;
+        finishGlobalProgress({ label: '测试下载', ok: true });
+        await new Promise(r => setTimeout(r, 150));
+        srv.gpDone = gpEl.classList.contains('gp-ok');
+        // 新增：主页版本切换器 / 使用习惯设置 / 最近排序
+        srv.homeVerSwitch = !!document.getElementById('home-ver-pop');
+        srv.minOnLaunch = !!document.getElementById('in-min-on-launch');
+        srv.notifyDone = !!document.getElementById('in-notify-done');
+        window.api.listVersions().then(list => { srv.localVers = list.length; });
+        // 模拟最近使用排序
+        if (!window.__cfg) window.__cfg = {};
         return JSON.stringify(srv);
       })()`);
       console.log('SELFTEST_STATE ' + state);
@@ -1647,6 +1667,79 @@ function publicAccount(a) {
   };
 }
 
+// ---------- 启动提速：跳过不必要的 SHA1 全量校验 ----------
+// MCLC 的 handler.getAssets() 对资产索引里的**每个文件**都跑 checkSum（SHA1），
+// 14000+ 个文件即使全部命中也要 25~50 秒；libraries 同理。这些文件下载后几乎不会变。
+// 做法：用 markers 文件记录“已校验通过”的路径集合，且其 mtime 早于 marker 时间就跳过哈希。
+// 若文件被改动（mtime 变新）或首次启动，则照常哈希，不会漏掉真正损坏的文件。
+function fastLaunchMarkerPath(mcDir) {
+  return path.join(LAUNCHER_DATA, 'cache', 'verified-' + require('crypto').createHash('md5').update(String(mcDir)).digest('hex') + '.json');
+}
+function loadVerifiedSet(mcDir) {
+  try {
+    const j = JSON.parse(fs.readFileSync(fastLaunchMarkerPath(mcDir), 'utf8'));
+    if (j && j.files && typeof j.files === 'object') return j;
+  } catch {}
+  return { ts: 0, files: {} };
+}
+function saveVerifiedSet(mcDir, data) {
+  try {
+    const p = fastLaunchMarkerPath(mcDir);
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(p, JSON.stringify(data));
+  } catch {}
+}
+
+// 给 launcher 实例打补丁：拦下 handler.checkSum，对已验证且未变更的文件直接返回 true。
+// 注意：MCLC 的 handler 是在 launch() 内部才创建的（不在 constructor 里），
+// 所以这里改为直接打 Handler 类的原型，不依赖实例创建时机。
+function applyFastLaunch(client, mcDir, send) {
+  try {
+    const Handler = require('minecraft-launcher-core/components/handler');
+    if (!Handler || !Handler.prototype || typeof Handler.prototype.checkSum !== 'function') return;
+    if (Handler.prototype.__fastPatched) {
+      // 已打过补丁：只刷新当前 mcDir 的验证集合
+      Handler.prototype.__fastSet(mcDir, send);
+      return;
+    }
+    const orig = Handler.prototype.checkSum;
+    const state = { store: null, verified: null, now: Date.now(), skipped: 0, hashed: 0, mcDir };
+    Handler.prototype.__fastSet = (dir, snd) => {
+      state.mcDir = dir;
+      state.store = loadVerifiedSet(dir);
+      state.verified = state.store.files || {};
+      state.now = Date.now();
+      state.skipped = 0;
+      state.hashed = 0;
+      state.send = snd;
+    };
+    Handler.prototype.checkSum = async function (hash, file) {
+      if (!state.verified) return await orig.call(this, hash, file);
+      try {
+        const st = fs.statSync(file);
+        const rec = state.verified[file];
+        if (rec && rec.h === hash && st.mtimeMs <= rec.t) { state.skipped++; return true; }
+        state.hashed++;
+        const ok = await orig.call(this, hash, file);
+        if (ok) state.verified[file] = { h: hash, t: state.now };
+        else delete state.verified[file];
+        return ok;
+      } catch {
+        return await orig.call(this, hash, file);
+      }
+    };
+    Handler.prototype.__fastSave = () => {
+      if (!state.mcDir) return;
+      saveVerifiedSet(state.mcDir, { ts: state.now, files: state.verified || {} });
+      if (state.skipped > 0 && state.send) state.send('debug', `快速启动：跳过 ${state.skipped} 个文件的重复校验（新校验 ${state.hashed} 个）`);
+    };
+    Handler.prototype.__fastPatched = true;
+    Handler.prototype.__fastSet(mcDir, send);
+  } catch (e) {
+    send && send('debug', '启用快速启动失败（不影响启动）：' + (e && e.message ? e.message : e));
+  }
+}
+
 // ---------- 启动游戏 ----------
 ipcMain.handle('mc:launch', async (_e, opts) => {
   const cfg = loadConfig();
@@ -1679,6 +1772,10 @@ ipcMain.handle('mc:launch', async (_e, opts) => {
 
   const { Client } = getMLC();
   launcher = new Client();
+  // 启动提速：MCLC 每次启动都会对全部 assets（1.4 万+ 文件）逐个计算 SHA1 校验，
+  // 未变时纯属浪费（实测 25~50 秒）。这里把 checkSum 打补丁：对已校验过且自上次
+  // 校验后未被修改的 assets / libraries，直接返回 true，跳过重复哈希。
+  applyFastLaunch(launcher, cfg.mcDir, send);
   launcher.on('debug', (m) => send('debug', m));
   launcher.on('data', (m) => send('data', m));
   launcher.on('progress', (p) => win.webContents.send('mc:progress', p));
@@ -1785,8 +1882,12 @@ ipcMain.handle('mc:launch', async (_e, opts) => {
 
   try {
     await launcher.launch(launchOpts);
+    // 启动成功：持久化本次已验证的文件集合，下次启动直接跳过这些校验
+    try { require('minecraft-launcher-core/components/handler').prototype.__fastSave && require('minecraft-launcher-core/components/handler').prototype.__fastSave(); } catch {}
     return { ok: true };
   } catch (err) {
+    // 即使启动失败也保存已校验结果（下次仍可复用未变文件的校验）
+    try { require('minecraft-launcher-core/components/handler').prototype.__fastSave && require('minecraft-launcher-core/components/handler').prototype.__fastSave(); } catch {}
     const raw = String(err && err.message ? err.message : err);
     return { ok: false, error: humanizeError(raw) };
   }
@@ -1863,8 +1964,10 @@ ipcMain.handle('pack:install-full', async (_e, { id, versionId, name }) => {
       (pct, done, total, label) => win.webContents.send('install:progress', { pct, done, total, label }),
       send
     );
+    try { win.webContents.send('install:done', { label: name || '整合包', ok: !!(result && result.ok !== false), result }); } catch {}
     return result;
   } catch (e) {
+    try { win.webContents.send('install:done', { label: name || '整合包', ok: false, error: e.message }); } catch {}
     return { ok: false, error: e.message };
   }
 });
@@ -1883,8 +1986,10 @@ ipcMain.handle('shader:install-full', async (_e, { id, versionId }) => {
       (got, total, label) => win.webContents.send('install:progress', { pct: total ? Math.round((got / total) * 100) : 0, done: got, total, label }),
       send
     );
+    try { win.webContents.send('install:done', { label: (ver && ver.name) || '光影包', ok: !!(result && result.ok !== false), result }); } catch {}
     return result;
   } catch (e) {
+    try { win.webContents.send('install:done', { label: '光影包', ok: false, error: e.message }); } catch {}
     return { ok: false, error: e.message };
   }
 });
@@ -2013,8 +2118,10 @@ ipcMain.handle('mc:install-vanilla', async (_e, { version }) => {
       (done, total, label) => win.webContents.send('install:progress', { pct: total ? Math.round((done / total) * 100) : 0, done, total, label: label || '下载中' }),
       send
     );
+    try { win.webContents.send('install:done', { label: '原版 ' + version, ok: !!(result && result.ok !== false), result }); } catch {}
     return result;
   } catch (e) {
+    try { win.webContents.send('install:done', { label: '原版 ' + version, ok: false, error: e.message }); } catch {}
     return { ok: false, error: e.message };
   }
 });
@@ -2043,8 +2150,10 @@ ipcMain.handle('loader:install', async (_e, { kind, mcVersion, loaderVersion, in
       (done, total, label) => win.webContents.send('install:progress', { pct: total ? Math.round((done / total) * 100) : 0, done, total, label: label || '安装中' }),
       send
     );
+    try { win.webContents.send('install:done', { label: instanceName || kind, ok: !!(result && result.ok !== false), result }); } catch {}
     return result;
   } catch (e) {
+    try { win.webContents.send('install:done', { label: instanceName || kind, ok: false, error: e.message }); } catch {}
     return { ok: false, error: e.message };
   }
 });
@@ -2148,6 +2257,46 @@ ipcMain.handle('tunnel:status', () => ({ ok: true, running: tunnelMgr.isRunning(
 ipcMain.handle('shell:open', (_e, p) => {
   if (/^https?:\/\//i.test(p)) return shell.openExternal(p);
   return shell.openPath(p);
+});
+
+// 窗口控制：最小化/显示（启动游戏后自动最小化等）
+ipcMain.handle('win:minimize', () => {
+  try { if (win && !win.isDestroyed()) win.minimize(); return { ok: true }; }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('win:show', () => {
+  try {
+    if (win && !win.isDestroyed()) {
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+    }
+    return { ok: true };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
+// 系统通知（下载/安装完成、游戏退出等）
+ipcMain.handle('notify', (_e, opts) => {
+  try {
+    const { Notification } = require('electron');
+    if (!Notification.isSupported()) return { ok: false, error: 'unsupported' };
+    const n = new Notification({
+      title: (opts && opts.title) || APP_NAME,
+      body: (opts && opts.body) || '',
+      silent: !!(opts && opts.silent)
+    });
+    n.on('click', () => {
+      try {
+        if (win && !win.isDestroyed()) {
+          if (win.isMinimized()) win.restore();
+          win.show();
+          win.focus();
+        }
+      } catch {}
+    });
+    n.show();
+    return { ok: true };
+  } catch (e) { return { ok: false, error: e.message }; }
 });
 
 ipcMain.handle('java:required', (_e, v) => requiredJava(v));

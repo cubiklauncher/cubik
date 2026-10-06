@@ -45,6 +45,9 @@ contextBridge.exposeInMainWorld('api', {
   requiredJava: (v) => ipcRenderer.invoke('java:required', v),
   launch: (opts) => ipcRenderer.invoke('mc:launch', opts),
   openPath: (p) => ipcRenderer.invoke('shell:open', p),
+  minimizeWin: () => ipcRenderer.invoke('win:minimize'),
+  showWin: () => ipcRenderer.invoke('win:show'),
+  notify: (o) => ipcRenderer.invoke('notify', o),
 
   // 存档 / 实例备份 / 截图 / 导入
   worldList: () => ipcRenderer.invoke('world:list'),
@@ -104,6 +107,7 @@ contextBridge.exposeInMainWorld('api', {
 
   onInstallLog: (cb) => ipcRenderer.on('install:log', (_e, d) => cb(d)),
   onInstallProgress: (cb) => ipcRenderer.on('install:progress', (_e, d) => cb(d)),
+  onInstallDone: (cb) => ipcRenderer.on('install:done', (_e, d) => cb(d)),
 
   // 服务器
   serverCreate: (o) => ipcRenderer.invoke('server:create', o),

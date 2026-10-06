@@ -816,3 +816,57 @@ body.perf-mode .ver-card { background: rgba(248,250,255,.92); }
 /* ---------- 实例启动设置 ---------- */
 .vd-label { display: block; font-size: 13px; color: var(--text-soft); margin: 12px 0 5px; font-weight: 600; }
 #vd-panel-settings input { width: 100%; }
+
+/* ---------- 全局下载进度条 ---------- */
+.global-progress {
+  position: sticky; top: 0; z-index: 50;
+  margin: -8px 0 14px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 9px 14px 11px;
+  backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: 0 6px 20px rgba(31,45,90,.1);
+  animation: gpIn .22s var(--ease);
+}
+@keyframes gpIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.global-progress .gp-head { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+.global-progress .gp-label { font-size: 13px; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.global-progress .gp-pct { font-size: 12px; color: var(--text-mute); flex: none; }
+.global-progress .gp-jump, .global-progress .gp-close {
+  flex: none; border: 1px solid var(--glass-border); background: rgba(255,255,255,.5);
+  border-radius: 8px; font-size: 12px; padding: 3px 9px; cursor: pointer; color: var(--text-soft);
+}
+.global-progress .gp-jump:hover { border-color: var(--accent); color: var(--accent); }
+.global-progress .gp-close { padding: 3px 7px; }
+.global-progress .gp-bar { height: 6px; border-radius: 999px; background: rgba(120,140,180,.16); overflow: hidden; }
+.global-progress .gp-inner { height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .3s var(--ease); }
+.global-progress.gp-ok { border-color: rgba(47,174,122,.5); }
+.global-progress.gp-ok .gp-inner { background: linear-gradient(90deg, #2fae7a, #4fd39b); }
+.global-progress.gp-err { border-color: rgba(192,57,43,.5); }
+.global-progress.gp-err .gp-inner { background: linear-gradient(90deg, #c0392b, #e06a5c); }
+
+/* ---------- 主页版本快速切换 ---------- */
+.ver-switch { cursor: pointer; border-bottom: 1px dashed rgba(47,106,224,.5); transition: color .15s; }
+.ver-switch:hover { color: var(--accent); }
+.home-ver-pop {
+  position: absolute; top: 100%; left: 0; z-index: 60; min-width: 240px; max-width: 340px;
+  margin-top: 6px; max-height: 320px; overflow-y: auto;
+  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(31,45,90,.18); backdrop-filter: blur(20px) saturate(160%);
+  padding: 6px;
+}
+.hero-version { position: relative; }
+.hvp-item {
+  display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 8px;
+  cursor: pointer; font-size: 13px; transition: background .12s;
+}
+.hvp-item:hover { background: rgba(47,106,224,.1); }
+.hvp-item.active { background: rgba(47,106,224,.12); }
+.hvp-item .hvp-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hvp-item .hvp-recent { font-size: 10px; padding: 1px 6px; border-radius: 999px; background: rgba(47,174,122,.16); color: #2fae7a; flex: none; }
+.hvp-item .hvp-cur { color: var(--accent); font-weight: 700; flex: none; }
+.hvp-empty { padding: 14px; font-size: 12px; color: var(--text-mute); text-align: center; }
+.hvp-more { padding: 9px 12px; margin-top: 4px; border-top: 1px solid var(--glass-border); font-size: 12px; color: var(--accent); cursor: pointer; }
+.hvp-more:hover { background: rgba(47,106,224,.08); border-radius: 8px; }
+.ver-recent-tag { font-size: 10px; padding: 1px 6px; border-radius: 999px; background: rgba(47,174,122,.16); color: #2fae7a; margin-left: 4px; vertical-align: middle; }

@@ -89,7 +89,70 @@ function log(level, msg) {
   if (c) c.textContent = logLines + ' 条';
 }
 
-// ---------- 初始化 ----------
+// ---------- 全局下载/安装进度（切页也能看到）----------
+let gpState = { active: false, label: '', pct: 0, startedAt: 0, lastUpdate: 0, timer: null };
+function showGlobalProgress() {
+  const el = $('global-progress');
+  if (el) el.style.display = '';
+}
+function updateGlobalProgress(p) {
+  if (!p) return;
+  const el = $('global-progress');
+  if (!el) return;
+  if (!gpState.active) { gpState.active = true; gpState.startedAt = Date.now(); }
+  gpState.lastUpdate = Date.now();
+  const label = p.label || '下载中';
+  gpState.label = label;
+  const done = p.done || 0, total = p.total || 0;
+  const pct = p.pct != null ? p.pct : total ? Math.min(100, Math.round((done / total) * 100)) : 0;
+  gpState.pct = pct;
+  el.style.display = '';
+  el.classList.remove('gp-done');
+  $('gp-label').textContent = label;
+  $('gp-pct').textContent = total ? `${pct}%  (${done}/${total})` : pct + '%';
+  $('gp-inner').style.width = pct + '%';
+  // 看门狗：若 25s 无新进度，视为结束
+  if (gpState.timer) clearTimeout(gpState.timer);
+  gpState.timer = setTimeout(() => { if (Date.now() - gpState.lastUpdate > 24000) finishGlobalProgress({ label: gpState.label, ok: true }); }, 26000);
+}
+function finishGlobalProgress(d) {
+  const el = $('global-progress');
+  if (!el || !gpState.active) return;
+  gpState.active = false;
+  if (gpState.timer) { clearTimeout(gpState.timer); gpState.timer = null; }
+  const ok = !d || d.ok !== false;
+  $('gp-inner').style.width = '100%';
+  el.classList.add('gp-done', ok ? 'gp-ok' : 'gp-err');
+  $('gp-label').textContent = ok ? '✔ 完成：' + (d && d.label ? d.label : gpState.label) : '✖ 失败：' + (d && d.label ? d.label : gpState.label);
+  $('gp-pct').textContent = ok ? '' : (d && d.error ? d.error : '出错');
+  setTimeout(() => {
+    el.style.display = 'none';
+    el.classList.remove('gp-done', 'gp-ok', 'gp-err');
+    $('gp-inner').style.width = '0%';
+  }, ok ? 3500 : 8000);
+  // 系统通知（应用在后台时也能看到；可在设置里关闭）
+  if (!cfg || cfg.notifyOnDone !== false) {
+    try {
+      window.api.notify({
+        title: ok ? '✔ Cubik 完成' : '✖ Cubik 任务失败',
+        body: ok ? ((d && d.label ? d.label : gpState.label) + ' 已完成') : ((d && d.label ? d.label : gpState.label) + '：' + ((d && d.error) || '出错'))
+      });
+    } catch {}
+  }
+}
+if ($('gp-close')) $('gp-close').onclick = () => {
+  gpState.active = false;
+  if (gpState.timer) { clearTimeout(gpState.timer); gpState.timer = null; }
+  $('global-progress').style.display = 'none';
+};
+if ($('gp-jump')) $('gp-jump').onclick = () => {
+  if (detailCtx) {
+    document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
+    $('page-detail').classList.add('active');
+    document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
+  }
+};
+
 async function init() {
   const t0 = performance.now();
   // 并行拉取配置和 app 信息（两块 IPC 不互相依赖）
@@ -194,8 +257,10 @@ async function init() {
   window.api.onInstallProgress((p) => {
     if (p.pct != null) $('detail-progress').style.width = p.pct + '%';
     if (p.label) $('detail-progress-text').textContent = `${p.label} ${p.done ? '(' + p.done + '/' + p.total + ')' : ''}`;
+    updateGlobalProgress(p);
   });
-  window.api.onServerProgress((p) => {
+  // 安装/下载完成 → 顶部进度条闪一下“完成”后自动隐藏
+  window.api.onInstallDone((d) => finishGlobalProgress(d));window.api.onServerProgress((p) => {
     const pct = p.total > 0 ? Math.min(100, Math.round((p.task / p.total) * 100)) : 0;
     $('srv-progress').style.width = pct + '%';
   });
@@ -219,6 +284,9 @@ async function init() {
     $('btn-launch').disabled = false;
     $('btn-launch').textContent = '▶ 启动游戏';
     $('progress-text').textContent = '游戏已退出';
+    if (!cfg || cfg.notifyOnDone !== false) {
+      try { window.api.notify({ title: 'Cubik', body: '游戏已退出' }); } catch {}
+    }
   });
 
   // 主进程请求回收内存（游戏退出/闲置时）：清掉大对象引用并触发 GC，
@@ -236,6 +304,66 @@ async function init() {
 
 function updateHomeVersion() {
   $('home-version').textContent = selectedVersion || '未选择';
+}
+
+// 记录版本最近使用时间（用于列表排序）
+function markVersionUsed(name) {
+  if (!name) return;
+  if (!cfg) cfg = {};
+  cfg.recentVersions = cfg.recentVersions || {};
+  cfg.recentVersions[name] = Date.now();
+  try { window.api.setConfig(cfg); } catch {}
+}
+
+// ---------- 主页版本快速切换 ----------
+let homePickerOpen = false;
+async function toggleHomePicker() {
+  const pop = $('home-ver-pop');
+  if (!pop) return;
+  if (homePickerOpen) { pop.style.display = 'none'; homePickerOpen = false; return; }
+  homePickerOpen = true;
+  pop.style.display = 'block';
+  pop.innerHTML = '<div class="hvp-empty">加载中…</div>';
+  const list = await window.api.listVersions();
+  if (!list.length) { pop.innerHTML = '<div class="hvp-empty">还没有本地版本，请先到「原版下载」安装一个。</div>'; return; }
+  const recent = (cfg && cfg.recentVersions) || {};
+  const sorted = [...list].sort((a, b) => (recent[b] || 0) - (recent[a] || 0));
+  pop.innerHTML = '';
+  sorted.forEach((v) => {
+    const item = document.createElement('div');
+    item.className = 'hvp-item' + (v === selectedVersion ? ' active' : '');
+    item.innerHTML = `<span class="hvp-name">${esc(v)}</span>${recent[v] ? '<span class="hvp-recent">最近</span>' : ''}${v === selectedVersion ? '<span class="hvp-cur">✓</span>' : ''}`;
+    item.onclick = async () => {
+      selectedVersion = v;
+      cfg.version = v;
+      markVersionUsed(v);
+      updateHomeVersion();
+      homePickerOpen = false;
+      pop.style.display = 'none';
+      await window.api.setConfig(cfg);
+    };
+    pop.appendChild(item);
+  });
+  const more = document.createElement('div');
+  more.className = 'hvp-more';
+  more.textContent = '⚙ 管理全部版本…';
+  more.onclick = () => { homePickerOpen = false; pop.style.display = 'none'; goPage('versions'); };
+  pop.appendChild(more);
+}
+// 点击其他地方关闭主页选择器
+document.addEventListener('click', (e) => {
+  const pop = $('home-ver-pop');
+  const trig = $('home-version');
+  if (homePickerOpen && pop && !pop.contains(e.target) && e.target !== trig && !(trig && trig.contains(e.target))) {
+    pop.style.display = 'none';
+    homePickerOpen = false;
+  }
+});
+
+// 统一页面跳转（供主页选择器等调用）
+function goPage(page) {
+  const nav = document.querySelector('.nav-item[data-page="' + page + '"]');
+  if (nav) nav.click();
 }
 
 // ---------- 账号（微软正版多账号 + 离线）----------
@@ -433,6 +561,9 @@ async function refreshVersions() {
     list.innerHTML = '<li class="empty">暂无本地版本，请先在原版启动器下载，或到设置里指向已有 .minecraft 目录</li>';
     return;
   }
+  // 最近使用排序：有使用记录的在前面（按时间倒序），其余保持原顺序
+  const recent = (cfg && cfg.recentVersions) || {};
+  localVersions.sort((a, b) => (recent[b] || 0) - (recent[a] || 0));
   list.innerHTML = '';
   const metas = await Promise.all(localVersions.map((v) => window.api.versionInfo({ name: v }).catch(() => ({ ok: false }))));
   localVersions.forEach((v, i) => {
@@ -440,10 +571,11 @@ async function refreshVersions() {
     const li = document.createElement('li');
     if (v === selectedVersion) li.classList.add('selected');
     const loaderTag = meta.loader && meta.loader !== '原版' ? `<span class="tg loader">${meta.loader}</span>` : '';
+    const isRecent = recent[v] && (Date.now() - recent[v] < 7 * 24 * 3600 * 1000);
     li.innerHTML = `<div class="ver-left">
         ${verIcon(v, guessType(v))}
         <div class="ver-main">
-          <div class="ver-name">${esc(v)}</div>
+          <div class="ver-name">${esc(v)}${isRecent ? ' <span class="ver-recent-tag">最近</span>' : ''}</div>
           <div class="ver-tags">
             <span class="tg mc">MC ${esc(meta.mcVersion || v)}</span>
             ${loaderTag}
@@ -470,6 +602,7 @@ async function refreshVersions() {
     li.onclick = () => {
       selectedVersion = v;
       cfg.version = v;
+      markVersionUsed(v);
       updateHomeVersion();
       refreshVersions();
     };
@@ -1088,6 +1221,7 @@ async function detectJava() {
 
 // ---------- 事件绑定 ----------
 $('btn-open-mc').onclick = () => window.api.openPath(cfg.mcDir);
+if ($('home-version')) $('home-version').onclick = (e) => { e.stopPropagation(); toggleHomePicker(); };
 if ($('btn-log-clear')) $('btn-log-clear').onclick = () => { $('log-box').textContent = ''; logLines = 0; const c=$('log-count'); if(c) c.textContent='0 条'; };
 if ($('btn-log-copy')) $('btn-log-copy').onclick = async () => {
   const txt = $('log-box').textContent || '';
@@ -1556,6 +1690,8 @@ function initAppearance(cfg) {
   if ($('in-accent')) $('in-accent').value = cfg.accentColor || '#2f6ae0';
   if ($('in-bg-image')) $('in-bg-image').value = cfg.bgImage || '';
   if ($('in-perf-mode')) $('in-perf-mode').checked = !!cfg.perfMode;
+  if ($('in-min-on-launch')) $('in-min-on-launch').checked = cfg.minimizeOnLaunch !== false;
+  if ($('in-notify-done')) $('in-notify-done').checked = cfg.notifyOnDone !== false;
   applyAppearance();
 }
 
@@ -1606,6 +1742,8 @@ $('btn-save').onclick = async () => {
   cfg.skin = currentSkin;
   cfg.bgImage = $('in-bg-image').value.trim();
   cfg.perfMode = $('in-perf-mode') ? $('in-perf-mode').checked : false;
+  cfg.minimizeOnLaunch = $('in-min-on-launch') ? $('in-min-on-launch').checked : true;
+  cfg.notifyOnDone = $('in-notify-done') ? $('in-notify-done').checked : true;
   applyPerfMode(cfg.perfMode);
   await window.api.setConfig(cfg);
   $('st-mcdir').textContent = cfg.mcDir;
@@ -2134,6 +2272,11 @@ $('btn-launch').onclick = async () => {
     btn.textContent = '▶ 启动游戏';
   } else {
     log('data', '启动命令已发出，游戏进程运行中…');
+    markVersionUsed(selectedVersion);
+    // 启动成功后自动最小化启动器（可在设置里关闭）
+    if (cfg.minimizeOnLaunch !== false) {
+      try { window.api.minimizeWin(); } catch {}
+    }
   }
 };
 
