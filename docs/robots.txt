@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://wodefa66666.github.io/cubik/sitemap.xml

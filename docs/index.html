@@ -1,0 +1,193 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cubik - 简洁易用的 Minecraft 启动器</title>
+<meta name="description" content="Cubik 是一款免费开源的 Minecraft 启动器，支持整合包/光影包一键安装、原版与加载器下载、服务器创建管理、多账号登录、自动更新。界面清爽，国内加速。">
+<meta name="keywords" content="Minecraft启动器,Cubik,我的世界,整合包,光影包,Fabric,Forge,NeoForge,服务器">
+<meta name="author" content="Cubik">
+<meta name="theme-color" content="#0a0e1a">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Cubik - 简洁易用的 Minecraft 启动器">
+<meta property="og:description" content="整合包/光影包一键安装，原版下载，服务器管理。免费开源，界面清爽。">
+<meta property="og:image" content="assets/images/logo-512.png">
+<meta property="og:url" content="https://wodefa66666.github.io/cubik/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="assets/images/logo-512.png">
+<link rel="apple-touch-icon" href="assets/images/logo-512.png">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<canvas id="bg-canvas" aria-hidden="true"></canvas>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="nav" id="nav">
+  <div class="nav-inner">
+    <a class="brand" href="#top">
+      <img src="assets/images/logo-256.png" alt="Cubik" class="brand-logo">
+      <span class="brand-name">Cubik</span>
+    </a>
+    <nav class="nav-links" aria-label="主导航">
+      <a href="#features">功能</a>
+      <a href="#download">下载</a>
+      <a href="#faq">常见问题</a>
+      <a href="#about">关于</a>
+    </nav>
+    <a href="https://github.com/wodefa66666/cubik" class="nav-github" target="_blank" rel="noopener" aria-label="GitHub 仓库">
+      <svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      <span>GitHub</span>
+    </a>
+  </div>
+</header>
+
+<main id="top">
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="hero-inner">
+      <div class="hero-badge reveal"><span class="dot"></span> 免费开源 · 持续更新</div>
+      <h1 class="hero-title reveal">
+        <span class="line">简洁易用的</span>
+        <span class="line gradient">Minecraft 启动器</span>
+      </h1>
+      <p class="hero-sub reveal">整合包 / 光影包一键安装 · 原版与加载器下载 · 服务器创建管理<br>国内加速 · 多账号登录 · 自动更新，开箱即用。</p>
+      <div class="hero-actions reveal">
+        <a href="#download" class="btn btn-primary">下载 Cubik</a>
+        <a href="#features" class="btn btn-ghost">查看功能</a>
+      </div>
+      <div class="hero-meta reveal">
+        <div class="meta-item"><strong>v1.0.10</strong><span>最新版本</span></div>
+        <div class="meta-sep"></div>
+        <div class="meta-item"><strong>Windows</strong><span>10 / 11 x64</span></div>
+        <div class="meta-sep"></div>
+        <div class="meta-item"><strong>MIT</strong><span>开源协议</span></div>
+      </div>
+    </div>
+    <div class="hero-visual reveal">
+      <div class="glass-window">
+        <div class="win-bar"><span class="win-dot"></span><span class="win-dot"></span><span class="win-dot"></span><span class="win-title">Cubik</span></div>
+        <div class="win-body">
+          <aside class="win-side">
+            <div class="side-item active">主页</div>
+            <div class="side-item">版本</div>
+            <div class="side-item">整合包</div>
+            <div class="side-item">服务器</div>
+            <div class="side-item">设置</div>
+          </aside>
+          <div class="win-main">
+            <div class="wm-title">Cubik</div>
+            <div class="wm-sub">简洁易用的 Minecraft 启动器</div>
+            <div class="wm-btn">启动游戏</div>
+            <div class="wm-progress"><i></i></div>
+            <div class="wm-hint">正在检查更新与依赖…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="section" id="features">
+    <div class="sec-head reveal">
+      <span class="sec-kicker">FEATURES</span>
+      <h2 class="sec-title">你需要的，都在这里</h2>
+      <p class="sec-desc">从下载游戏到装整合包、开服务器，一个启动器全部搞定。</p>
+    </div>
+    <div class="feat-grid">
+      <article class="feat-card reveal"><div class="feat-ico">&#9670;</div><h3>整合包一键安装</h3><p>从 Modrinth 搜索并安装整合包，自动完成下载、解压、装模组、装加载器、建独立实例全流程。</p></article>
+      <article class="feat-card reveal"><div class="feat-ico">&#9672;</div><h3>全加载器支持</h3><p>自动识别并安装 Fabric / Forge / NeoForge / 原版，装完即可启动，无需手动配置。</p></article>
+      <article class="feat-card reveal"><div class="feat-ico">&#10022;</div><h3>光影包一键安装</h3><p>搜索热门光影包，一键下载到 shaderpacks，游戏内直接启用，画质瞬间拉满。</p></article>
+      <article class="feat-card reveal"><div class="feat-ico">&#9635;</div><h3>服务器管理</h3><p>创建原版 / Paper / Fabric / Forge 服务器，内置 Aikar 性能调优参数，支持启停与发指令。</p></article>
+      <article class="feat-card reveal"><div class="feat-ico">&#9749;</div><h3>Java 自动管理</h3><p>按游戏版本自动匹配并下载对应 Java 运行时，无需手动安装与配置。</p></article>
+      <article class="feat-card reveal"><div class="feat-ico">&#9881;</div><h3>内存智能分配</h3><p>根据物理内存推荐合理分配值，滑块调节，避免爆内存或浪费。</p></article>
+      <article class="feat-card reveal"><div class="feat-ico">&#9889;</div><h3>国内加速下载</h3><p>内置 BMCLAPI 镜像源，国内下载速度更快，告别龟速等待。</p></article>
+      <article class="feat-card reveal"><div class="feat-ico">&#10052;</div><h3>多账号登录</h3><p>支持微软正版登录与离线账号，多账号自由切换，头衔信息一目了然。</p></article>
+    </div>
+  </section>
+
+  <!-- DOWNLOAD -->
+  <section class="section" id="download">
+    <div class="sec-head reveal">
+      <span class="sec-kicker">DOWNLOAD</span>
+      <h2 class="sec-title">下载 Cubik</h2>
+      <p class="sec-desc">选择适合你的版本，Windows 10 / 11 (x64) 可直接运行。</p>
+    </div>
+    <div class="dl-grid">
+      <article class="dl-card reveal">
+        <div class="dl-tag">推荐</div>
+        <h3>安装版</h3>
+        <p class="dl-desc">标准安装程序，自动创建桌面与开始菜单快捷方式，支持一键自动更新。</p>
+        <div class="dl-file">Cubik-1.0.10-x64.exe</div>
+        <a class="btn btn-primary btn-block" href="https://github.com/wodefa66666/cubik/releases/latest/download/Cubik-1.0.10-x64.exe">下载安装版</a>
+      </article>
+      <article class="dl-card reveal">
+        <div class="dl-tag ghost">免安装</div>
+        <h3>便携版</h3>
+        <p class="dl-desc">解压即用，不写注册表，适合放在 U 盘或临时使用。</p>
+        <div class="dl-file">Cubik-1.0.10-portable.exe</div>
+        <a class="btn btn-ghost btn-block" href="https://github.com/wodefa66666/cubik/releases/latest/download/Cubik-1.0.10-portable.exe">下载便携版</a>
+      </article>
+    </div>
+    <p class="dl-note reveal">找不到合适版本？<a href="https://github.com/wodefa66666/cubik/releases" target="_blank" rel="noopener">前往 Releases 页面</a>查看全部版本与更新日志。</p>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section" id="faq">
+    <div class="sec-head reveal">
+      <span class="sec-kicker">FAQ</span>
+      <h2 class="sec-title">常见问题</h2>
+      <p class="sec-desc">使用前先看看这些，能解决大部分疑问。</p>
+    </div>
+    <div class="faq-list">
+      <details class="faq-item reveal"><summary>启动时提示找不到 Java？</summary><div class="faq-body">到「设置」中开启「自动下载 Java」，或手动指定已安装的 java.exe 路径。Cubik 会按游戏版本自动匹配对应的 Java。</div></details>
+      <details class="faq-item reveal"><summary>整合包装完后在哪里启动？</summary><div class="faq-body">整合包会作为独立实例出现在「版本选择」页，选中它点「启动游戏」即可，不同版本之间互不干扰。</div></details>
+      <details class="faq-item reveal"><summary>内存应该分配多少？</summary><div class="faq-body">整合包建议 4G~8G，原版 2G~4G。设置在「设置」页，滑块上方会给出基于你物理内存的建议值。</div></details>
+      <details class="faq-item reveal"><summary>下载很慢怎么办？</summary><div class="faq-body">确认「设置 → 下载源」选择的是「BMCLAPI 国内镜像」，国内用户建议保持此项。</div></details>
+      <details class="faq-item reveal"><summary>检查更新提示无法验证证书？</summary><div class="faq-body">这是部分企业网络 / 安全软件替换 TLS 证书导致的。请使用 v1.0.10 及以上版本，已内置证书兼容处理。</div></details>
+      <details class="faq-item reveal"><summary>支持正版登录吗？</summary><div class="faq-body">支持。使用微软正版账号登录后会自动完成 Xbox Live 验证并获取你的正版档案，支持多账号切换。</div></details>
+      <details class="faq-item reveal"><summary>Cubik 是免费的吗？</summary><div class="faq-body">完全免费且开源（MIT 协议）。Cubik 不包含任何游戏本体文件，仅提供下载与管理工具，请支持购买正版游戏。</div></details>
+    </div>
+  </section>
+
+  <!-- ABOUT -->
+  <section class="section" id="about">
+    <div class="about-grid">
+      <div class="about-main reveal">
+        <span class="sec-kicker">ABOUT</span>
+        <h2 class="sec-title left">关于 Cubik</h2>
+        <p>Cubik 是一款独立的第三方开源 Minecraft 启动器，致力于让「下载游戏、装整合包、开服务器」这些事变得简单。</p>
+        <p>它不包含任何游戏本体文件，仅提供下载与管理工具。界面清爽、启动快、国内加速，适合从新手到老玩家的各类用户。</p>
+        <div class="about-links">
+          <a href="https://github.com/wodefa66666/cubik" target="_blank" rel="noopener">GitHub 仓库</a>
+          <a href="https://github.com/wodefa66666/cubik/releases" target="_blank" rel="noopener">更新日志</a>
+          <a href="https://github.com/wodefa66666/cubik/issues" target="_blank" rel="noopener">问题反馈</a>
+        </div>
+      </div>
+      <div class="about-legal reveal">
+        <h3>法律信息</h3>
+        <ul>
+          <li>Cubik 是独立的第三方开源启动器，与 Mojang Studios / Microsoft 无任何关联。</li>
+          <li>Minecraft 是 Mojang Studios 的商标。</li>
+          <li>本软件不包含任何游戏本体文件，仅提供下载与管理工具。</li>
+          <li>请支持购买正版游戏。</li>
+          <li>开源协议：<a href="https://github.com/wodefa66666/cubik/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a></li>
+          <li>隐私政策 / 使用条款 / 免责声明见仓库根目录。</li>
+        </ul>
+        <div class="legal-contact">联系邮箱：<a href="mailto:358670473@qq.com">358670473@qq.com</a></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="foot-brand"><img src="assets/images/logo-256.png" alt="Cubik" class="foot-logo"><span>Cubik</span></div>
+    <p class="foot-copy">Copyright &copy; 2026 Cubik · MIT License · Made for the Minecraft community</p>
+    <p class="foot-note">Minecraft 是 Mojang Studios 的商标，本站与 Mojang / Microsoft 无任何关联。</p>
+  </div>
+</footer>
+
+<script src="js/main.js"></script>
+</body>
+</html>
