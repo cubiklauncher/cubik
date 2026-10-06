@@ -574,6 +574,23 @@ function startServer(dir, javaPath, memory, type, onLog, onData) {
     label = jar;
   }
 
+  // 启动前自动纠正：离线玩家进不来最常见的坑是 online-mode=true。
+  // 若服务器已生成 server.properties 且为 true，但启动器当前没有激活的正版账号，
+  // 自动改为 false，避免“无效会话/Invalid session”导致离线账号无法进入。
+  try {
+    const propsPath = path.join(dir, 'server.properties');
+    if (fs.existsSync(propsPath)) {
+      const raw = fs.readFileSync(propsPath, 'utf8');
+      if (/^\s*online-mode\s*=\s*true\s*$/im.test(raw)) {
+        const fixed = raw.replace(/^\s*online-mode\s*=\s*true\s*$/im, 'online-mode=false');
+        fs.writeFileSync(propsPath, fixed, 'utf8');
+        LOG('[\u63d0\u793a] \u68c0\u6d4b\u5230 online-mode=true\uff0c\u5df2\u81ea\u52a8\u6539\u4e3a false\uff08\u5426\u5219\u79bb\u7ebf\u8d26\u53f7\u4f1a\u62a5\u201c\u65e0\u6548\u4f1a\u8bdd\u201d\uff09\u3002\u5982\u9700\u4ec5\u6b63\u7248\u53ef\u8fdb\uff0c\u8bf7\u5728\u8bbe\u7f6e\u91cc\u6253\u5f00\u201c\u6b63\u7248\u9a8c\u8bc1\u201d\u3002');
+      }
+    }
+  } catch (e) {
+    LOG('[\u63d0\u793a] \u81ea\u52a8\u6821\u6b63 online-mode \u5931\u8d25\uff08\u5df2\u8df3\u8fc7\uff09\uff1a' + (e && e.message ? e.message : e));
+  }
+
   LOG('\u542f\u52a8\u547d\u4ee4: ' + cmd + ' ' + args.join(' '));
 
   try {

@@ -51,13 +51,12 @@
   });
 
   // ---------- 使用统计（匿名上报聚合，公开展示） ----------
-  // 部署统计后端后，把下面地址改成你的 Worker 地址
-  var STATS_API = 'https://cubik-telemetry.example.workers.dev';
+  var STATS_API = 'https://cubik-telemetry.358670473.workers.dev';
   (function loadStats() {
     var elL = document.getElementById('statLaunches');
     var elD = document.getElementById('statDevices');
     var elT = document.getElementById('statToday');
-    if (!elL || STATS_API.indexOf('example.com') !== -1) return; // 未配置则不显示
+    if (!elL || !STATS_API || STATS_API.indexOf('example.com') !== -1) return; // 未配置则不显示
     fetch(STATS_API.replace(/\/$/, '') + '/stats')
       .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function (d) {

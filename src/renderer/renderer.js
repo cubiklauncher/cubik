@@ -1727,6 +1727,7 @@ function initAppearance(cfg) {
   if ($('in-perf-mode')) $('in-perf-mode').checked = !!cfg.perfMode;
   if ($('in-min-on-launch')) $('in-min-on-launch').checked = cfg.minimizeOnLaunch !== false;
   if ($('in-notify-done')) $('in-notify-done').checked = cfg.notifyOnDone !== false;
+  if ($('in-telemetry')) $('in-telemetry').checked = cfg.telemetry !== false;
   applyAppearance();
 }
 
@@ -1779,6 +1780,7 @@ $('btn-save').onclick = async () => {
   cfg.perfMode = $('in-perf-mode') ? $('in-perf-mode').checked : false;
   cfg.minimizeOnLaunch = $('in-min-on-launch') ? $('in-min-on-launch').checked : true;
   cfg.notifyOnDone = $('in-notify-done') ? $('in-notify-done').checked : true;
+  cfg.telemetry = $('in-telemetry') ? $('in-telemetry').checked : true;
   applyPerfMode(cfg.perfMode);
   await window.api.setConfig(cfg);
   $('st-mcdir').textContent = cfg.mcDir;
@@ -2304,6 +2306,20 @@ async function copyText(t, btn) {
   if (btn) { const o = btn.textContent; btn.textContent = '已复制'; setTimeout(() => { btn.textContent = o; }, 1200); }
 }
 if ($('btn-net-refresh')) $('btn-net-refresh').onclick = refreshNetInfo;
+if ($('btn-toggle-online')) $('btn-toggle-online').onclick = async () => {
+  const dir = $('in-srv-dir').value.trim();
+  if (!dir) return alert('请先填写服务器目录');
+  const info = await window.api.serverInfo({ dir });
+  if (!info || !info.ok) return alert('读取服务器信息失败：' + ((info && info.error) || '未知错误'));
+  const next = !info.onlineMode; // 取反
+  const r = await window.api.serverUpdateProps({ dir, updates: { 'online-mode': next ? 'true' : 'false' } });
+  if (!r || !r.ok) return alert('修改失败：' + ((r && r.error) || '未知错误'));
+  await refreshNetInfo();
+  const tip = $('net-tip');
+  if (tip) tip.textContent = next
+    ? '已开启正版验证：仅正版账号可进入，离线账号会报“无效会话”。重启服务器后生效。'
+    : '已关闭正版验证：离线账号也可以进入。重启服务器后生效。';
+};
 if ($('btn-copy-lan')) $('btn-copy-lan').onclick = () => copyText($('net-lan').dataset.copy || $('net-lan').textContent, $('btn-copy-lan'));
 if ($('btn-copy-pub')) $('btn-copy-pub').onclick = () => copyText($('net-pub').dataset.copy || $('net-pub').textContent, $('btn-copy-pub'));
 $('btn-srv-open').onclick = () => window.api.openPath($('in-srv-dir').value.trim());

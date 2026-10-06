@@ -510,6 +510,7 @@
             <label class="chk-inline"><input type="checkbox" id="chk-srv-commandblock"> 允许命令方块</label>
             <label class="chk-inline"><input type="checkbox" id="chk-srv-whitelist"> 开启白名单</label>
           </div>
+          <p class="hint">默认<b>不</b>开启正版验证：离线账号也能进。开启后仅正版账号可进入（离线账号会报“无效会话”）。</p>
         </details>
         <label>服务器内存（MB）</label>
         <div class="row" style="align-items:center;gap:12px">
@@ -578,7 +579,7 @@
           </div>
           <div class="net-item">
             <div class="net-label">🔐 正版验证</div>
-            <div class="net-val"><span id="net-online">—</span></div>
+            <div class="net-val"><span id="net-online">—</span><button class="btn mini" id="btn-toggle-online">切换</button></div>
           </div>
         </div>
         <p class="hint" id="net-tip">同一局域网：把<strong>局域网地址</strong>发给朋友，他在多人游戏里「添加服务器」粘贴即可。\n公网联机：把<strong>公网 IP:端口</strong>发给朋友，并确保已在路由器做端口映射（或使用内网穿透）。</p>
@@ -815,6 +816,11 @@
           <input id="in-notify-done" type="checkbox" style="flex:none;width:18px;height:18px">
           <span>下载 / 安装完成时弹系统通知</span>
         </label>
+        <label class="row" style="align-items:center;gap:10px">
+          <input id="in-telemetry" type="checkbox" style="flex:none;width:18px;height:18px">
+          <span>发送匿名使用统计（仅版本/平台/匿名随机 ID，不含任何个人信息）</span>
+        </label>
+        <p class="hint">开启后可帮助作者了解使用情况，不会影响启动速度；可随时关闭。</p>
 
         <div class="settings-divider"></div>
         <h2 class="settings-h2">⚡ 性能</h2>

@@ -17,11 +17,12 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-// 统计后端地址（部署 Worker 后填入，留空则完全关闭统计）
-const TELEMETRY_ENDPOINT = 'https://cubik-telemetry.example.workers.dev';
+// 统计后端地址（Cloudflare Worker，已部署）
+// 部署后可填入真实地址；置空或包含 example.com 则完全关闭统计。
+const TELEMETRY_ENDPOINT = 'https://cubik-telemetry.358670473.workers.dev';
 
-// 上报超时（毫秒）——弱网也不拖慢启动
-const REPORT_TIMEOUT = 4000;
+// 上报超时（毫秒）——弱网也不拖慢启动（非阻塞，仅后台尝试）
+const REPORT_TIMEOUT = 2500;
 
 let _inited = false;
 
