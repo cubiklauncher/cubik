@@ -687,3 +687,38 @@ body.perf-mode .modal {
 body.perf-mode .card::after,
 body.perf-mode .sidebar::after { display: none !important; }
 body.perf-mode .sidebar { background: rgba(246, 249, 255, 0.96) !important; }
+
+/* ============================================================
+   版本卡片网格（原版下载页）
+   ============================================================ */
+.ver-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 6px;
+}
+.ver-card {
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  border-radius: 14px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: transform .15s var(--ease), box-shadow .15s var(--ease), border-color .15s;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ver-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(31,45,90,.16);
+  border-color: var(--accent);
+}
+.ver-card .vc-id { font-weight: 700; font-size: 15px; }
+.ver-card .vc-meta { font-size: 11px; color: var(--text-mute); }
+.ver-card .vc-tag {
+  align-self: flex-start; font-size: 10px; padding: 1px 7px; border-radius: 999px;
+  background: rgba(47,106,224,.14); color: var(--accent);
+}
+.ver-card .vc-tag.snapshot { background: rgba(224,128,63,.16); color: #b5621f; }
+.ver-card .vc-tag.old { background: rgba(120,120,140,.16); color: #6a6a80; }
+body.perf-mode .ver-card { background: rgba(248,250,255,.92); }

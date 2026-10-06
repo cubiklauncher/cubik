@@ -18,7 +18,8 @@
     </div>
     <nav id="nav">
       <button class="nav-item active" data-page="home">🏠 主页</button>
-      <button class="nav-item" data-page="versions">📦 版本选择</button>
+      <button class="nav-item" data-page="vanilla">⬇ 原版下载</button>
+      <button class="nav-item" data-page="versions">📦 版本管理</button>
       <button class="nav-item" data-page="modpack">🧩 整合包</button>
       <button class="nav-item" data-page="mod">🔧 Mod 下载</button>
       <button class="nav-item" data-page="shader">✨ 光影包</button>
@@ -69,10 +70,11 @@
     </section>
 
     <!-- 版本选择 -->
-    <section class="page" id="page-versions">
-      <h1>版本选择</h1>
+    <!-- 原版下载（独立页） -->
+    <section class="page" id="page-vanilla">
+      <h1>原版下载</h1>
       <div class="card form">
-        <label>下载游戏</label>
+        <label>选择游戏版本</label>
         <div class="row">
           <select id="sel-van-type">
             <option value="release">正式版 Release</option>
@@ -120,6 +122,16 @@
         </div>
         <p class="hint">自动下载 client.jar、libraries 和全部资源文件（assets）。勾选加载器和组件会一并装进同一个版本，一次全部下完。</p>
       </div>
+
+      <h2>全部可用版本（点击卡片直接安装）</h2>
+      <div class="row" style="margin-bottom:8px">
+        <input id="in-van-list-search" type="text" placeholder="搜索版本号，如 1.20.1 …" style="flex:1">
+      </div>
+      <div class="ver-cards" id="van-card-list"><div class="empty">加载中…</div></div>
+    </section>
+
+    <section class="page" id="page-versions">
+      <h1>版本管理</h1>
       <div class="row">
         <h2 style="margin:0">本地版本</h2>
         <button id="btn-refresh" class="btn ghost" style="margin-left:auto">🔄 刷新</button>
@@ -155,8 +167,9 @@
           <div id="mod-store" style="display:none">
             <div class="row">
               <select id="sel-mod-source">
+                <option value="all">🌐 综合（Modrinth + CurseForge）</option>
                 <option value="modrinth">Modrinth</option>
-                <option value="curseforge">CurseForge</option>
+                <option value="curseforge">CurseForge（需 API Key）</option>
               </select>
               <input id="in-mod-query" type="text" placeholder="搜索 Mod，如 sodium / JEI">
               <button class="btn primary" id="btn-mod-search">搜索</button>
@@ -183,8 +196,9 @@
       <div class="card">
         <div class="row">
           <select id="sel-pack-source">
+            <option value="all">🌐 综合搜索（Modrinth + CurseForge）</option>
             <option value="modrinth">Modrinth（推荐）</option>
-            <option value="curseforge">CurseForge（需 API Key）</option>
+            <option value="curseforge">CurseForge（需在设置填 API Key）</option>
           </select>
           <input id="in-pack-query" type="text" placeholder="搜索整合包，如 RLCraft / 空岛生存（支持中文）">
           <button id="btn-pack-search" class="btn primary">搜索</button>

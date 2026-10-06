@@ -70,6 +70,8 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (btn.dataset.page === 'shader' && !shaderLoaded) loadShaderTop();
     if (btn.dataset.page === 'mod' && !modPageLoaded) loadModPage();
     if (btn.dataset.page === 'server') refreshNetInfo();
+    if (btn.dataset.page === 'vanilla' && !window.__vanLoaded) { window.__vanLoaded = true; loadVanillaVersions(); }
+    if (btn.dataset.page === 'versions') refreshVersions();
   };
 });
 
@@ -143,7 +145,7 @@ async function init() {
   console.log('[启动耗时] 首屏完成: ' + Math.round(performance.now() - t0) + 'ms');
   // 拉取可用版本列表这类非关键网请求放到空闲时执行，不阻塞首屏
   const defer = (fn) => (window.requestIdleCallback ? window.requestIdleCallback(fn, { timeout: 2000 }) : setTimeout(fn, 400));
-  defer(() => loadVanillaVersions());
+  defer(() => { window.__vanLoaded = true; loadVanillaVersions(); });
   defer(() => loadServerVersions());
 
   window.api.onLog((d) => log(d.level, d.msg));
@@ -444,6 +446,37 @@ async function loadVanillaVersions(opts = {}) {
   if (r.list.length) selectVanillaVersion(r.list[0].id, type);
   else { $('vp-label').textContent = '无可用版本'; $('sel-van-ver').value = ''; }
   renderVanillaPicker('');
+  renderVanillaCards('');
+}
+
+// 渲染“全部可用版本”卡片列表（点击直接选中/安装）
+function renderVanillaCards(filter) {
+  const wrap = $('van-card-list');
+  if (!wrap) return;
+  const q = String(filter || '').trim().toLowerCase();
+  const type = $('sel-van-type').value;
+  const list = vanillaVerList.filter((v) => !q || v.id.toLowerCase().includes(q));
+  if (!list.length) { wrap.innerHTML = '<div class="empty">无匹配版本</div>'; return; }
+  wrap.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  list.slice(0, 300).forEach((v) => {
+    const el = document.createElement('div');
+    el.className = 'ver-card';
+    const tagCls = v.type === 'release' ? '' : (v.type === 'snapshot' ? 'snapshot' : 'old');
+    const tagTxt = v.type === 'release' ? '正式版' : (v.type === 'snapshot' ? '快照' : '远古');
+    const date = v.time ? new Date(v.time).toLocaleDateString() : '';
+    el.innerHTML = `${verIcon(v.id, type)}<div class="vc-id">${esc(v.id)}</div>` +
+      `<div class="vc-meta">${date}</div>` +
+      `<span class="vc-tag ${tagCls}">${tagTxt}</span>`;
+    el.onclick = () => {
+      selectVanillaVersion(v.id, type);
+      $('vp-label').textContent = v.id;
+      // 滚到表单（若在上方）提示已选中
+      if ($('btn-van-install')) $('btn-van-install').focus();
+    };
+    frag.appendChild(el);
+  });
+  wrap.appendChild(frag);
 }
 
 function selectVanillaVersion(id, type) {
@@ -484,6 +517,7 @@ if ($('ver-picker-btn')) {
 }
 
 $('sel-van-type').onchange = () => loadVanillaVersions();
+if ($('in-van-list-search')) $('in-van-list-search').oninput = (e) => renderVanillaCards(e.target.value);
 if ($('btn-refresh-manifest')) $('btn-refresh-manifest').onclick = async () => {
   $('btn-refresh-manifest').disabled = true;
   try { await loadVanillaVersions({ force: true }); } finally { $('btn-refresh-manifest').disabled = false; }
@@ -728,7 +762,9 @@ async function loadModStore(query) {
   const source = $('sel-mod-source').value;
   list.innerHTML = '<div class="empty">加载中…</div>';
   $('mod-ver-panel').style.display = 'none';
-  const r = await window.api.modSearch({ source, query, version: vdCurrent });
+  const r = $('sel-mod-source').value === 'all'
+    ? await window.api.searchAll({ kind: 'mod', query, mcVersion: vdCurrent })
+    : await window.api.modSearch({ source, query, version: vdCurrent });
   if (!r.ok) { list.innerHTML = `<div class="empty">搜索失败：${esc(r.error)}</div>`; $('mod-store-filter').textContent = ''; return; }
   if (!r.list.length) { list.innerHTML = '<div class="empty">未找到兼容该版本的 Mod</div>'; }
   else renderCards(list, r.list, (p) => openDetail('mod', p));
@@ -1245,7 +1281,9 @@ $('btn-pack-search').onclick = async () => {
   const list = $('pack-list');
   $('pack-list-title').textContent = '🔍 搜索结果：' + query;
   list.innerHTML = '<div class="empty">搜索中…</div>';
-  const res = await window.api.packSearch({ source, query, type: 'modpack' });
+  const res = source === 'all'
+    ? await window.api.searchAll({ kind: 'modpack', query })
+    : await window.api.packSearch({ source, query, type: 'modpack' });
   if (!res.ok) { list.innerHTML = `<div class="empty">搜索失败：${res.error}</div>`; return; }
   renderCards(list, res.list, (p) => openDetail('pack', p));
 };

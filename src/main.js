@@ -1265,6 +1265,17 @@ function humanizeError(raw) {
   return raw;
 }
 
+// ---------- 综合搜索（Modrinth + CurseForge 合并） ----------
+ipcMain.handle('search:all', async (_e, { kind, query, mcVersion, loader }) => {
+  try {
+    const list = await modpack.searchAll(kind || 'modpack', query, { mcVersion, loader });
+    await modpack.attachZhNames(list);
+    return { ok: true, list };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
 // ---------- 整合包搜索/安装 ----------
 ipcMain.handle('pack:search', async (_e, { source, query, type }) => {
   try {

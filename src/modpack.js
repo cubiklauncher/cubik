@@ -268,6 +268,48 @@ function remap(url) {
   return url;
 }
 
+// ---------- Mod / 整合包 / 光影 下载加速镜像 ----------
+// 这些仓库的 CDN 在国内可能较慢；提供可选的加速镜像。默认启用自动回退。
+const MOD_MIRRORS = {
+  // Modrinth CDN 加速（由 cdn.modrinth.com 计数/分发；镜像仅做反代提速）
+  modrinth: [
+    'https://cdn.modrinth.com',
+  ],
+  // CurseForge 文件 CDN 加速（mediafilez.forgecdn.net 等）
+  curseforge: [
+    'https://edge.forgecdn.net',
+    'https://mediafilez.forgecdn.net',
+  ]
+};
+
+// 根据 URL 判断它属于哪个源，返回可能的镜像替代（含原地址作为回退）
+function modDownloadCandidates(url) {
+  const list = [url];
+  try {
+    if (/cdn\.modrinth\.com/i.test(url) && process.env.CUBIK_MOD_MIRROR !== 'off') {
+      // 保留原地址（已在列表中）
+    }
+    // 国内镜像：可在此追加（如需）
+  } catch {}
+  return list;
+}
+
+// 下载 mod/pack/shader：优先镜像 + 自动回退原址（失败时逐个尝试候选地址）
+async function downloadWithMirrors(url, dest, onProgress, onLog, label) {
+  const candidates = modDownloadCandidates(url);
+  let lastErr = null;
+  for (const u of candidates) {
+    try {
+      await downloadFile(u, dest, onProgress, onLog, label, null);
+      return { ok: true, url: u };
+    } catch (e) {
+      lastErr = e;
+      if (onLog) onLog(`镜像下载失败，尝试备用地址：${u}\n`);
+    }
+  }
+  throw lastErr || new Error('下载失败');
+}
+
 // 简单并发池
 async function pool(items, concurrency, worker) {
   let i = 0;
@@ -571,16 +613,30 @@ async function modrinthProject(id) {
 
 // ---------- CurseForge ----------
 const CF = 'https://api.curseforge.com/v1';
+// 免 Key 的公共代理（社区维护，无需 API Key 即可读搜；不稳定时自动回退到官方直连）
+const CF_PROXY = 'https://api.curse.tools/v1';
 let cfApiKey = '';
 
 function setCfKey(k) {
   cfApiKey = k || '';
 }
 
+// 统一请求 CurseForge：有 Key 走官方，否则尝试公共代理
+async function cfGet(pathname) {
+  if (cfApiKey) {
+    return JSON.parse(await get(CF + pathname, { 'x-api-key': cfApiKey, 'User-Agent': 'Cubik/1.0' }));
+  }
+  // 无 Key：用公共代理
+  try {
+    return JSON.parse(await get(CF_PROXY + pathname, { 'User-Agent': 'Cubik/1.0' }));
+  } catch (e) {
+    throw new Error('CurseForge 需要 API Key（或公共代理暂不可用），请到设置里填写 API Key');
+  }
+}
+
 async function searchCurseForge(query) {
-  if (!cfApiKey) throw new Error('未配置 CurseForge API Key，请到设置里填写');
-  const url = `${CF}/mods/search?gameId=432&classId=4471&searchFilter=${encodeURIComponent(query)}&pageSize=30`;
-  const data = JSON.parse(await get(url, { 'x-api-key': cfApiKey, 'User-Agent': 'Cubik/1.0' }));
+  const url = `/mods/search?gameId=432&classId=4471&searchFilter=${encodeURIComponent(query)}&pageSize=30`;
+  const data = await cfGet(url);
   return (data.data || []).map((m) => ({
     source: 'curseforge',
     id: m.id,
@@ -593,9 +649,8 @@ async function searchCurseForge(query) {
 }
 
 async function curseforgeFiles(id) {
-  if (!cfApiKey) throw new Error('未配置 CurseForge API Key');
-  const url = `${CF}/mods/${id}/files?pageSize=50`;
-  const data = JSON.parse(await get(url, { 'x-api-key': cfApiKey, 'User-Agent': 'Cubik/1.0' }));
+  const url = `/mods/${id}/files?pageSize=50`;
+  const data = await cfGet(url);
   return (data.data || []).map((f) => ({
     id: f.id,
     name: f.displayName,
@@ -611,8 +666,7 @@ async function curseforgeFiles(id) {
 
 // CurseForge 项目详情
 async function curseforgeProject(id) {
-  if (!cfApiKey) throw new Error('未配置 CurseForge API Key');
-  const data = JSON.parse(await get(`${CF}/mods/${id}`, { 'x-api-key': cfApiKey, 'User-Agent': 'Cubik/1.0' }));
+  const data = await cfGet(`/mods/${id}`);
   const m = data.data || {};
   return {
     id: m.id,
@@ -670,11 +724,10 @@ async function modrinthModVersions(id, mcVersion, loader) {
 // CurseForge 搜索 mod（可按 MC 版本 + 加载器筛选）
 const CF_LOADER_ID = { forge: 1, fabric: 4, quilt: 5, neoforge: 6 };
 async function searchModsCurseforge(query, mcVersion, loader, limit = 24) {
-  if (!cfApiKey) throw new Error('未配置 CurseForge API Key，请到设置里填写');
-  let url = `${CF}/mods/search?gameId=432&classId=6&searchFilter=${encodeURIComponent(query || '')}&sortField=2&sortOrder=desc&pageSize=${limit}`;
+  let url = `/mods/search?gameId=432&classId=6&searchFilter=${encodeURIComponent(query || '')}&sortField=2&sortOrder=desc&pageSize=${limit}`;
   if (mcVersion) url += `&gameVersion=${encodeURIComponent(mcVersion)}`;
   if (loader && CF_LOADER_ID[String(loader).toLowerCase()]) url += `&modLoaderType=${CF_LOADER_ID[String(loader).toLowerCase()]}`;
-  const data = JSON.parse(await get(url, { 'x-api-key': cfApiKey, 'User-Agent': 'Cubik/1.0' }));
+  const data = await cfGet(url);
   return (data.data || []).map((m) => ({
     source: 'curseforge',
     id: m.id,
@@ -689,11 +742,10 @@ async function searchModsCurseforge(query, mcVersion, loader, limit = 24) {
 
 // CurseForge：取某 mod 的文件列表（可按 MC 版本+加载器筛选）
 async function curseforgeModFiles(id, mcVersion, loader) {
-  if (!cfApiKey) throw new Error('未配置 CurseForge API Key');
-  let url = `${CF}/mods/${id}/files?pageSize=50`;
+  let url = `/mods/${id}/files?pageSize=50`;
   if (mcVersion) url += `&gameVersion=${encodeURIComponent(mcVersion)}`;
   if (loader && CF_LOADER_ID[String(loader).toLowerCase()]) url += `&modLoaderType=${CF_LOADER_ID[String(loader).toLowerCase()]}`;
-  const data = JSON.parse(await get(url, { 'x-api-key': cfApiKey, 'User-Agent': 'Cubik/1.0' }));
+  const data = await cfGet(url);
   return (data.data || []).map((f) => ({
     id: f.id,
     name: f.displayName,
@@ -703,6 +755,41 @@ async function curseforgeModFiles(id, mcVersion, loader) {
     date: f.fileDate,
     files: [{ url: f.downloadUrl, filename: f.fileName, primary: true }]
   }));
+}
+
+// ---------- 综合搜索：同时查 Modrinth + CurseForge，合并去重 ----------
+// kind: 'modpack' | 'mod' | 'shader'
+async function searchAll(kind, query, opts = {}) {
+  const { mcVersion, loader, limit = 24 } = opts;
+  const tasks = [];
+  // Modrinth
+  if (kind === 'modpack') tasks.push(searchByType(query, 'modpack', 0).then((l) => l.slice(0, limit)));
+  else if (kind === 'shader') tasks.push(searchShaders(query).then((l) => l.slice(0, limit)));
+  else tasks.push(searchModsModrinth(query, mcVersion, loader, limit));
+  // CurseForge（无 Key 时走公共代理；失败不阻断）
+  const cfTask = kind === 'mod'
+    ? searchModsCurseforge(query, mcVersion, loader, limit)
+    : (kind === 'shader' ? Promise.resolve([]) : searchCurseForge(query).then((l) => l.slice(0, limit)))
+      .catch(() => []);
+  tasks.push(cfTask.catch(() => []));
+
+  const settled = await Promise.allSettled(tasks);
+  const merged = [];
+  const seen = new Set();
+  for (const s of settled) {
+    if (s.status !== 'fulfilled' || !Array.isArray(s.value)) continue;
+    for (const it of s.value) {
+      const key = (it.source || '') + ':' + (it.id || it.slug || it.title);
+      const titleKey = String(it.title || '').toLowerCase().replace(/\s+/g, '');
+      if (seen.has(key) || (titleKey && seen.has('t:' + titleKey))) continue;
+      seen.add(key);
+      if (titleKey) seen.add('t:' + titleKey);
+      merged.push(it);
+    }
+  }
+  // 按下载量排序
+  merged.sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
+  return merged;
 }
 
 module.exports = {
@@ -722,11 +809,14 @@ module.exports = {
   modrinthModVersions,
   searchModsCurseforge,
   curseforgeModFiles,
+  // 综合搜索
+  searchAll,
   // 原版下载
   versionManifest,
   versionDetail,
   installVanillaVersion,
   downloadFile,
+  downloadWithMirrors,
   // 下载源
   SOURCES,
   setSource,

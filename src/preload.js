@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('api', {
   onUpdateProgress: (cb) => ipcRenderer.on('update:progress', (_e, d) => cb(d)),
   versionManifest: (p) => ipcRenderer.invoke('mc:manifest', p),
   sourceList: () => ipcRenderer.invoke('source:list'),
+  searchAll: (p) => ipcRenderer.invoke('search:all', p),
   installVanilla: (p) => ipcRenderer.invoke('mc:install-vanilla', p),
   loaderVersions: (p) => ipcRenderer.invoke('loader:versions', p),
   loaderInstall: (p) => ipcRenderer.invoke('loader:install', p),
