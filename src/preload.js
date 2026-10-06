@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('api', {
   listVersions: () => ipcRenderer.invoke('mc:versions'),
   versionInfo: (p) => ipcRenderer.invoke('mc:version-info', p),
   versionDelete: (p) => ipcRenderer.invoke('mc:version-delete', p),
+  trashList: () => ipcRenderer.invoke('mc:trash-list'),
+  trashRestore: (p) => ipcRenderer.invoke('mc:trash-restore', p),
   versionLibraries: (p) => ipcRenderer.invoke('mc:libraries', p),
   modsList: (p) => ipcRenderer.invoke('mods:list', p),
   modsToggle: (p) => ipcRenderer.invoke('mods:toggle', p),

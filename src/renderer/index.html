@@ -135,6 +135,7 @@
       <div class="row">
         <h2 style="margin:0">本地版本</h2>
         <button id="btn-refresh" class="btn ghost" style="margin-left:auto">🔄 刷新</button>
+        <button id="btn-trash-open" class="btn ghost" title="查看并恢复已删除的版本">♻️ 回收站</button>
         <button id="btn-manage-toggle" class="btn ghost">🗂 管理游戏版本</button>
       </div>
       <!-- 管理模式提示 -->
@@ -144,6 +145,16 @@
       <ul class="version-list" id="version-list">
         <li class="empty">暂无本地版本，请在上方下载安装原版，或用设置里的目录指向已有 .minecraft</li>
       </ul>
+
+      <!-- 回收站：恢复已删除的版本 -->
+      <div id="trash-panel" style="display:none">
+        <div class="row" style="margin-top:14px">
+          <h2 style="margin:0">♻️ 回收站（已删除的版本）</h2>
+          <button id="btn-trash-close" class="btn ghost" style="margin-left:auto">✕ 关闭</button>
+        </div>
+        <span class="hint">删除的版本会保留在这里，可随时恢复。</span>
+        <ul class="version-list" id="trash-list"><li class="empty">加载中…</li></ul>
+      </div>
 
       <!-- 版本详情：mod 管理 + 支持库 -->
       <div id="version-detail" style="display:none">

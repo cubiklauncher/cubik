@@ -250,6 +250,77 @@ function createWindow() {
       setTimeout(() => app.quit(), 300);
       return;
     }
+    if (process.env.CUBIK_SELFTEST === 'trash') {
+      try {
+        await new Promise((r) => setTimeout(r, 2500));
+        const out = await win.webContents.executeJavaScript(`(async () => {
+          const res = {};
+          const t = await window.api.trashList();
+          res.trash = { ok: t.ok, count: t.list ? t.list.length : 0, sample: t.list && t.list[0] ? t.list[0].origName : null };
+          document.querySelector('.nav-item[data-page="versions"]').click();
+          await new Promise(r => setTimeout(r, 1500));
+          const btn = document.getElementById('btn-trash-open');
+          res.trashBtnExists = !!btn;
+          if (btn) { btn.click(); await new Promise(r => setTimeout(r, 1500)); }
+          const panel = document.getElementById('trash-panel');
+          res.panelShown = panel ? panel.style.display !== 'none' : false;
+          res.trashItems = document.querySelectorAll('#trash-list li:not(.empty)').length;
+          res.verItems = document.querySelectorAll('#version-list li:not(.empty)').length;
+          return JSON.stringify(res);
+        })()`);
+        require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), out);
+      } catch (e) { try { require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), 'ERR ' + e.message); } catch {} }
+      setTimeout(() => app.quit(), 300);
+      return;
+    }
+    if (process.env.CUBIK_SELFTEST === 'homever') {
+      try {
+        await new Promise((r) => setTimeout(r, 2500));
+        const out = await win.webContents.executeJavaScript(`(async () => {
+          const res = {};
+          document.querySelector('.nav-item[data-page="home"]').click();
+          await new Promise(r => setTimeout(r, 1200));
+          const lv = document.getElementById('home-version');
+          const lb = document.getElementById('btn-launch');
+          res.home = {
+            active: document.getElementById('page-home').classList.contains('active'),
+            versionText: lv ? lv.textContent : null,
+            launchBtn: lb ? lb.textContent.trim() : null,
+            launchDisabled: lb ? lb.disabled : null,
+            username: document.getElementById('in-username') ? document.getElementById('in-username').value : null,
+            memVal: document.getElementById('in-mem') ? document.getElementById('in-mem').value : null
+          };
+          res.navOrder = [...document.querySelectorAll('.nav-item')].map(b => b.dataset.page);
+          document.querySelector('.nav-item[data-page="versions"]').click();
+          await new Promise(r => setTimeout(r, 2500));
+          const vlist = document.getElementById('version-list');
+          res.versions = {
+            active: document.getElementById('page-versions').classList.contains('active'),
+            itemCount: vlist ? vlist.querySelectorAll('li:not(.empty)').length : 0,
+            firstText: vlist && vlist.querySelector('li') ? vlist.querySelector('li').textContent.trim().slice(0,100) : null,
+            empty: vlist ? !!vlist.querySelector('.empty') : null
+          };
+          document.querySelector('.nav-item[data-page="vanilla"]').click();
+          await new Promise(r => setTimeout(r, 3000));
+          const vcards = document.querySelectorAll('#van-card-list .ver-card');
+          res.vanilla = {
+            active: document.getElementById('page-vanilla').classList.contains('active'),
+            cardCount: vcards.length,
+            firstCard: vcards[0] ? vcards[0].textContent.trim().slice(0,60) : null,
+            cacheHint: document.getElementById('van-cache-hint') ? document.getElementById('van-cache-hint').textContent : null
+          };
+          return JSON.stringify(res);
+        })()`);
+        require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), out);
+        // 截图版本管理页
+        await win.webContents.executeJavaScript(`document.querySelector('.nav-item[data-page="versions"]').click()`);
+        await new Promise((r) => setTimeout(r, 1500));
+        const png = await win.webContents.capturePage();
+        require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-ver-shot.png'), png.toPNG());
+      } catch (e) { try { require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), 'ERR ' + e.message); } catch {} }
+      setTimeout(() => app.quit(), 300);
+      return;
+    }
     if (process.env.CUBIK_SELFTEST === 'launch') {
       // 测试启动游戏，捕获错误
       try {
@@ -806,6 +877,54 @@ function readVersionMeta(mcDir, name) {
 ipcMain.handle('mc:version-info', (_e, { name }) => {
   try { return { ok: true, info: readVersionMeta(loadConfig().mcDir, name) }; }
   catch (e) { return { ok: false, error: e.message }; }
+});
+
+// 列出回收站中已删除的版本
+ipcMain.handle('mc:trash-list', () => {
+  try {
+    const cfg = loadConfig();
+    const trash = path.join(cfg.mcDir, '.trash', 'versions');
+    if (!fs.existsSync(trash)) return { ok: true, list: [] };
+    const list = fs.readdirSync(trash, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => {
+        // 目录名格式：<原名>_<时间戳>
+        const m = d.name.match(/^(.*)_(\d{13})$/);
+        const origName = m ? m[1] : d.name;
+        const ts = m ? parseInt(m[2], 10) : 0;
+        const full = path.join(trash, d.name);
+        let sizeMB = 0;
+        try {
+          const walk = (p) => { for (const e of fs.readdirSync(p, { withFileTypes: true })) { const fp = path.join(p, e.name); if (e.isDirectory()) walk(fp); else { try { sizeMB += fs.statSync(fp).size; } catch {} } } };
+          walk(full);
+        } catch {}
+        return { dir: d.name, origName, deletedAt: ts, sizeMB: Math.round(sizeMB / 1048576 * 10) / 10 };
+      })
+      .sort((a, b) => b.deletedAt - a.deletedAt);
+    return { ok: true, list };
+  } catch (e) { return { ok: false, error: e.message } };
+});
+
+// 从回收站恢复一个版本
+ipcMain.handle('mc:trash-restore', (_e, { dir }) => {
+  try {
+    const cfg = loadConfig();
+    const trash = path.join(cfg.mcDir, '.trash', 'versions');
+    const src = path.join(trash, dir);
+    if (!fs.existsSync(src)) return { ok: false, error: '回收站中未找到该项' };
+    const m = dir.match(/^(.*)_(\d{13})$/);
+    let origName = m ? m[1] : dir;
+    const dst = path.join(cfg.mcDir, 'versions', origName);
+    // 若同名已存在，自动加后缀避免覆盖
+    let finalDst = dst;
+    if (fs.existsSync(dst)) {
+      const stamp = Date.now();
+      finalDst = path.join(cfg.mcDir, 'versions', origName + '_restored_' + stamp);
+    }
+    try { fs.renameSync(src, finalDst); }
+    catch { fs.cpSync(src, finalDst, { recursive: true }); fs.rmSync(src, { recursive: true, force: true }); }
+    return { ok: true, restored: path.basename(finalDst) };
+  } catch (e) { return { ok: false, error: e.message } };
 });
 
 // 删除一个版本（移到回收站目录，不真删，可恢复）

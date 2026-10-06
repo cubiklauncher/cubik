@@ -404,9 +404,12 @@ async function refreshVersions() {
     li.querySelector('.ver-manage-btn').onclick = (e) => { e.stopPropagation(); openVersionDetail(v); };
     li.querySelector('.ver-del-btn').onclick = async (e) => {
       e.stopPropagation();
-      if (!confirm(`确定删除版本「${v}」吗？\n将移入回收站（.trash），可手动恢复。`)) return;
+      // 二次确认：要求输入版本名，防止误删重要版本
+      const input = prompt(`确定删除版本「${v}」吗？\n\n将移入回收站（.trash），可在文件管理器手动恢复。\n\n如确定，请输入该版本的名称：`);
+      if (input === null) return;
+      if (input.trim() !== v) { alert('名称不一致，已取消删除。'); return; }
       const r = await window.api.versionDelete({ name: v });
-      if (r.ok) { log('data', `已删除版本：${v}`); if (selectedVersion === v) { selectedVersion = ''; cfg.version = ''; updateHomeVersion(); } await refreshVersions(); }
+      if (r.ok) { log('data', `已删除版本：${v}（可在 .trash 恢复）`); if (selectedVersion === v) { selectedVersion = ''; cfg.version = ''; updateHomeVersion(); } await refreshVersions(); }
       else alert('删除失败：' + r.error);
     };
     li.onclick = () => {
@@ -786,6 +789,42 @@ if ($('btn-manage-toggle')) {
     document.querySelectorAll('.ver-del-btn').forEach((b) => { b.style.display = manageMode ? '' : 'none'; });
   };
 }
+
+// ---------- 回收站（恢复已删除的版本） ----------
+async function loadTrash() {
+  const ul = $('trash-list');
+  if (!ul) return;
+  ul.innerHTML = '<li class="empty">加载中…</li>';
+  const r = await window.api.trashList();
+  if (!r.ok) { ul.innerHTML = `<li class="empty">读取失败：${esc(r.error || '')}</li>`; return; }
+  if (!r.list.length) { ul.innerHTML = '<li class="empty">回收站为空</li>'; return; }
+  ul.innerHTML = '';
+  r.list.forEach((it) => {
+    const li = document.createElement('li');
+    const when = it.deletedAt ? new Date(it.deletedAt).toLocaleString() : '未知时间';
+    li.innerHTML = `<div class="ver-left"><div class="ver-main">
+        <div class="ver-name">${esc(it.origName)}</div>
+        <div class="ver-tags"><span class="tg">🗑 删除于 ${esc(when)}</span><span class="tg">${it.sizeMB} MB</span></div>
+      </div></div>
+      <div class="ver-right"><button class="btn primary ver-restore-btn">♻️ 恢复</button></div>`;
+    li.querySelector('.ver-restore-btn').onclick = async (e) => {
+      e.stopPropagation();
+      const rr = await window.api.trashRestore({ dir: it.dir });
+      if (rr.ok) { log('data', `已恢复版本：${rr.restored}`); await loadTrash(); await refreshVersions(); }
+      else alert('恢复失败：' + rr.error);
+    };
+    ul.appendChild(li);
+  });
+}
+
+if ($('btn-trash-open')) {
+  $('btn-trash-open').onclick = () => {
+    const p = $('trash-panel');
+    p.style.display = 'block';
+    loadTrash();
+  };
+}
+if ($('btn-trash-close')) $('btn-trash-close').onclick = () => { $('trash-panel').style.display = 'none'; };
 
 // ---------- 独立 Mod 下载页 ----------
 let modPageLoaded = false;
