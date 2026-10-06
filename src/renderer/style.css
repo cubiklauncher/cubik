@@ -527,6 +527,41 @@ pre.srv-log {
 /* 按钮/可点击卡片的统一按压反馈 */
 .btn:active, .qcmd:active, .qa-card:active, .pack-card:active, .nav-item:active { transform: translateY(1px) scale(.995); }
 
+/* ---------- 建服时挑 Mod ---------- */
+.srvmod-results {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px; margin-top: 8px; max-height: 260px; overflow: auto;
+}
+.srvmod-result {
+  display: flex; align-items: center; gap: 8px; cursor: pointer; text-align: left;
+  padding: 7px 9px; border-radius: var(--radius-sm);
+  border: 1px solid rgba(255,255,255,.6); background: rgba(255,255,255,.55);
+  transition: background var(--t-fast), border-color var(--t-fast), transform var(--t-fast);
+}
+.srvmod-result:hover { background: rgba(255,255,255,.85); border-color: rgba(106,140,255,.6); transform: translateY(-1px); }
+.srvmod-result.picked { border-color: var(--accent); background: rgba(231,239,255,.9); }
+.srvmod-result img, .srvmod-result-ph {
+  width: 26px; height: 26px; border-radius: 7px; flex: none; object-fit: cover;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(120,150,220,.14); color: var(--text-soft);
+}
+.srvmod-result-name { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srvmod-result-add { flex: none; color: var(--accent); display: flex; }
+.srvmod-picked { list-style: none; display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+.srvmod-picked:empty { margin-top: 0; }
+.srvmod-picked-item {
+  display: inline-flex; align-items: center; gap: 7px; padding: 4px 6px 4px 10px;
+  border-radius: 999px; background: rgba(231,239,255,.9); border: 1px solid rgba(106,140,255,.4);
+  font-size: 12px;
+}
+.srvmod-picked-name { font-weight: 600; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srvmod-picked-ver { color: var(--text-mute); font-size: 10.5px; }
+.srvmod-picked-del {
+  border: none; background: transparent; cursor: pointer; color: var(--text-mute);
+  display: flex; padding: 1px; border-radius: 999px;
+}
+.srvmod-picked-del:hover { color: var(--err); background: rgba(216,68,60,.12); }
+
 /* ---------- 下载中心 ---------- */
 .nav-dl-badge {
   margin-left: auto; min-width: 17px; height: 17px; padding: 0 5px;

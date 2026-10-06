@@ -275,6 +275,25 @@ ipcMain.handle('srvmod:install', async (_e, { dir, url, filename }) => {
     return r;
   } catch (e) { return { ok: false, error: e.message }; }
 });
+// 批量安装：建服时一次装多个 Mod（含前置）到新服务器
+ipcMain.handle('srvmod:install-many', async (_e, { dir, files }) => {
+  try {
+    const d = srvModDir(dir);
+    const list = Array.isArray(files) ? files : [];
+    const done = []; const failed = [];
+    for (let i = 0; i < list.length; i++) {
+      const f = list[i];
+      try {
+        if (__win() && !__win().isDestroyed()) __win().webContents.send('srvmod:progress', { got: i, total: list.length, label: `安装 Mod ${i + 1}/${list.length}：${f.filename}` });
+        await serverMgr.installServerMod(d, { url: f.url, filename: f.filename }, null,
+          (m) => { if (__win() && !__win().isDestroyed()) __win().webContents.send('server:log', m + '\n'); });
+        done.push(f.filename);
+      } catch (e) { failed.push({ filename: f.filename, error: e.message }); }
+    }
+    if (__win() && !__win().isDestroyed()) __win().webContents.send('srvmod:progress', { got: list.length, total: list.length, label: '完成' });
+    return { ok: true, installed: done.length, failed };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
 ipcMain.handle('srvmod:toggle', (_e, { dir, file, disabled }) => {
   try { return serverMgr.toggleServerMod(srvModDir(dir), file, disabled); }
   catch (e) { return { ok: false, error: e.message }; }

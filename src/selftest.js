@@ -215,6 +215,25 @@ function attachSelfTest(win, app) {
           require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-dl-shot.png'), pngDl.toPNG());
           await win.webContents.executeJavaScript(`dlTasks.length = 0; dlRender(); document.querySelector('.nav-item[data-page="home"]').click();`);
         } catch (e) {}
+        // 截图建服页的「挑 Mod」区块（展开并模拟勾选）
+        try {
+          await win.webContents.executeJavaScript(`
+            (function(){
+              document.querySelector('.nav-item[data-page="server"]').click();
+              var box = document.getElementById('srv-modpick-box');
+              if (box) box.open = true;
+              var rt = document.getElementById('srvmod-results');
+              var picked = document.getElementById('srvmod-picked');
+              if (picked) { srvPickedMods = [{id:'a',source:'modrinth',title:'Lithium',mcVersion:'1.20.1',loader:'fabric'},{id:'b',source:'modrinth',title:'Fabric API',mcVersion:'1.20.1',loader:'fabric'},{id:'c',source:'curseforge',title:'JEI 物品管理器',mcVersion:'1.20.1',loader:'fabric'}]; renderSrvPickedMods(); }
+              if (rt) { window.__srvModLastList = [{id:'x',title:'Sodium',icon:''},{id:'y',title:'Iris Shaders',icon:''},{id:'z',title:'Mod Menu',icon:''},{id:'w',title:'Cloth Config',icon:''}]; renderSrvModResults(window.__srvModLastList, {mcVersion:'1.20.1',loader:'fabric'}); }
+              if (box) box.scrollIntoView({block:'start'});
+            })()
+          `);
+          await new Promise((r) => setTimeout(r, 600));
+          const pngSp = await win.webContents.capturePage();
+          require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-srvmodpick.png'), pngSp.toPNG());
+          await win.webContents.executeJavaScript(`srvPickedMods = []; renderSrvPickedMods(); document.querySelector('.nav-item[data-page="home"]').click();`);
+        } catch (e) {}
       } catch (e) { try { require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), 'ERR ' + e.message); } catch {} }
       setTimeout(() => app.quit(), 300);
       return;

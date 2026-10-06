@@ -153,6 +153,7 @@ contextBridge.exposeInMainWorld('api', {
   serverRename: (o) => ipcRenderer.invoke('server:rename', o),
   srvModList: (o) => ipcRenderer.invoke('srvmod:list', o),
   srvModInstall: (o) => ipcRenderer.invoke('srvmod:install', o),
+  srvModInstallMany: (o) => ipcRenderer.invoke('srvmod:install-many', o),
   srvModToggle: (o) => ipcRenderer.invoke('srvmod:toggle', o),
   srvModDelete: (o) => ipcRenderer.invoke('srvmod:delete', o),
   srvModOpen: (o) => ipcRenderer.invoke('srvmod:open', o),

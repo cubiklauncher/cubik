@@ -33,6 +33,7 @@ async function applySrvPack(name) {
     if (info) info.textContent = '';
     if (modsUl) { modsUl.style.display = 'none'; modsUl.innerHTML = ''; }
     if (carryWrap) carryWrap.style.display = 'none';
+    window.__srvPackInfo = null;
     return;
   }
   const p = srvPackList.find((x) => x.name === name);
@@ -72,11 +73,122 @@ async function applySrvPack(name) {
       : '<li class="empty">该整合包 mods 目录为空</li>';
   }
   if (carryWrap) carryWrap.style.display = (p.modsCount > 0) ? 'flex' : 'none';
+  window.__srvPackInfo = { name: p.name, loader: p.loader || '', mcVersion: p.mcVersion || '' };
   log('data', `已选择整合包「${p.name}」：MC ${p.mcVersion} · ${ld} · ${p.modsCount} 模组，建服时将自动带上`);
 }
 
 if ($('sel-srv-pack')) $('sel-srv-pack').onchange = () => applySrvPack($('sel-srv-pack').value);
 if ($('btn-srv-pack-refresh')) $('btn-srv-pack-refresh').onclick = async () => { await loadSrvPackOptions(); if ($('sel-srv-pack').value) applySrvPack($('sel-srv-pack').value); };
+
+// ---------- 建服时挑 Mod ----------
+// 已勾选待安装的 Mod：[{ id, source, title, mcVersion, loader, url, filename }]
+let srvPickedMods = [];
+
+// 根据当前选的建服类型/版本推导 loader 与 mcVersion
+function srvPickFilter() {
+  const type = $('sel-srv-type') ? $('sel-srv-type').value : 'vanilla';
+  const mcVersion = $('sel-srv-mcver') ? $('sel-srv-mcver').value : '';
+  // 若选了整合包，优先用整合包推导的版本/加载器
+  const packName = $('sel-srv-pack') ? $('sel-srv-pack').value : '';
+  const loaderMap = { fabric: 'fabric', forge: 'forge', neoforge: 'neoforge' };
+  let loader = loaderMap[type] || '';
+  let mc = mcVersion;
+  if (packName && window.__srvPackInfo && window.__srvPackInfo.name === packName) {
+    if (window.__srvPackInfo.loader) loader = String(window.__srvPackInfo.loader).toLowerCase();
+    if (window.__srvPackInfo.mcVersion) mc = window.__srvPackInfo.mcVersion;
+  }
+  return { type, mcVersion: mc, loader, supported: !!loader };
+}
+
+function renderSrvPickedMods() {
+  const ul = $('srvmod-picked');
+  const hint = $('srvmod-picked-hint');
+  if (!ul) return;
+  ul.innerHTML = '';
+  srvPickedMods.forEach((m, i) => {
+    const li = document.createElement('li');
+    li.className = 'srvmod-picked-item';
+    li.innerHTML = `<span class="srvmod-picked-name" title="${esc(m.title)}">${esc(m.title)}</span>` +
+      `<span class="srvmod-picked-ver">${esc(m.mcVersion ? 'MC ' + m.mcVersion : '')}${m.loader ? ' · ' + esc(m.loader) : ''}</span>` +
+      `<button class="srvmod-picked-del" data-i="${i}" title="移除">${icon('close')}</button>`;
+    ul.appendChild(li);
+  });
+  ul.querySelectorAll('[data-i]').forEach((b) => {
+    b.onclick = () => { srvPickedMods.splice(Number(b.dataset.i), 1); renderSrvPickedMods(); renderSrvModResults(); };
+  });
+  if (hint) hint.textContent = srvPickedMods.length ? `已选 ${srvPickedMods.length} 个 Mod，创建服务器时自动安装。` : '';
+}
+
+function renderSrvModResults(list, filter, errText) {
+  const box = $('srvmod-results');
+  if (!box) return;
+  if (errText) { box.innerHTML = `<div class="empty">${esc(errText)}</div>`; return; }
+  if (!list || !list.length) { box.innerHTML = '<div class="empty">未找到兼容该版本/加载器的 Mod</div>'; return; }
+  box.innerHTML = '';
+  list.slice(0, 24).forEach((p) => {
+    const picked = srvPickedMods.some((m) => m.id === p.id && m.source === (p.source || 'modrinth'));
+    const el = document.createElement('button');
+    el.className = 'srvmod-result' + (picked ? ' picked' : '');
+    el.type = 'button';
+    el.title = p.title;
+    el.innerHTML = (p.icon ? `<img src="${esc(p.icon)}" alt="">` : `<span class="srvmod-result-ph">${icon('puzzle')}</span>`) +
+      `<span class="srvmod-result-name">${esc(p.title)}</span>` +
+      `<span class="srvmod-result-add">${picked ? icon('check') : icon('plus')}</span>`;
+    el.onclick = () => pickServerMod(p, filter);
+    box.appendChild(el);
+  });
+}
+
+async function pickServerMod(pack, filter) {
+  const key = pack.source || 'modrinth';
+  const already = srvPickedMods.findIndex((m) => m.id === pack.id && m.source === key);
+  if (already >= 0) { srvPickedMods.splice(already, 1); renderSrvPickedMods(); renderSrvModResults(window.__srvModLastList || [], filter); return; }
+  // 拉取兼容版本（取第一个匹配）
+  const res = await window.api.packVersions({
+    source: key, id: pack.id,
+    mc: filter && filter.mcVersion ? filter.mcVersion : undefined,
+    loader: filter && filter.loader ? filter.loader : undefined
+  });
+  let vlist = (res && res.ok ? res.list : []) || [];
+  if (!vlist.length) {
+    const all = await window.api.packVersions({ source: key, id: pack.id });
+    vlist = (all && all.ok ? all.list : []) || [];
+  }
+  const v = vlist[0];
+  const f = v && ((v.files || []).find((x) => x.primary) || (v.files || [])[0]);
+  if (!f) { alert('该 Mod 没有可下载的版本'); return; }
+  srvPickedMods.push({
+    id: pack.id, source: key, title: pack.title,
+    mcVersion: (filter && filter.mcVersion) || '', loader: (filter && filter.loader) || '',
+    url: f.url, filename: f.filename
+  });
+  renderSrvPickedMods();
+  renderSrvModResults(window.__srvModLastList || [], filter);
+}
+
+async function searchServerModsForCreate() {
+  const box = $('srvmod-results');
+  if (!box) return;
+  const filter = srvPickFilter();
+  const hint = $('srvmod-filter-hint');
+  if (hint) hint.textContent = filter.supported
+    ? `筛选条件：MC ${filter.mcVersion || '不限'} · ${filter.loader}`
+    : `当前服务端类型不支持 Mod（仅 Fabric / Forge / NeoForge 可装 Mod）`;
+  if (!filter.supported) { box.innerHTML = '<div class="empty">当前服务端类型不支持 Mod。请改选 Fabric / Forge / NeoForge，或使用「插件」而非 Mod。</div>'; return; }
+  const q = ($('in-srvmod-query') && $('in-srvmod-query').value.trim()) || '';
+  box.innerHTML = '<div class="empty">加载中…</div>';
+  const p = { kind: 'mod', query: q };
+  if (filter.mcVersion) p.mcVersion = filter.mcVersion;
+  if (filter.loader) p.loader = filter.loader;
+  const r = await window.api.searchAll(p);
+  if (!r || !r.ok) { box.innerHTML = `<div class="empty">搜索失败：${esc((r && r.error) || '')}</div>`; return; }
+  window.__srvModLastList = r.list || [];
+  renderSrvModResults(window.__srvModLastList, filter);
+}
+
+if ($('btn-srvmod-search')) $('btn-srvmod-search').onclick = () => searchServerModsForCreate();
+if ($('in-srvmod-query')) $('in-srvmod-query').onkeydown = (e) => { if (e.key === 'Enter') searchServerModsForCreate(); };
+if ($('sel-srv-type')) $('sel-srv-type').addEventListener('change', () => { if ($('srvmod-results') && $('srvmod-results').children.length) searchServerModsForCreate(); });
 
 $('btn-srv-pick').onclick = async () => {
   const p = await window.api.pickDir();
@@ -156,6 +268,27 @@ $('btn-srv-create').onclick = async () => {
             wlog('✖ 导入整合包模组失败：' + ((cr && cr.error) || '未知错误') + '\n');
           }
         } catch (e) { wlog('✖ 导入整合包模组异常：' + (e.message || e) + '\n'); }
+      }
+      status('✔ 创建完成！正在跳转到「服务器管理」…', 'ok');
+      // 建服时挑选的 Mod：批量安装到新服务器 mods
+      if (srvPickedMods.length) {
+        const pickFilter = srvPickFilter();
+        if (!pickFilter.supported) {
+          wlog('\n⚠ 当前服务端不支持 Mod，已跳过 ' + srvPickedMods.length + ' 个勾选的 Mod\n');
+        } else {
+          wlog(`\n正在安装 ${srvPickedMods.length} 个勾选的 Mod…\n`);
+          status('⏳ 正在安装勾选的 Mod…');
+          try {
+            const mr = await window.api.srvModInstallMany({ dir: opts.dir, files: srvPickedMods.map((m) => ({ url: m.url, filename: m.filename })) });
+            if (mr && mr.ok) {
+              wlog(`✔ 已安装 ${mr.installed} 个 Mod` + (mr.failed && mr.failed.length ? `，${mr.failed.length} 个失败` : '') + '\n');
+              (mr.failed || []).forEach((x) => wlog(`  ✖ ${x.filename}：${x.error}\n`));
+              srvPickedMods = []; renderSrvPickedMods(); renderSrvModResults([]);
+            } else {
+              wlog('✖ 批量安装 Mod 失败：' + ((mr && mr.error) || '未知错误') + '\n');
+            }
+          } catch (e) { wlog('✖ 批量安装 Mod 异常：' + (e.message || e) + '\n'); }
+        }
       }
       status('✔ 创建完成！正在跳转到「服务器管理」…', 'ok');
       // 自动把新建的服务器加入列表并设为当前

@@ -708,6 +708,18 @@
           <ul class="mod-list" id="srv-pack-mods" style="display:none;max-height:200px;overflow:auto;margin-top:6px"></ul>
           <label class="chk-inline" id="srv-pack-carry-wrap" style="display:none;margin-top:6px"><input type="checkbox" id="chk-srv-pack-carry" checked> 建服时把该整合包的模组复制到服务器 mods</label>
         </details>
+        <details class="adv-box" id="srv-modpick-box" style="margin-top:10px">
+          <summary><i class="ico" data-icon="puzzle"></i> 给新服务器挑 Mod（可选，仅 Fabric / Forge / NeoForge 生效）</summary>
+          <p class="hint" style="margin-top:6px">搜索并勾选要装进新服的 Mod，创建时自动下载到服务器 <code>mods</code> 文件夹；已在上面选了整合包的话，两者会一起导入。</p>
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            <input id="in-srvmod-query" type="text" placeholder="搜索 Mod 名称（如 lithium、JEI）" style="flex:1;min-width:220px">
+            <button class="btn mini" id="btn-srvmod-search"><i class="ico" data-icon="search"></i> 搜索</button>
+          </div>
+          <div class="hint" id="srvmod-filter-hint" style="margin-top:6px"></div>
+          <div class="srvmod-results" id="srvmod-results"></div>
+          <ul class="srvmod-picked" id="srvmod-picked"></ul>
+          <div class="hint" id="srvmod-picked-hint" style="margin-top:6px"></div>
+        </details>
         <label>服务器目录</label>
         <div class="row">
           <input id="in-srv-dir" type="text" placeholder="点「选择文件夹」或「新建文件夹」指定服务器目录">
