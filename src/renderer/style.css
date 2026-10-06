@@ -372,6 +372,36 @@ pre.log {
   border: 1px solid rgba(255,255,255,.15); box-shadow: 0 8px 30px rgba(0,0,0,.25);
 }
 
+/* 创建服务器：状态提示 + 创建日志 */
+.create-status {
+  margin-top: 10px; padding: 10px 14px; border-radius: 12px; font-size: 13px;
+  background: rgba(60, 130, 240, .10); border: 1px solid rgba(60, 130, 240, .25); color: #2b4d8a;
+}
+.create-status.ok { background: rgba(40, 170, 90, .12); border-color: rgba(40, 170, 90, .35); color: #1c6b3a; }
+.create-status.err { background: rgba(220, 70, 70, .12); border-color: rgba(220, 70, 70, .35); color: #a12525; }
+.create-status b { font-weight: 700; }
+pre.srv-log {
+  background: rgba(24, 28, 40, .72); color: #cfe3ff; font-family: Consolas, monospace;
+  font-size: 12px; padding: 12px; border-radius: 12px; max-height: 260px;
+  overflow-y: auto; white-space: pre-wrap; word-break: break-all; user-select: text;
+  margin: 6px 0 0;
+}
+
+/* 服务器页：已有服务器概览 */
+.srv-ov-box { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.srv-ov-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px;
+  background: rgba(255,255,255,.45); border: 1px solid rgba(255,255,255,.65);
+  transition: background .15s, transform .1s;
+}
+.srv-ov-item:hover { background: rgba(255,255,255,.7); }
+.srv-ov-item.active { border-color: rgba(90, 130, 240, .55); box-shadow: 0 0 0 2px rgba(90,130,240,.12); }
+.srv-ov-name { font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.srv-ov-meta { font-size: 12px; color: #5a6a86; }
+.srv-ov-dot { font-size: 12px; margin-left: auto; white-space: nowrap; }
+.srv-ov-dot.on { color: #22a35a; }
+.srv-ov-dot.off { color: #98a3b5; }
+
 /* ---------- 详情页 ---------- */
 .detail-head { display: flex; gap: 18px; align-items: flex-start; }
 .detail-icon {

@@ -672,6 +672,14 @@
     <section class="page" id="page-server">
       <h1>服务器</h1>
 
+      <!-- 已有服务器概览（只读，不改服务器的管理操作） -->
+      <div class="card srv-overview" id="srv-overview-card">
+        <h2 style="display:flex;align-items:center;gap:10px">🖥️ 我的服务器 <span class="hint" id="srv-ov-count" style="font-weight:400;margin-left:auto"></span>
+          <button class="btn ghost mini" id="btn-srv-ov-manage" style="margin-left:auto">🛠 去管理</button>
+        </h2>
+        <div id="srv-ov-box" class="srv-ov-box"><div class="empty">加载中…</div></div>
+      </div>
+
       <div class="card form">
         <h2>➕ 创建服务器</h2>
         <p class="hint" style="margin-top:2px">填好目录、类型、版本，点最下方「创建服务器」。<b>已建好的服务器</b>请到左侧「🛠️ 服务器管理」里启动 / 改配置 / 装 Mod / 备份。</p>
@@ -744,6 +752,11 @@
           <button id="btn-srv-create" class="btn primary">创建服务器</button>
         </div>
         <div class="progress-bar" style="margin-top:8px"><div class="progress-inner" id="srv-progress"></div></div>
+        <div class="create-status" id="create-status" style="display:none"></div>
+        <details class="adv-box" id="srv-log-box" style="margin-top:10px">
+          <summary>📜 创建日志（点开看下载/写入详情）</summary>
+          <pre id="srv-create-log" class="srv-log"></pre>
+        </details>
       </div>
 
       <details class="card usage tut-collapse">

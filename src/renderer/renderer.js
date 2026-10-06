@@ -70,7 +70,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (btn.dataset.page === 'shader' && !shaderLoaded) loadShaderTop();
     if (btn.dataset.page === 'data') loadDataPage();
     if (btn.dataset.page === 'mod' && !modPageLoaded) loadModPage();
-    if (btn.dataset.page === 'server') { refreshNetInfo(); try { loadServerVersions(); } catch {} }
+    if (btn.dataset.page === 'server') { refreshNetInfo(); try { loadServerVersions(); } catch {} try { renderServerOverview(); } catch {} }
     if (btn.dataset.page === 'srvmanage') { try { loadServerListIntoManage(); } catch {}
       refreshServerBackup(); loadAutoBackup(); checkServerUpdateUI(true); refreshNetInfo(); try { loadServerMods(); } catch {} try { refreshServerStatus(); } catch {} }
     if (btn.dataset.page === 'vanilla' && !window.__vanLoaded) { window.__vanLoaded = true; loadVanillaVersions(); }
@@ -267,8 +267,10 @@ if (window.api.onPackZhName) {
   });
   window.api.onServerLog((d) => {
     const box = $('srv-log');
-    box.textContent += d;
-    box.scrollTop = box.scrollHeight;
+    if (box) { box.textContent += d; box.scrollTop = box.scrollHeight; }
+    // 同时写入「创建日志」（服务器页），方便建服时也能看到下载/写入详情
+    const cbox = $('srv-create-log');
+    if (cbox) { cbox.textContent += d; cbox.scrollTop = cbox.scrollHeight; }
   });
   window.api.onInstallLog((d) => {
     log('data', d.trim());
@@ -2337,13 +2339,22 @@ $('btn-srv-create').onclick = async () => {
   await window.api.setConfig(cfg);
   const btn = $('btn-srv-create');
   btn.disabled = true;
-  $('srv-log').textContent += `\n===== 创建服务器 (${opts.type} ${opts.mcVersion}) =====\n`;
+  const clog = $('srv-create-log');
+  const cstatus = $('create-status');
+  if (clog) clog.textContent = '';
+  if (cstatus) { cstatus.style.display = 'none'; cstatus.className = 'create-status'; }
+  const wlog = (t) => { if (clog) { clog.textContent += t; clog.scrollTop = clog.scrollHeight; } if ($('srv-log')) $('srv-log').textContent += t; };
+  const status = (html, cls) => { if (!cstatus) return; cstatus.style.display = ''; cstatus.className = 'create-status' + (cls ? ' ' + cls : ''); cstatus.innerHTML = html; };
+  status('⏳ 正在创建服务器… 下载服务端并写入配置，请稍候（首次约十几秒）');
+  wlog(`\n===== 创建服务器 (${opts.type} ${opts.mcVersion}) =====\n`);
   try {
     const r = await window.api.serverCreate(opts);
     if (!r || !r.ok) {
-      $('srv-log').textContent += '\n✖ 创建失败：' + ((r && r.error) || '未知错误') + '\n';
+      wlog('\n✖ 创建失败：' + ((r && r.error) || '未知错误') + '\n');
+      status('✖ 创建失败：' + ((r && r.error) || '未知错误') + '<br><span class="hint">可展开下方「创建日志」看详情，或点「创建服务器」重试。</span>', 'err');
     } else {
-      $('srv-log').textContent += '\n✔ 创建完成！现在可以点「▶ 启动服务器」开服。\n';
+      wlog('\n✔ 创建完成！\n');
+      status('✔ 创建完成！正在跳转到「服务器管理」…', 'ok');
       // 自动把新建的服务器加入列表并设为当前
       try {
         const lr = await window.api.serverList();
@@ -2354,11 +2365,12 @@ $('btn-srv-create').onclick = async () => {
         }
         try { await loadServerList(); } catch {}
         // 建完后切到「服务器管理」页，方便直接启动/管理
-        setTimeout(() => { try { enterServerManage(opts.dir.split(/[\\/]/).pop() || '服务器'); } catch {} }, 600);
+        setTimeout(() => { try { enterServerManage(opts.dir.split(/[\\/]/).pop() || '服务器'); } catch {} }, 900);
       } catch {}
     }
   } catch (e) {
-    $('srv-log').textContent += '\n✖ 创建异常：' + (e.message || e) + '\n';
+    wlog('\n✖ 创建异常：' + (e.message || e) + '\n');
+    status('✖ 创建异常：' + (e.message || e), 'err');
   } finally {
     btn.disabled = false;
     if ($('srv-progress')) $('srv-progress').style.width = '0%';
@@ -2472,6 +2484,36 @@ if ($('btn-copy-pub')) $('btn-copy-pub').onclick = () => copyText($('net-pub').d
 let srvActiveId = '';
 // 兼容旧调用：刷新「服务器管理」页的服务器列表
 async function loadServerList() { await loadServerListIntoManage(); }
+
+// 「服务器」页的已有服务器概览（只读，点卡片跳去管理）
+async function renderServerOverview() {
+  const box = $('srv-ov-box');
+  if (!box) return;
+  const r = await window.api.serverList();
+  if (!r || !r.ok) { box.innerHTML = `<div class="empty">读取失败：${esc((r && r.error) || '')}</div>`; return; }
+  const list = r.list || [];
+  if ($('srv-ov-count')) $('srv-ov-count').textContent = list.length ? `共 ${list.length} 个` : '';
+  if (!list.length) {
+    box.innerHTML = '<div class="empty">还没有服务器，在下方填表即可创建第一个 👇</div>';
+    return;
+  }
+  const typeLabel = (t) => ({ vanilla: '原版', paper: 'Paper', spigot: 'Spigot', fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge' }[t] || t || '未知');
+  box.innerHTML = list.map((s) => {
+    const t = s.detectedType || s.type || '';
+    const mc = s.detectedMc || s.mcVersion || '';
+    const state = s.running ? '<span class="srv-ov-dot on">● 运行中</span>' : '<span class="srv-ov-dot off">● 已停止</span>';
+    return `<div class="srv-ov-item${s.isActive ? ' active' : ''}">
+      <span class="srv-ov-name">${esc(s.name)}${s.isActive ? '<span class="srv-item-badge">当前</span>' : ''}</span>
+      <span class="srv-ov-meta">${esc(typeLabel(t))}${mc ? ' · MC ' + esc(mc) : ''}</span>
+      ${state}
+    </div>`;
+  }).join('');
+  box.querySelectorAll('.srv-ov-item').forEach((el) => {
+    el.style.cursor = 'pointer';
+    el.onclick = () => goPage('srvmanage');
+  });
+}
+if ($('btn-srv-ov-manage')) $('btn-srv-ov-manage').onclick = () => goPage('srvmanage');
 
 // 把当前激活服务器的目录同步到建服表单/内存/端口等
 async function syncServerDirToUI() {
