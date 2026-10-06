@@ -2668,7 +2668,7 @@ ipcMain.handle('server:create', async (_e, opts) => {
   try {
     const cfg = loadConfig();
     const r = await serverMgr.createServer(
-      opts,
+      { ...opts, mcDir: opts.mcDir || cfg.mcDir || 'D:\\CubikLauncher' },
       (got, total) => win.webContents.send('server:progress', { task: got, total }),
       (m) => win.webContents.send('server:log', m + '\n')
     );

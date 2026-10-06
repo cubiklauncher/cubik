@@ -6,6 +6,7 @@ const https = require('https');
 const http = require('http');
 const { spawn } = require('child_process');
 const os = require('os');
+const { ensureJava, requiredJava } = require('./java');
 
 let serverProc = null;
 let serverState = 'stopped'; // stopped | starting | running | stopping
@@ -479,11 +480,12 @@ function runForgeInstaller(javaExe, installerPath, dir, onLog) {
 }
 
 // 写 Forge 启动脚本（兼容新版 run.bat 与旧版 @argfile）
-function writeForgeStartScripts(dir, type, memory, onLog) {
+function writeForgeStartScripts(dir, type, memory, onLog, javaExe) {
   const files = fs.readdirSync(dir);
   const hasRunBat = files.includes('run.bat');
   const argsFile = files.find((f) => /^win_args\.txt$|^args\.txt$|^user_jvm_args\.txt$/.test(f));
   const jarCandidates = files.filter((f) => /forge.*\.jar$|server\.jar$/i.test(f) && !/installer/.test(f));
+  const javaCmd = javaExe && path.isAbsolute(javaExe) ? '"' + javaExe.replace(/\\/g, '\\\\') + '"' : 'java';
   let scriptBat, scriptSh;
   if (hasRunBat) {
     scriptBat = '@echo off\r\nrun.bat\r\npause\r\n';
@@ -492,8 +494,8 @@ function writeForgeStartScripts(dir, type, memory, onLog) {
     // 找启动 jar（常为 forge-xxx-server.jar 或 libraries 下）
     const jar = jarCandidates.find((f) => /server\.jar$/i.test(f)) || jarCandidates[0] || 'server.jar';
     const args = serverJvmArgs('paper', memory).join(' ');
-    scriptBat = `@echo off\r\njava ${args} -jar ${jar} nogui\r\npause\r\n`;
-    scriptSh = `#!/bin/sh\nexec java ${args} -jar ${jar} nogui\n`;
+    scriptBat = `@echo off\r\n${javaCmd} ${args} -jar ${jar} nogui\r\npause\r\n`;
+    scriptSh = `#!/bin/sh\nexec ${javaExe || 'java'} ${args} -jar ${jar} nogui\n`;
   }
   fs.writeFileSync(path.join(dir, 'start.bat'), scriptBat, 'utf8');
   fs.writeFileSync(path.join(dir, 'start.sh'), scriptSh, 'utf8');
@@ -518,6 +520,23 @@ async function createServer(opts, onProgress, onLog) {
   fs.mkdirSync(dir, { recursive: true });
   onLog && onLog(`创建服务器目录: ${dir}`);
 
+  // —— 自动下载该 MC 版本所需的 Java 运行时（Adoptium，国内镜像优先）——
+  const mcDir = opts.mcDir || 'D:\\CubikLauncher';
+  let javaExe = opts.javaPath && opts.javaPath.trim() ? opts.javaPath.trim() : null;
+  if (!javaExe || !/^java(\.exe)?$/i.test(path.basename(javaExe))) {
+    // 未指定有效 java，或指定的是系统 java：自动确保正确版本
+  }
+  if (!javaExe) {
+    onLog && onLog(`检查 Java 运行时（MC ${mcVersion} 需要 Java ${requiredJava(mcVersion)}）…`);
+    try {
+      javaExe = await ensureJava(mcVersion, mcDir, onProgress, onLog);
+    } catch (e) {
+      onLog && onLog('⚠ 自动下载 Java 失败：' + (e && e.message) + '（将回退到系统 java）');
+      javaExe = 'java';
+    }
+  }
+  onLog && onLog('服务器将使用 Java: ' + javaExe);
+
   // Forge / NeoForge 需要下载安装器并执行 --installServer（多一步）
   if (type === 'forge' || type === 'neoforge') {
     const info = type === 'forge'
@@ -527,16 +546,15 @@ async function createServer(opts, onProgress, onLog) {
     const instPath = path.join(dir, `${type}-installer.jar`);
     onLog && onLog('下载安装器…');
     await get(info.url, instPath, onProgress);
-    // 执行安装（需要 java）
-    const javaExe = opts.javaPath || 'java';
+    // 执行安装（使用刚确保的 java）
     await runForgeInstaller(javaExe, instPath, dir, onLog);
     fs.writeFileSync(path.join(dir, 'eula.txt'), 'eula=true\n', 'utf8');
     const props = path.join(dir, 'server.properties');
     if (!fs.existsSync(props)) fs.writeFileSync(props, defaultProperties(memory, opts), 'utf8');
     // 生成启动脚本（forge 的启动命令在生成的文件里，通常为 run.bat/run.sh 或 libraries 组合）
-    writeForgeStartScripts(dir, type, memory, onLog);
+    writeForgeStartScripts(dir, type, memory, onLog, javaExe);
     onLog && onLog('服务器创建完成，可点击「启动服务器」');
-    return { ok: true, dir, args: serverJvmArgs('paper', memory) };
+    return { ok: true, dir, javaPath: javaExe, args: serverJvmArgs('paper', memory) };
   }
 
   let url;
@@ -569,21 +587,23 @@ async function createServer(opts, onProgress, onLog) {
     onLog && onLog('已生成 server.properties');
   }
 
-  // 启动脚本（bat + sh），含调优参数
+  // 启动脚本（bat + sh），含调优参数，并用刚下载的 java 绝对路径（避免依赖系统 java）
   const args = serverJvmArgs(type, memory).join(' ');
+  // 若 javaExe 是具体路径（自动下载的），写绝对路径；若是系统 "java" 则写 java
+  const javaCmd = path.isAbsolute(javaExe) ? '"' + javaExe.replace(/\\/g, '\\\\') + '"' : 'java';
   fs.writeFileSync(
     path.join(dir, 'start.bat'),
-    `@echo off\r\njava ${args} -jar server.jar nogui\r\npause\r\n`,
+    `@echo off\r\n${javaCmd} ${args} -jar server.jar nogui\r\npause\r\n`,
     'utf8'
   );
   fs.writeFileSync(
     path.join(dir, 'start.sh'),
-    `#!/bin/sh\nexec java ${args} -jar server.jar nogui\n`,
+    `#!/bin/sh\nexec ${javaExe} ${args} -jar server.jar nogui\n`,
     'utf8'
   );
   onLog && onLog('服务器创建完成，可点击「启动服务器」');
 
-  return { ok: true, dir, args: serverJvmArgs(type, memory) };
+  return { ok: true, dir, javaPath: javaExe, args: serverJvmArgs(type, memory) };
 }
 
 function startServer(dir, javaPath, memory, type, onLog, onData) {
