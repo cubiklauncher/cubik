@@ -11,6 +11,7 @@
   "author": "Cubik",
   "license": "MIT",
   "dependencies": {
+    "adm-zip": "^0.5.18",
     "minecraft-launcher-core": "^3.18.1",
     "uuid": "^9.0.1"
   },
