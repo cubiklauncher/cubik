@@ -682,6 +682,17 @@
       <div class="card form">
         <h2>➕ 创建服务器</h2>
         <p class="hint" style="margin-top:2px">填好目录、类型、版本，点最下方「创建服务器」。<b>已建好的服务器</b>请到左侧「🛠️ 服务器管理」里启动 / 改配置 / 装 Mod / 备份。</p>
+        <details class="adv-box" id="srv-carry-box" style="margin-top:10px">
+          <summary>📦 按已下载整合包建服（自动定版本/加载器 + 带上它的模组）</summary>
+          <p class="hint" style="margin-top:6px">选一个本机已经下载好的整合包，建服时会<b>自动把加载器类型和 MC 版本填好</b>，并把该包的 <code>mods</code> 全部复制到服务器的 <code>mods</code> 文件夹。（仅 Fabric / Forge / NeoForge 生效；Paper/原版不支持 Mod）</p>
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            <select id="sel-srv-pack" style="flex:1;min-width:220px"><option value="">— 不使用整合包（手动选类型/版本）—</option></select>
+            <button class="btn mini" id="btn-srv-pack-refresh">🔄 刷新</button>
+          </div>
+          <div class="hint" id="srv-pack-info" style="margin-top:6px"></div>
+          <ul class="mod-list" id="srv-pack-mods" style="display:none;max-height:200px;overflow:auto;margin-top:6px"></ul>
+          <label class="chk-inline" id="srv-pack-carry-wrap" style="display:none;margin-top:6px"><input type="checkbox" id="chk-srv-pack-carry" checked> 建服时把该整合包的模组复制到服务器 mods</label>
+        </details>
         <label>服务器目录</label>
         <div class="row">
           <input id="in-srv-dir" type="text" placeholder="点「选择文件夹」或「新建文件夹」指定服务器目录">

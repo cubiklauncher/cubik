@@ -553,6 +553,11 @@ async function createServer(opts, onProgress, onLog) {
     if (!fs.existsSync(props)) fs.writeFileSync(props, defaultProperties(memory, opts), 'utf8');
     // 生成启动脚本（forge 的启动命令在生成的文件里，通常为 run.bat/run.sh 或 libraries 组合）
     writeForgeStartScripts(dir, type, memory, onLog, javaExe);
+    // 带上已下载的本地模组
+    if (Array.isArray(opts.localMods) && opts.localMods.length) {
+      onLog && onLog('导入已下载的本地 Mod…');
+      installLocalMods(dir, opts.localMods, onLog);
+    }
     onLog && onLog('服务器创建完成，可点击「启动服务器」');
     return { ok: true, dir, javaPath: javaExe, args: serverJvmArgs('paper', memory) };
   }
@@ -602,6 +607,11 @@ async function createServer(opts, onProgress, onLog) {
     'utf8'
   );
   onLog && onLog('服务器创建完成，可点击「启动服务器」');
+  // 带上已下载的本地模组（仅 Fabric/Forge/NeoForge 生效，其它类型也照常放入 mods 目录）
+  if (Array.isArray(opts.localMods) && opts.localMods.length) {
+    onLog && onLog('导入已下载的本地 Mod…');
+    installLocalMods(dir, opts.localMods, onLog);
+  }
 
   return { ok: true, dir, javaPath: javaExe, args: serverJvmArgs(type, memory) };
 }
@@ -1043,6 +1053,43 @@ async function installServerMod(dir, opts = {}, onProgress, onLog) {
   return { ok: true, file: name, dir: md };
 }
 
+// 把本地已有的 jar 文件复制到服务端 mods 目录（建服时可"带上已下载的模组"）
+// files: [{ path, name? }]；返回 { ok, added:[], skipped:[], errors:[] }
+function installLocalMods(dir, files, onLog) {
+  const out = { ok: true, added: [], skipped: [], errors: [] };
+  if (!dir) { out.ok = false; out.error = '未指定服务器目录'; return out; }
+  const list = (Array.isArray(files) ? files : []).filter(Boolean);
+  if (!list.length) return out;
+  const md = serverModsDir(dir);
+  fs.mkdirSync(md, { recursive: true });
+  for (const item of list) {
+    const src = typeof item === 'string' ? item : item.path;
+    if (!src) continue;
+    try {
+      if (!fs.existsSync(src)) { out.errors.push({ file: src, error: '文件不存在' }); continue; }
+      let name = (typeof item === 'object' && item.name) ? item.name : path.basename(src);
+      name = String(name).replace(/[\\/:*?"<>|]/g, '_');
+      if (!/\.jar$/i.test(name)) name += '.jar';
+      const dest = path.join(md, name);
+      // 目标已存在同名：跳过（避免重复/覆盖）
+      if (fs.existsSync(dest) && path.resolve(dest) !== path.resolve(src)) {
+        out.skipped.push(name);
+        onLog && onLog(`⏭ 已存在同名 Mod，跳过：${name}`);
+        continue;
+      }
+      if (path.resolve(dest) === path.resolve(src)) { out.skipped.push(name); continue; }
+      fs.copyFileSync(src, dest);
+      out.added.push(name);
+      onLog && onLog(`复制 Mod 到 mods：${name}`);
+    } catch (e) {
+      out.errors.push({ file: src, error: e.message });
+      onLog && onLog(`⚠ 复制 Mod 失败：${path.basename(src)} — ${e.message}`);
+    }
+  }
+  onLog && onLog(`本地 Mod 导入完成：成功 ${out.added.length} 个` + (out.skipped.length ? `，跳过 ${out.skipped.length} 个` : '') + (out.errors.length ? `，失败 ${out.errors.length} 个` : ''));
+  return out;
+}
+
 // 启用/停用一个 mod（改名 .disabled）
 function toggleServerMod(dir, file, disabled) {
   const md = serverModsDir(dir);
@@ -1065,4 +1112,4 @@ function deleteServerMod(dir, file) {
   return { ok: true };
 }
 
-module.exports = { createServer, startServer, stopServer, sendCommand, listServerVersions, isRunning, getState, requestOnlineList, serverJvmArgs, serverInfo, getLanIP, getPublicIP, readServerPort, updateServerProperties, parseServerLine, setOnlineFromListLine, getOnlinePlayers, resetOnline, quickServerDefaults, detectServer, checkServerUpdate, updateServerJar, paperLatestBuild, serverModsDir, serverSupportsMods, listServerMods, installServerMod, toggleServerMod, deleteServerMod };
+module.exports = { createServer, startServer, stopServer, sendCommand, listServerVersions, isRunning, getState, requestOnlineList, serverJvmArgs, serverInfo, getLanIP, getPublicIP, readServerPort, updateServerProperties, parseServerLine, setOnlineFromListLine, getOnlinePlayers, resetOnline, quickServerDefaults, detectServer, checkServerUpdate, updateServerJar, paperLatestBuild, serverModsDir, serverSupportsMods, listServerMods, installServerMod, installLocalMods, toggleServerMod, deleteServerMod };

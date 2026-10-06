@@ -70,7 +70,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (btn.dataset.page === 'shader' && !shaderLoaded) loadShaderTop();
     if (btn.dataset.page === 'data') loadDataPage();
     if (btn.dataset.page === 'mod' && !modPageLoaded) loadModPage();
-    if (btn.dataset.page === 'server') { refreshNetInfo(); try { loadServerVersions(); } catch {} try { renderServerOverview(); } catch {} try { refreshCreateDirDefault(); } catch {} }
+    if (btn.dataset.page === 'server') { refreshNetInfo(); try { loadServerVersions(); } catch {} try { renderServerOverview(); } catch {} try { refreshCreateDirDefault(); } catch {} try { loadSrvPackOptions(); } catch {} }
     if (btn.dataset.page === 'srvmanage') { try { loadServerListIntoManage(); } catch {}
       refreshServerBackup(); loadAutoBackup(); checkServerUpdateUI(true); refreshNetInfo(); try { loadServerMods(); } catch {} try { refreshServerStatus(); } catch {} }
     if (btn.dataset.page === 'vanilla' && !window.__vanLoaded) { window.__vanLoaded = true; loadVanillaVersions(); }
@@ -2290,6 +2290,84 @@ $('btn-detail-install').onclick = () => {
 };
 
 // ---------- 服务器 ----------
+// 按已下载整合包建服：扫描本机整合包，选中后自动定类型/版本并带上它的模组
+let srvPackList = [];
+async function loadSrvPackOptions() {
+  const sel = $('sel-srv-pack');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— 不使用整合包（手动选类型/版本）—</option>';
+  let r;
+  try { r = await window.api.localPacksList({}); } catch (e) { r = { ok: false, error: e.message }; }
+  if (!r || !r.ok) { $('srv-pack-info').textContent = '读取整合包失败：' + ((r && r.error) || ''); return; }
+  srvPackList = r.list || [];
+  if (!srvPackList.length) {
+    $('srv-pack-info').textContent = '未在本机找到已下载的整合包（在「实例」里装好包后会自动出现）';
+    return;
+  }
+  srvPackList.forEach((p) => {
+    const opt = document.createElement('option');
+    opt.value = p.name;
+    const ld = { fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge' }[p.loader] || '原版/未知';
+    opt.textContent = `${p.name}　—　MC ${p.mcVersion || '?'} · ${ld}` + (p.modsCount ? ` · ${p.modsCount} 模组` : '');
+    sel.appendChild(opt);
+  });
+  if (cur && srvPackList.some((p) => p.name === cur)) sel.value = cur;
+}
+
+async function applySrvPack(name) {
+  const info = $('srv-pack-info');
+  const modsUl = $('srv-pack-mods');
+  const carryWrap = $('srv-pack-carry-wrap');
+  if (!name) {
+    if (info) info.textContent = '';
+    if (modsUl) { modsUl.style.display = 'none'; modsUl.innerHTML = ''; }
+    if (carryWrap) carryWrap.style.display = 'none';
+    return;
+  }
+  const p = srvPackList.find((x) => x.name === name);
+  if (!p) return;
+  // 自动填服务端类型
+  if ($('sel-srv-type') && (p.loader === 'fabric' || p.loader === 'forge' || p.loader === 'neoforge')) {
+    $('sel-srv-type').value = p.loader;
+    try { await loadServerVersions(); } catch {}
+  } else if ($('sel-srv-type') && !p.loader) {
+    $('sel-srv-type').value = 'vanilla';
+    try { await loadServerVersions(); } catch {}
+  }
+  // 自动选 MC 版本（等版本列表就绪）
+  if ($('sel-srv-mcver') && p.mcVersion) {
+    const sel = $('sel-srv-mcver');
+    const t0 = Date.now();
+    const loading = (s) => !s || s.disabled || !s.value || /加载中/.test(s.options[0] ? s.options[0].textContent : '');
+    while (loading(sel) && Date.now() - t0 < 12000) await new Promise((r) => setTimeout(r, 200));
+    const has = Array.prototype.some.call(sel.options, (o) => o.value === p.mcVersion);
+    if (has) sel.value = p.mcVersion;
+  }
+  const ld = { fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge' }[p.loader] || '原版（无加载器）';
+  if (info) {
+    const warn = (p.loader === 'fabric' || p.loader === 'forge' || p.loader === 'neoforge' || !p.loader)
+      ? ''
+      : '<br><span style="color:#e0a030">⚠ 未识别出加载器，建议手动确认服务端类型</span>';
+    info.innerHTML = `已选整合包：<b>${esc(p.name)}</b><br>MC 版本：<b>${esc(p.mcVersion || '未知')}</b>　加载器：<b>${ld}</b>　模组：<b>${p.modsCount || 0}</b> 个${warn}`;
+  }
+  // 列出模组
+  if (modsUl) {
+    modsUl.style.display = 'block';
+    modsUl.innerHTML = '<li class="empty">加载模组列表…</li>';
+    const r = await window.api.localPacksMods({ name });
+    const list = (r && r.ok ? r.list : []) || [];
+    modsUl.innerHTML = list.length
+      ? list.map((m) => `<li class="mod-item"><div class="mod-left"><div class="mod-name">${esc(m.file)}</div><div class="ver-tags"><span class="tg">${m.sizeKB} KB</span></div></div></li>`).join('')
+      : '<li class="empty">该整合包 mods 目录为空</li>';
+  }
+  if (carryWrap) carryWrap.style.display = (p.modsCount > 0) ? 'flex' : 'none';
+  log('data', `已选择整合包「${p.name}」：MC ${p.mcVersion} · ${ld} · ${p.modsCount} 模组，建服时将自动带上`);
+}
+
+if ($('sel-srv-pack')) $('sel-srv-pack').onchange = () => applySrvPack($('sel-srv-pack').value);
+if ($('btn-srv-pack-refresh')) $('btn-srv-pack-refresh').onclick = async () => { await loadSrvPackOptions(); if ($('sel-srv-pack').value) applySrvPack($('sel-srv-pack').value); };
+
 $('btn-srv-pick').onclick = async () => {
   const p = await window.api.pickDir();
   if (p) { $('in-srv-dir').value = p; }
@@ -2335,6 +2413,8 @@ $('btn-srv-create').onclick = async () => {
     javaPath: $('in-java').value.trim()
   };
   if (!opts.dir || !opts.mcVersion) return alert('请填写服务器目录并选择 MC 版本');
+  const packName = $('sel-srv-pack') ? $('sel-srv-pack').value : '';
+  const wantCarry = packName && (!$('chk-srv-pack-carry') || $('chk-srv-pack-carry').checked);
   cfg.serverDir = opts.dir;
   await window.api.setConfig(cfg);
   const btn = $('btn-srv-create');
@@ -2354,6 +2434,19 @@ $('btn-srv-create').onclick = async () => {
       status('✖ 创建失败：' + ((r && r.error) || '未知错误') + '<br><span class="hint">可展开下方「创建日志」看详情，或点「创建服务器」重试。</span>', 'err');
     } else {
       wlog('\n✔ 创建完成！\n');
+      // 按整合包建服：把该包的模组复制到服务器 mods
+      if (wantCarry) {
+        wlog(`\n导入整合包「${packName}」的模组到服务器 mods…\n`);
+        status('⏳ 正在导入整合包模组…');
+        try {
+          const cr = await window.api.localPacksCarry({ packName, dir: opts.dir });
+          if (cr && cr.ok) {
+            wlog(`✔ 已导入 ${cr.carried} 个模组` + (cr.skipped && cr.skipped.length ? `，跳过 ${cr.skipped.length} 个同名` : '') + '\n');
+          } else {
+            wlog('✖ 导入整合包模组失败：' + ((cr && cr.error) || '未知错误') + '\n');
+          }
+        } catch (e) { wlog('✖ 导入整合包模组异常：' + (e.message || e) + '\n'); }
+      }
       status('✔ 创建完成！正在跳转到「服务器管理」…', 'ok');
       // 自动把新建的服务器加入列表并设为当前
       try {
