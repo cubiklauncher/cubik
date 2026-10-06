@@ -138,8 +138,7 @@ ipcMain.handle('mod:install-dep', async (_e, { version, url, filename }) => {
 
 
 
-ipcMain.handle('mod:check-updates', async (_e, { version }) => {
-  try {
+ipcMain.handle('mod:check-updates', async (_e, { version }) => {  try {
     const cfg = loadConfig();
     const dir = path.join(cfg.mcDir, 'versions', version, 'mods');
     if (!fs.existsSync(dir)) return { ok: true, list: [] };
@@ -150,6 +149,75 @@ ipcMain.handle('mod:check-updates', async (_e, { version }) => {
     const info = readVersionMeta(cfg.mcDir, version);
     const updates = await modpack.checkModUpdates(hashes, info.mcVersion, '');
     return { ok: true, list: updates, total: files.length };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
+// 批量更新：对指定的 mod 逐个删除旧文件并下载新版本（顺序执行，逐个回调进度）
+// items: [{ file, download, filename, version }]
+ipcMain.handle('mod:batch-update', async (_e, { version, items }) => {
+  try {
+    const cfg = loadConfig();
+    const dir = path.join(cfg.mcDir, 'versions', version, 'mods');
+    const send = (m) => __win().webContents.send('install:log', m + '\n');
+    const results = [];
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      try {
+        if (!it.download) { results.push({ file: it.file, ok: false, error: '无下载地址' }); continue; }
+        __win().webContents.send('mod:batch-progress', { index: i, total: items.length, file: it.file, phase: 'start' });
+        // 旧文件挪到回收站，避免直接删失败导致丢文件
+        try {
+          const from = path.join(dir, it.file);
+          if (fs.existsSync(from)) {
+            const trash = path.join(cfg.mcDir, '.trash', 'mods', version);
+            fs.mkdirSync(trash, { recursive: true });
+            try { fs.renameSync(from, path.join(trash, it.file)); }
+            catch { fs.rmSync(from, { force: true }); }
+          }
+        } catch {}
+        await modpack.downloadFile(it.download, path.join(dir, it.filename), null, send, it.filename);
+        send(`✔ 已更新 Mod: ${it.file} -> ${it.filename}`);
+        results.push({ file: it.file, ok: true });
+      } catch (e) {
+        results.push({ file: it.file, ok: false, error: e.message });
+      }
+      __win().webContents.send('mod:batch-progress', { index: i, total: items.length, file: it.file, phase: 'done' });
+    }
+    const okCount = results.filter((r) => r.ok).length;
+    return { ok: true, results, done: okCount, total: items.length };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
+// 冲突检测：识别同实例下「同一 Mod 装了多个版本」的重复文件。
+// 策略：把文件名去掉版本号/Jar 后缀后归一化，同名多个 → 判为重复冲突。
+ipcMain.handle('mods:conflicts', (_e, { version }) => {
+  try {
+    const cfg = loadConfig();
+    const dir = path.join(cfg.mcDir, 'versions', version, 'mods');
+    if (!fs.existsSync(dir)) return { ok: true, groups: [] };
+    const files = fs.readdirSync(dir).filter((f) => /\.jar(\.disabled)?$/i.test(f));
+    // 归一化：去掉 .disabled、.jar、以及常见版本号段（-1.2.3 / _1.2 / -mc1.20.1 等）
+    const norm = (f) => f
+      .replace(/\.disabled$/i, '')
+      .replace(/\.jar$/i, '')
+      .replace(/[-_+ ]?v?\d+(\.\d+)+([-_+.][A-Za-z0-9.]+)*/g, '')
+      .replace(/[-_+ ]?(mc)?\d+(\.\d+)*/gi, '')
+      .replace(/[-_+ ]+(fabric|forge|neoforge|quilt|1\.\d+(\.\d+)?)/gi, '')
+      .replace(/[-_+ ]+$/g, '')
+      .toLowerCase()
+      .trim();
+    const map = new Map();
+    for (const f of files) {
+      const key = norm(f);
+      if (!key) continue;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(f);
+    }
+    const groups = [];
+    for (const [key, group] of map) {
+      if (group.length > 1) groups.push({ key, files: group });
+    }
+    return { ok: true, groups, total: files.length };
   } catch (e) { return { ok: false, error: e.message }; }
 });
 

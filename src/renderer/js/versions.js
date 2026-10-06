@@ -453,7 +453,10 @@ if ($('btn-mod-check-updates')) $('btn-mod-check-updates').onclick = async () =>
         <button class="btn primary mini" data-act="up">⬆ 更新</button>
       </div>`;
     }).join('') +
-    `<div class="row end"><button class="btn ghost mini" id="mup-close">关闭</button></div>`;
+    `<div class="row end" style="gap:8px">
+       <button class="btn primary mini" id="mup-update-all">⬆ 一键更新全部兼容项</button>
+       <button class="btn ghost mini" id="mup-close">关闭</button>
+     </div>`;
   panel.querySelectorAll('[data-act="up"]').forEach((b) => {
     b.onclick = async () => {
       const u = r.list[+b.closest('.mup-item').dataset.i];
@@ -468,5 +471,77 @@ if ($('btn-mod-check-updates')) $('btn-mod-check-updates').onclick = async () =>
   });
   const cl = panel.querySelector('#mup-close');
   if (cl) cl.onclick = () => panel.remove();
+  // 一键更新全部兼容项（批量，顺序执行）
+  const allBtn = panel.querySelector('#mup-update-all');
+  if (allBtn) allBtn.onclick = async () => {
+    const targets = r.list.filter((u) => u.compatible && u.download);
+    if (!targets.length) return alert('没有可直接更新的兼容项');
+    if (!confirm(`将依次更新 ${targets.length} 个兼容 Mod（每个先备份旧文件到回收站），继续？`)) return;
+    allBtn.disabled = true;
+    allBtn.textContent = `更新中 0/${targets.length}…`;
+    panel.querySelectorAll('[data-act="up"]').forEach((b) => { b.disabled = true; });
+    try {
+      const rr = await window.api.modBatchUpdate({
+        version: vdCurrent,
+        items: targets.map((u) => ({ file: u.file, download: u.download, filename: u.filename, version: u.version }))
+      });
+      if (rr && rr.ok) {
+        allBtn.textContent = `✔ 完成 ${rr.done}/${rr.total}`;
+        log('data', `批量更新完成：成功 ${rr.done}/${rr.total}`);
+        if (rr.results) rr.results.filter((x) => !x.ok).forEach((x) => log('data', `✗ ${x.file} 失败：${x.error || ''}`));
+        setVdTab('mods'); loadMods();
+      } else {
+        allBtn.disabled = false; allBtn.textContent = '⬆ 一键更新全部兼容项';
+        alert('批量更新失败：' + ((rr && rr.error) || '未知'));
+      }
+    } catch (e) {
+      allBtn.disabled = false; allBtn.textContent = '⬆ 一键更新全部兼容项';
+      alert('批量更新异常：' + e.message);
+    }
+  };
+};
+
+// 冲突检测：同一 Mod 多版本重复
+if ($('btn-mod-conflicts')) $('btn-mod-conflicts').onclick = async () => {
+  const btn = $('btn-mod-conflicts');
+  btn.disabled = true; btn.textContent = '检测中…';
+  const r = await window.api.modsConflicts({ version: vdCurrent });
+  btn.disabled = false; btn.textContent = '⚠️ 冲突检测';
+  if (!r || !r.ok) { alert('检测失败：' + ((r && r.error) || '未知错误')); return; }
+  const list = $('mod-list');
+  let panel = $('dyn-mod-conflict-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'dyn-mod-conflict-panel';
+    panel.className = 'dyn-mod-update-panel';
+    list.parentNode.insertBefore(panel, list);
+  }
+  if (!r.groups.length) {
+    panel.innerHTML = `<div class="mup-head">✅ 未发现重复 Mod（扫描 ${r.total} 个文件）</div>` +
+      `<div class="row end"><button class="btn ghost mini" id="mcp-close">关闭</button></div>`;
+    panel.querySelector('#mcp-close').onclick = () => panel.remove();
+    return;
+  }
+  panel.innerHTML = `<div class="mup-head">⚠️ 发现 ${r.groups.length} 组重复 Mod（可能冲突）：</div>` +
+    r.groups.map((g, gi) => {
+      const files = g.files.map((f) => `<div class="mup-item" data-g="${gi}" data-f="${esc(f)}">
+          <div class="mup-body"><div class="mup-name">${esc(f)}</div><div class="mup-sub">同一 Mod 的重复文件，建议只保留一个</div></div>
+          <button class="btn ghost mini" data-act="del">🗑 删除</button>
+        </div>`).join('');
+      return `<div class="mcp-group"><div class="mcp-group-title">${esc(g.key)}</div>${files}</div>`;
+    }).join('') +
+    `<div class="row end"><button class="btn ghost mini" id="mcp-close">关闭</button></div>`;
+  panel.querySelectorAll('[data-act="del"]').forEach((b) => {
+    b.onclick = async () => {
+      const item = b.closest('.mup-item');
+      const file = item.dataset.f;
+      if (!confirm(`删除重复文件「${file}」？`)) return;
+      b.disabled = true; b.textContent = '删除中…';
+      const rr = await window.api.modsDelete({ version: vdCurrent, file });
+      if (rr && rr.ok) { loadMods(); $('btn-mod-conflicts').click(); }
+      else { b.disabled = false; b.textContent = '🗑 删除'; alert('删除失败：' + ((rr && rr.error) || '未知')); }
+    };
+  });
+  panel.querySelector('#mcp-close').onclick = () => panel.remove();
 };
 

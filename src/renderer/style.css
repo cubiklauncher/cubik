@@ -1077,3 +1077,7 @@ body.perf-mode .ver-card { background: rgba(248,250,255,.92); }
 @media (max-width: 720px) {
   .quick-actions { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* 冲突检测面板分组（v1.2） */
+.mcp-group { margin: 6px 0; }
+.mcp-group-title { font-size: 12px; font-weight: 700; color: var(--text-soft); padding: 4px 2px; }

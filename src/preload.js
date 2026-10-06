@@ -93,6 +93,9 @@ contextBridge.exposeInMainWorld('api', {
 
   // mod 更新检查
   modCheckUpdates: (p) => ipcRenderer.invoke('mod:check-updates', p),
+  modBatchUpdate: (p) => ipcRenderer.invoke('mod:batch-update', p),
+  modsConflicts: (p) => ipcRenderer.invoke('mods:conflicts', p),
+  onModBatchProgress: (cb) => ipcRenderer.on('mod:batch-progress', (_e, d) => cb(d)),
 
   // 皮肤 / 披风
   skinInfo: (p) => ipcRenderer.invoke('skin:info', p),
