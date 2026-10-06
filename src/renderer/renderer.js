@@ -1230,8 +1230,7 @@ async function loadInstances() {
   if (!ul) return;
   ul.innerHTML = '<li class="empty">加载中…</li>';
   const r = await window.api.listVersions();
-  if (!r || !r.ok) { ul.innerHTML = `<li class="empty">加载失败：${esc((r && r.error) || '')}</li>`; return; }
-  const list = r.list || r.versions || [];
+  const list = Array.isArray(r) ? r : ((r && (r.list || r.versions)) || []);
   if (!list.length) { ul.innerHTML = '<li class="empty">还没有本地实例。</li>'; return; }
   ul.innerHTML = '';
   list.forEach((v) => {

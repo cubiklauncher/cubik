@@ -233,7 +233,6 @@ function createWindow() {
 
   // 自动化自测钩子：设置 CUBIK_SELFTEST=1 时自测；=launch 时测试启动游戏
   win.once('ready-to-show', async () => {
-    try { require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), 'HOOK env=' + process.env.CUBIK_SELFTEST); } catch {}
     if (!process.env.CUBIK_SELFTEST) return;
     if (process.env.CUBIK_SELFTEST === 'manifest') {
       try {
