@@ -749,6 +749,77 @@ ipcMain.handle('mc:versions', () => {
 });
 
 // 解析实例的真实基础 MC 版本号（沿 inheritsFrom 链走到最底层，返回形如 '1.20.1'）
+// 启动前提取 LWJGL 等原生库（.dll）到游戏目录。
+// 原因：MCLC 对 MC ≥1.19 不再自己提取 natives（它假设 dll 已在游戏目录），
+// 若从未解压 natives jar，游戏会报 "Failed to locate library: lwjgl_opengl.dll" 并自动退出。
+async function extractNatives(mcDir, version, cwd, send) {
+  const merged = (() => { try { return mergeVersionJson(mcDir, version); } catch { return null; } })();
+  if (!merged) return;
+  const libs = (merged.libraries || []).filter((l) => l.downloads);
+  // 收集该平台（windows-x64）需要解压的 natives jar
+  const targets = [];
+  for (const lib of libs) {
+    // 1) 新版格式：libraries[].downloads.classifiers['natives-windows']
+    if (lib.downloads.classifiers) {
+      const c = lib.downloads.classifiers['natives-windows'] || lib.downloads.classifiers['natives-windows-64'] || lib.downloads.classifiers['natives-windows-amd64'];
+      if (c && c.path) targets.push({ path: c.path });
+    }
+    // 2) 新版：libraries[].downloads.artifact + natives-windows classifier 命名约定
+    // 3) 现代格式：natives 通过 name 中的 classifiers（如 :natives-windows）声明
+    const nm = lib.name || '';
+    const m = nm.match(/natives-windows(?:-64|-amd64)?$/);
+    if (m && lib.downloads.artifact && lib.downloads.artifact.path) {
+      targets.push({ path: lib.downloads.artifact.path });
+    }
+  }
+  // 去重
+  const seen = new Set();
+  const list = targets.filter((t) => t.path && !seen.has(t.path) && seen.add(t.path));
+  if (!list.length) return;
+
+  const nativesDir = path.join(cwd, 'natives');
+  fs.mkdirSync(nativesDir, { recursive: true });
+
+  let extracted = 0;
+  const AdmZip = (() => { try { return require('adm-zip'); } catch { return null; } })();
+  for (const t of list) {
+    const jarPath = path.join(mcDir, 'libraries', t.path);
+    if (!fs.existsSync(jarPath)) continue;
+    // 检查是否已解压过（用 jar 名做标记）
+    const marker = path.join(nativesDir, '.' + path.basename(t.path) + '.done');
+    let needExtract = true;
+    try { if (fs.existsSync(marker) && fs.statSync(marker).mtimeMs >= fs.statSync(jarPath).mtimeMs) needExtract = false; } catch {}
+    if (!needExtract) continue;
+    try {
+      if (AdmZip) {
+        const zip = new AdmZip(jarPath);
+        zip.getEntries().forEach((e) => {
+          if (e.isDirectory) return;
+          const base = path.basename(e.entryName);
+          if (!/\.(dll|so|dylib)$/i.test(base)) return;
+          fs.writeFileSync(path.join(nativesDir, base), e.getData());
+        });
+      } else {
+        // 降级：用 PowerShell Expand-Archive
+        const { execFileSync } = require('child_process');
+        const tmp = path.join(nativesDir, '_tmp_' + Date.now());
+        fs.mkdirSync(tmp, { recursive: true });
+        execFileSync('powershell', ['-NoProfile', '-Command', `Expand-Archive -LiteralPath '${jarPath}' -DestinationPath '${tmp}' -Force`], { stdio: 'ignore' });
+        for (const f of fs.readdirSync(tmp)) {
+          if (/\.(dll|so|dylib)$/i.test(f)) fs.copyFileSync(path.join(tmp, f), path.join(nativesDir, f));
+        }
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+      fs.writeFileSync(marker, String(Date.now()));
+      extracted++;
+    } catch (e) {
+      send && send('debug', '提取原生库失败 ' + path.basename(t.path) + '：' + (e && e.message ? e.message : e));
+    }
+  }
+  if (extracted > 0) send && send('data', `已就绪 ${extracted} 个原生库（natives/.dll）`);
+  return nativesDir;
+}
+
 // 启动前自检：合并版本 JSON，检查每个 library 的 jar 是否为完整 zip。
 // 下载中断/镜像异常会导致 zip 损坏（zip END header not found），游戏启动即崩溃。
 // 发现损坏的则删掉并重新下载（用合并后的版本 JSON 里的 downloads.artifact.url）。
@@ -1439,6 +1510,19 @@ ipcMain.handle('mc:launch', async (_e, opts) => {
     } catch (e) {
       send('debug', '合并版本 JSON 失败（将直接启动）：' + e.message);
     }
+  }
+
+  // 提取原生库（.dll）到游戏目录（MCLC 对 MC ≥1.19 不再自己提取，否则会因缺少
+  // lwjgl_opengl.dll 等直接崩溃退出）
+  try {
+    const cwdNatives = isInstance ? instDir : cfg.mcDir;
+    const nativesDir = await extractNatives(cfg.mcDir, version, cwdNatives, send);
+    if (nativesDir) {
+      launchOpts.overrides = launchOpts.overrides || {};
+      launchOpts.overrides.natives = nativesDir;
+    }
+  } catch (e) {
+    send('debug', '原生库提取失败（已跳过）：' + (e && e.message ? e.message : e));
   }
 
   try {
