@@ -175,7 +175,7 @@ async function pool(items, concurrency, worker) {
   await Promise.all(runners);
 }
 
-function downloadFile(url, dest, onProgress, onLog, label, fallbackUrl) {
+function downloadFile(url, dest, onProgress, onLog, label, fallbackUrl, insecure) {
   const http = require('http');
   return new Promise((resolve, reject) => {
     fs.mkdirSync(path.dirname(dest), { recursive: true });
@@ -186,8 +186,10 @@ function downloadFile(url, dest, onProgress, onLog, label, fallbackUrl) {
     try { if (fs.existsSync(dest)) startAt = fs.statSync(dest).size; } catch {}
     const headers = { 'User-Agent': 'Cubik/1.0' };
     if (startAt > 0) headers['Range'] = 'bytes=' + startAt + '-';
+    const reqOpts = { hostname: u.hostname, port: u.port || undefined, path: u.pathname + u.search, headers };
+    if (insecure) reqOpts.rejectUnauthorized = false;
     const req = mod.get(
-      { hostname: u.hostname, port: u.port || undefined, path: u.pathname + u.search, headers },
+      reqOpts,
       (res) => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           // 处理相对重定向
@@ -197,16 +199,16 @@ function downloadFile(url, dest, onProgress, onLog, label, fallbackUrl) {
           } catch {
             next = res.headers.location;
           }
-          return downloadFile(next, dest, onProgress, onLog, label, fallbackUrl).then(resolve, reject);
+          return downloadFile(next, dest, onProgress, onLog, label, fallbackUrl, insecure).then(resolve, reject);
         }
         // 209/200：正常；206：断点续传成功
         if (res.statusCode !== 200 && res.statusCode !== 206) {
           // 服务器不支持续传或出错 → 从头重下（删除部分文件）
           if (startAt > 0 && res.statusCode === 416) {
             try { fs.unlinkSync(dest); } catch {}
-            return downloadFile(url, dest, onProgress, onLog, label, fallbackUrl).then(resolve, reject);
+            return downloadFile(url, dest, onProgress, onLog, label, fallbackUrl, insecure).then(resolve, reject);
           }
-          if (fallbackUrl) return downloadFile(fallbackUrl, dest, onProgress, onLog, label, null).then(resolve, reject);
+          if (fallbackUrl) return downloadFile(fallbackUrl, dest, onProgress, onLog, label, null, insecure).then(resolve, reject);
           return reject(new Error(`HTTP ${res.statusCode} ${url}`));
         }
         const partial = res.statusCode === 206;
@@ -220,7 +222,7 @@ function downloadFile(url, dest, onProgress, onLog, label, fallbackUrl) {
           failed = true;
           try { file.destroy(); } catch {}
           // 保留已下部分以便下次续传（仅在支持续传时），否则删除
-          if (fallbackUrl) return downloadFile(fallbackUrl, dest, onProgress, onLog, label, null).then(resolve, reject);
+          if (fallbackUrl) return downloadFile(fallbackUrl, dest, onProgress, onLog, label, null, insecure).then(resolve, reject);
           reject(err);
         };
         res.on('data', (d) => {
@@ -243,11 +245,20 @@ function downloadFile(url, dest, onProgress, onLog, label, fallbackUrl) {
     const TIMEOUT = fallbackUrl ? 20 * 1000 : 30 * 60 * 1000;
     req.setTimeout(TIMEOUT, () => {
       req.destroy();
-      if (fallbackUrl) return downloadFile(fallbackUrl, dest, onProgress, onLog, label, null).then(resolve, reject);
+      if (fallbackUrl) return downloadFile(fallbackUrl, dest, onProgress, onLog, label, null, insecure).then(resolve, reject);
       reject(new Error('下载超时 ' + url));
     });
     req.on('error', (err) => {
-      if (fallbackUrl) return downloadFile(fallbackUrl, dest, onProgress, onLog, label, null).then(resolve, reject);
+      // 证书验证失败（企业/安全软件替换证书）→ 对该文件降级重试（仅证书链不校验，仍走 HTTPS）
+      const certErr = [
+        'UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'CERT_HAS_EXPIRED',
+        'UNABLE_TO_GET_ISSUER_CERT_LOCALLY', 'SELF_SIGNED_CERT_IN_CHAIN',
+        'DEPTH_ZERO_SELF_SIGNED_CERT', 'ERR_TLS_CERT_ALTNAME_INVALID', 'CERT_UNTRUSTED',
+      ].includes(err && err.code);
+      if (certErr && !insecure) {
+        return downloadFile(url, dest, onProgress, onLog, label, fallbackUrl, true).then(resolve, reject);
+      }
+      if (fallbackUrl) return downloadFile(fallbackUrl, dest, onProgress, onLog, label, null, insecure).then(resolve, reject);
       reject(err);
     });
   });

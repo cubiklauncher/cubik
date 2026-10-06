@@ -10,6 +10,16 @@ const tunnelMgr = require('./tunnel');
 const installer = require('./installer');
 const { APP_NAME, APP_VERSION, DATA_ROOT } = require('./constants');
 
+// ---------- 证书兼容：让 Electron/Node 网络栈信任 Windows 系统证书库 ----------
+// 部分企业网络/安全软件会替换 TLS 证书（自签CA），Windows 信任但 Node 默认不读系统库，
+// 会导致“检查更新”等 HTTPS 请求报 UNABLE_TO_VERIFY_LEAF_SIGNATURE / 无法验证证书。
+// Electron 20+ 支持 use-system-ca：在 app ready 前开启即可读取系统根证书。
+try {
+  if (typeof app.commandLine?.appendSwitch === 'function') {
+    app.commandLine.appendSwitch('use-system-ca');
+  }
+} catch {}
+
 // ---------- 全局错误处理：不让未捕获异常直接静默崩掉进程 ----------
 process.on('uncaughtException', (err) => {
   const msg = `[未捕获异常] ${err && err.stack ? err.stack : err}`;
@@ -457,30 +467,44 @@ ipcMain.handle('app:auto-update', async (_e, { url, name }) => {
 });
 
 // GitHub API GET（自动跟随重定向、超时、最多重试 2 次）
-function githubGet(path, tries = 2) {
+// insecure=true 时对 GitHub 域名降级：仍用 HTTPS，但不再强校验证书
+// （应对企业网络/安全软件替换证书导致“无法验证证书”的情况，仅用于 api.github.com）
+function githubGet(path, tries = 2, insecure = false) {
   return new Promise((resolve, reject) => {
     const https = require('https');
-    const req = https.get(
-      { hostname: 'api.github.com', path, headers: { 'User-Agent': 'Cubik/' + APP_VERSION, Accept: 'application/vnd.github+json' } },
-      (res) => {
-        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          res.resume();
-          return githubGet(res.headers.location.replace(/^https?:\/\/api\.github\.com/, ''), tries).then(resolve, reject);
-        }
-        let b = '';
-        res.on('data', (d) => (b += d));
-        res.on('end', () => {
-          if (res.statusCode !== 200) {
-            if (tries > 1 && res.statusCode >= 500) return setTimeout(() => githubGet(path, tries - 1).then(resolve, reject), 800);
-            return reject(new Error('HTTP ' + res.statusCode));
-          }
-          resolve(b);
-        });
+    const opts = {
+      hostname: 'api.github.com',
+      path,
+      headers: { 'User-Agent': 'Cubik/' + APP_VERSION, Accept: 'application/vnd.github+json' },
+    };
+    if (insecure) opts.rejectUnauthorized = false;
+    const req = https.get(opts, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        res.resume();
+        return githubGet(res.headers.location.replace(/^https?:\/\/api\.github\.com/, ''), tries, insecure).then(resolve, reject);
       }
-    );
+      let b = '';
+      res.on('data', (d) => (b += d));
+      res.on('end', () => {
+        if (res.statusCode !== 200) {
+          if (tries > 1 && res.statusCode >= 500) return setTimeout(() => githubGet(path, tries - 1, insecure).then(resolve, reject), 800);
+          return reject(new Error('HTTP ' + res.statusCode));
+        }
+        resolve(b);
+      });
+    });
     req.setTimeout(12000, () => req.destroy(new Error('请求超时')));
     req.on('error', (e) => {
-      if (tries > 1) return setTimeout(() => githubGet(path, tries - 1).then(resolve, reject), 800);
+      // 证书验证失败 → 降级重试（仍走 HTTPS，仅不校验证书链）
+      const certErr = [
+        'UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'CERT_HAS_EXPIRED',
+        'UNABLE_TO_GET_ISSUER_CERT_LOCALLY', 'SELF_SIGNED_CERT_IN_CHAIN',
+        'DEPTH_ZERO_SELF_SIGNED_CERT', 'ERR_TLS_CERT_ALTNAME_INVALID', 'CERT_UNTRUSTED',
+      ].includes(e && e.code);
+      if (certErr && tries > 1) {
+        return githubGet(path, tries - 1, true).then(resolve, reject);
+      }
+      if (tries > 1) return setTimeout(() => githubGet(path, tries - 1, insecure).then(resolve, reject), 800);
       reject(e);
     });
   });
