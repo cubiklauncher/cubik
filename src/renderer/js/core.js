@@ -66,22 +66,30 @@ document.querySelectorAll('.qa-card').forEach((btn) => {
 });
 
 // ---------- 页面切换 ----------
-document.querySelectorAll('.nav-item').forEach((btn) => {
-  btn.onclick = () => {
-    document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
-    $('page-' + btn.dataset.page).classList.add('active');
-    if (btn.dataset.page === 'modpack' && !packLoaded) loadPackTop();
-    if (btn.dataset.page === 'shader' && !shaderLoaded) loadShaderTop();
-    if (btn.dataset.page === 'data') loadDataPage();
-    if (btn.dataset.page === 'mod' && !modPageLoaded) loadModPage();
-    if (btn.dataset.page === 'server') { refreshNetInfo(); try { loadServerVersions(); } catch {} try { renderServerOverview(); } catch {} try { refreshCreateDirDefault(); } catch {} try { loadSrvPackOptions(); } catch {} }
-    if (btn.dataset.page === 'srvmanage') { try { loadServerListIntoManage(); } catch {}
-      refreshServerBackup(); loadAutoBackup(); checkServerUpdateUI(true); refreshNetInfo(); try { loadServerMods(); } catch {} try { refreshServerStatus(); } catch {} }
-    if (btn.dataset.page === 'vanilla' && !window.__vanLoaded) { window.__vanLoaded = true; loadVanillaVersions(); }
-    if (btn.dataset.page === 'versions') refreshVersions();
-  };
+function navToPage(page) {
+  const btn = document.querySelector('.nav-item[data-page="' + page + '"]');
+  if (!btn) return;
+  document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
+  const pageEl = $('page-' + page);
+  if (pageEl) pageEl.classList.add('active');
+  if (page === 'modpack' && !packLoaded) loadPackTop();
+  if (page === 'shader' && !shaderLoaded) loadShaderTop();
+  if (page === 'data') loadDataPage();
+  if (page === 'mod' && !modPageLoaded) loadModPage();
+  if (page === 'downloads' && typeof dlRender === 'function') dlRender();
+  if (page === 'server') { refreshNetInfo(); try { loadServerVersions(); } catch {} try { renderServerOverview(); } catch {} try { refreshCreateDirDefault(); } catch {} try { loadSrvPackOptions(); } catch {} }
+  if (page === 'srvmanage') { try { loadServerListIntoManage(); } catch {}
+    refreshServerBackup(); loadAutoBackup(); checkServerUpdateUI(true); refreshNetInfo(); try { loadServerMods(); } catch {} try { refreshServerStatus(); } catch {} }
+  if (page === 'vanilla' && !window.__vanLoaded) { window.__vanLoaded = true; loadVanillaVersions(); }
+  if (page === 'versions') refreshVersions();
+}
+
+// 事件委托：支持动态新增的导航项（如「下载中心」）
+document.addEventListener('click', (e) => {
+  const item = e.target.closest && e.target.closest('.nav-item');
+  if (item && item.dataset.page) navToPage(item.dataset.page);
 });
 
 // ---------- 日志 ----------
@@ -163,6 +171,8 @@ if ($('gp-jump')) $('gp-jump').onclick = () => {
 
 async function init() {
   const t0 = performance.now();
+  // 下载中心：把入口注入侧边栏（DOM 就绪即可，不依赖 IPC）
+  try { buildDownloadCenterUI(); } catch {}
   // 并行拉取配置和 app 信息（两块 IPC 不互相依赖）
   const [config, info, ram] = await Promise.all([
     window.api.getConfig().catch(() => ({})),
@@ -290,9 +300,10 @@ if (window.api.onPackZhName) {
     if (p.pct != null) $('detail-progress').style.width = p.pct + '%';
     if (p.label) $('detail-progress-text').textContent = `${p.label} ${p.done ? '(' + p.done + '/' + p.total + ')' : ''}`;
     updateGlobalProgress(p);
+    try { dlHookInstallProgress(p); } catch {}
   });
   // 安装/下载完成 → 顶部进度条闪一下“完成”后自动隐藏
-  window.api.onInstallDone((d) => finishGlobalProgress(d));window.api.onServerProgress((p) => {
+  window.api.onInstallDone((d) => { finishGlobalProgress(d); try { dlHookInstallDone(d); } catch {} });window.api.onServerProgress((p) => {
     const pct = p.total > 0 ? Math.min(100, Math.round((p.task / p.total) * 100)) : 0;
     $('srv-progress').style.width = pct + '%';
   });
@@ -321,7 +332,7 @@ if (window.api.onPackZhName) {
   window.api.onClose((code) => {
     log('data', `游戏进程已退出，退出码 ${code}`);
     $('btn-launch').disabled = false;
-    $('btn-launch').textContent = '▶ 启动游戏';
+    $('btn-launch').innerHTML = icon('play') + ' 启动游戏';
     $('progress-text').textContent = '游戏已退出';
     if (!cfg || cfg.notifyOnDone !== false) {
       try { window.api.notify({ title: 'Cubik', body: '游戏已退出' }); } catch {}
@@ -356,7 +367,7 @@ async function refreshSourceDetail() {
   try {
     const r = await window.api.sourcesInfo({});
     if (!r || !r.ok) { el.textContent = ''; return; }
-    const label = { game: '🎮 游戏本体', content: '🧩 Mod/整合包/光影', api: '🔍 搜索 API', java: '☕ Java 运行时', server: '🖥️ 服务端' };
+    const label = { game: icon('game') + ' 游戏本体', content: icon('puzzle') + ' Mod/整合包/光影', api: icon('search') + ' 搜索 API', java: icon('cup') + ' Java 运行时', server: icon('server') + ' 服务端' };
     el.innerHTML = Object.keys(label).map((c) => {
       const names = (r.detail[c] || []).join(' → ') || '—';
       return `<div>${label[c]}：${esc(names)}</div>`;
@@ -416,7 +427,7 @@ async function toggleHomePicker() {
   });
   const more = document.createElement('div');
   more.className = 'hvp-more';
-  more.textContent = '⚙ 管理全部版本…';
+  more.innerHTML = icon('settings') + ' 管理全部版本…';
   more.onclick = () => { homePickerOpen = false; pop.style.display = 'none'; goPage('versions'); };
   pop.appendChild(more);
 }

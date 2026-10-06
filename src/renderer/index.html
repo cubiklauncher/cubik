@@ -18,31 +18,32 @@
     </div>
     <nav id="nav">
       <div class="nav-group">
-        <button class="nav-item active" data-page="home"><span class="ni-ico">🏠</span><span class="ni-label">主页</span></button>
+        <button class="nav-item active" data-page="home"><span class="ni-ico"><i class="ico" data-icon="home"></i></span><span class="ni-label">主页</span></button>
       </div>
       <div class="nav-group">
         <div class="nav-group-title">开始游戏</div>
-        <button class="nav-item" data-page="versions"><span class="ni-ico">📦</span><span class="ni-label">版本管理</span></button>
-        <button class="nav-item" data-page="vanilla"><span class="ni-ico">⬇️</span><span class="ni-label">原版下载</span></button>
-        <button class="nav-item" data-page="modpack"><span class="ni-ico">🧩</span><span class="ni-label">整合包</span></button>
+        <button class="nav-item" data-page="versions"><span class="ni-ico"><i class="ico" data-icon="box"></i></span><span class="ni-label">版本管理</span></button>
+        <button class="nav-item" data-page="vanilla"><span class="ni-ico"><i class="ico" data-icon="download"></i></span><span class="ni-label">原版下载</span></button>
+        <button class="nav-item" data-page="modpack"><span class="ni-ico"><i class="ico" data-icon="puzzle"></i></span><span class="ni-label">整合包</span></button>
       </div>
       <div class="nav-group">
         <div class="nav-group-title">资源</div>
-        <button class="nav-item" data-page="mod"><span class="ni-ico">🔧</span><span class="ni-label">Mod 下载</span></button>
-        <button class="nav-item" data-page="shader"><span class="ni-ico">✨</span><span class="ni-label">光影 / 资源包</span></button>
-        <button class="nav-item" data-page="data"><span class="ni-ico">🗄️</span><span class="ni-label">存档与备份</span></button>
+        <button class="nav-item" data-page="mod"><span class="ni-ico"><i class="ico" data-icon="wrench"></i></span><span class="ni-label">Mod 下载</span></button>
+        <button class="nav-item" data-page="shader"><span class="ni-ico"><i class="ico" data-icon="sparkles"></i></span><span class="ni-label">光影 / 资源包</span></button>
+        <button class="nav-item" data-page="data"><span class="ni-ico"><i class="ico" data-icon="database"></i></span><span class="ni-label">存档与备份</span></button>
       </div>
       <div class="nav-group">
         <div class="nav-group-title">联机与账号</div>
-        <button class="nav-item" data-page="server"><span class="ni-ico">🖥️</span><span class="ni-label">服务器</span></button>
-        <button class="nav-item" data-page="srvmanage"><span class="ni-ico">🛠️</span><span class="ni-label">服务器管理</span></button>
-        <button class="nav-item" data-page="account"><span class="ni-ico">👤</span><span class="ni-label">账号</span></button>
+        <button class="nav-item" data-page="server"><span class="ni-ico"><i class="ico" data-icon="server"></i></span><span class="ni-label">服务器</span></button>
+        <button class="nav-item" data-page="srvmanage"><span class="ni-ico"><i class="ico" data-icon="wrench"></i></span><span class="ni-label">服务器管理</span></button>
+        <button class="nav-item" data-page="account"><span class="ni-ico"><i class="ico" data-icon="user"></i></span><span class="ni-label">账号</span></button>
       </div>
       <div class="nav-group">
         <div class="nav-group-title">系统</div>
-        <button class="nav-item" data-page="settings"><span class="ni-ico">⚙️</span><span class="ni-label">设置</span></button>
-        <button class="nav-item" data-page="log"><span class="ni-ico">📜</span><span class="ni-label">运行日志</span></button>
-        <button class="nav-item" data-page="about"><span class="ni-ico">ℹ️</span><span class="ni-label">关于</span></button>
+        <button class="nav-item" data-page="settings"><span class="ni-ico"><i class="ico" data-icon="settings"></i></span><span class="ni-label">设置</span></button>
+        <button class="nav-item" data-page="log"><span class="ni-ico"><i class="ico" data-icon="scroll"></i></span><span class="ni-label">运行日志</span></button>
+        <button class="nav-item" data-page="about"><span class="ni-ico"><i class="ico" data-icon="info"></i></span><span class="ni-label">关于</span></button>
+        <button class="nav-item" data-page="downloads"><span class="ni-ico"><i class="ico" data-icon="download"></i></span><span class="ni-label">下载中心</span><span class="ni-badge nav-dl-badge" id="nav-dl-badge" style="display:none"></span></button>
       </div>
     </nav>
     <div class="sidebar-foot">
@@ -58,7 +59,7 @@
         <span class="gp-label" id="gp-label">下载中…</span>
         <span class="gp-pct" id="gp-pct"></span>
         <button class="gp-jump" id="gp-jump" title="前往详情页">查看</button>
-        <button class="gp-close" id="gp-close" title="隐藏">✕</button>
+        <button class="gp-close" id="gp-close" title="隐藏"><i class="ico" data-icon="close"></i></button>
       </div>
       <div class="gp-bar"><div class="gp-inner" id="gp-inner"></div></div>
     </div>
@@ -68,10 +69,10 @@
 
       <!-- 快捷操作 -->
       <div class="quick-actions">
-        <button class="qa-card" data-go="versions"><span class="qa-ico">📦</span><span class="qa-label">版本管理</span><span class="qa-sub" id="qa-ver-count">—</span></button>
-        <button class="qa-card" data-go="modpack"><span class="qa-ico">🧩</span><span class="qa-label">整合包</span><span class="qa-sub">一键安装</span></button>
-        <button class="qa-card" data-go="mod"><span class="qa-ico">🔧</span><span class="qa-label">Mod 下载</span><span class="qa-sub">海量资源</span></button>
-        <button class="qa-card" data-go="server"><span class="qa-ico">🖥️</span><span class="qa-label">开服务器</span><span class="qa-sub">联机游戏</span></button>
+        <button class="qa-card" data-go="versions"><span class="qa-ico"><i class="ico" data-icon="box"></i></span><span class="qa-label">版本管理</span><span class="qa-sub" id="qa-ver-count">—</span></button>
+        <button class="qa-card" data-go="modpack"><span class="qa-ico"><i class="ico" data-icon="puzzle"></i></span><span class="qa-label">整合包</span><span class="qa-sub">一键安装</span></button>
+        <button class="qa-card" data-go="mod"><span class="qa-ico"><i class="ico" data-icon="wrench"></i></span><span class="qa-label">Mod 下载</span><span class="qa-sub">海量资源</span></button>
+        <button class="qa-card" data-go="server"><span class="qa-ico"><i class="ico" data-icon="server"></i></span><span class="qa-label">开服务器</span><span class="qa-sub">联机游戏</span></button>
       </div>
 
       <div class="card hero">
@@ -88,7 +89,7 @@
             <span class="home-acct-badge" id="home-acct-badge"></span>
           </span>
         </div>
-        <button id="btn-launch" class="big-btn">▶ 启动游戏</button>
+        <button id="btn-launch" class="big-btn"><i class="ico" data-icon="play"></i> 启动游戏</button>
         <div class="progress-wrap" id="progress-wrap">
           <div class="progress-bar"><div class="progress-inner" id="progress-inner"></div></div>
           <div class="progress-text" id="progress-text">准备中…</div>
@@ -156,7 +157,7 @@
           <select id="sel-addon-ver" style="flex:1"><option>选择 OptiFine 版本</option></select>
         </div>
         <div class="row end">
-          <button id="btn-van-install" class="btn primary">⬇ 下载并安装</button>
+          <button id="btn-van-install" class="btn primary"><i class="ico" data-icon="download"></i> 下载并安装</button>
         </div>
         <p class="hint">自动下载 client.jar、libraries 和全部资源文件（assets）。勾选加载器和组件会一并装进同一个版本，一次全部下完。</p>
       </div>
@@ -172,9 +173,9 @@
       <h1>版本管理</h1>
       <div class="row">
         <h2 style="margin:0">本地版本</h2>
-        <button id="btn-refresh" class="btn ghost" style="margin-left:auto">🔄 刷新</button>
-        <button id="btn-trash-open" class="btn ghost" title="查看并恢复已删除的版本">♻️ 回收站</button>
-        <button id="btn-manage-toggle" class="btn ghost">🗂 管理游戏版本</button>
+        <button id="btn-refresh" class="btn ghost" style="margin-left:auto"><i class="ico" data-icon="refresh"></i> 刷新</button>
+        <button id="btn-trash-open" class="btn ghost" title="查看并恢复已删除的版本"><i class="ico" data-icon="recycle"></i> 回收站</button>
+        <button id="btn-manage-toggle" class="btn ghost"><i class="ico" data-icon="list"></i> 管理游戏版本</button>
       </div>
       <!-- 管理模式提示 -->
       <div class="manage-bar" id="manage-bar" style="display:none">
@@ -187,8 +188,8 @@
       <!-- 回收站：恢复已删除的版本 -->
       <div id="trash-panel" style="display:none">
         <div class="row" style="margin-top:14px">
-          <h2 style="margin:0">♻️ 回收站（已删除的版本）</h2>
-          <button id="btn-trash-close" class="btn ghost" style="margin-left:auto">✕ 关闭</button>
+          <h2 style="margin:0"><i class="ico" data-icon="recycle"></i> 回收站（已删除的版本）</h2>
+          <button id="btn-trash-close" class="btn ghost" style="margin-left:auto"><i class="ico" data-icon="close"></i> 关闭</button>
         </div>
         <span class="hint">删除的版本会保留在这里，可随时恢复。</span>
         <ul class="version-list" id="trash-list"><li class="empty">加载中…</li></ul>
@@ -198,21 +199,21 @@
       <div id="version-detail" style="display:none">
         <div class="row" style="margin-top:22px">
           <h2 id="vd-title" style="margin:0">版本详情</h2>
-          <button id="btn-vd-close" class="btn ghost" style="margin-left:auto">✕ 关闭</button>
+          <button id="btn-vd-close" class="btn ghost" style="margin-left:auto"><i class="ico" data-icon="close"></i> 关闭</button>
         </div>
         <div class="vd-meta" id="vd-meta"></div>
         <div class="vd-tabs">
-          <button class="vd-tab active" data-tab="mods">🧩 模组 Mods</button>
-          <button class="vd-tab" data-tab="libs">📚 支持库 Libraries</button>
-          <button class="vd-tab" data-tab="settings">⚙️ 启动设置</button>
+          <button class="vd-tab active" data-tab="mods"><i class="ico" data-icon="puzzle"></i> 模组 Mods</button>
+          <button class="vd-tab" data-tab="libs"><i class="ico" data-icon="book"></i> 支持库 Libraries</button>
+          <button class="vd-tab" data-tab="settings"><i class="ico" data-icon="settings"></i> 启动设置</button>
         </div>
         <div class="vd-panel" id="vd-panel-mods">
           <div class="row">
-            <button class="btn primary" id="btn-mod-add">📥 导入 Mod</button>
-            <button class="btn primary" id="btn-mod-download">🌐 下载 Mod</button>
-            <button class="btn ghost" id="btn-mod-check-updates">🔄 检查更新</button>
-            <button class="btn ghost" id="btn-mod-conflicts">⚠️ 冲突检测</button>
-            <button class="btn ghost" id="btn-mod-open">📂 打开 mods 文件夹</button>
+            <button class="btn primary" id="btn-mod-add"><i class="ico" data-icon="download"></i> 导入 Mod</button>
+            <button class="btn primary" id="btn-mod-download"><i class="ico" data-icon="globe"></i> 下载 Mod</button>
+            <button class="btn ghost" id="btn-mod-check-updates"><i class="ico" data-icon="refresh"></i> 检查更新</button>
+            <button class="btn ghost" id="btn-mod-conflicts"><i class="ico" data-icon="warning"></i> 冲突检测</button>
+            <button class="btn ghost" id="btn-mod-open"><i class="ico" data-icon="folder"></i> 打开 mods 文件夹</button>
             <span class="hint" id="mod-count" style="margin-left:auto"></span>
           </div>
           <!-- mod 下载面板 -->
@@ -226,7 +227,7 @@
               </select>
               <input id="in-mod-query" type="text" placeholder="搜索 Mod，如 sodium / JEI / 小地图 / 合成表（支持中文）">
               <button class="btn primary" id="btn-mod-search">搜索</button>
-              <button class="btn ghost" id="btn-mod-store-close">✕ 关闭</button>
+              <button class="btn ghost" id="btn-mod-store-close"><i class="ico" data-icon="close"></i> 关闭</button>
             </div>
             <p class="hint" id="mod-store-filter"></p>
             <div class="pack-grid" id="mod-store-list"></div>
@@ -257,7 +258,7 @@
           <label class="vd-label">游戏参数（留空用全局）</label>
           <input id="in-inst-game" type="text" placeholder="如 --width 1280 --height 720">
           <div class="row end" style="margin-top:12px">
-            <button class="btn primary" id="btn-inst-save">💾 保存该实例设置</button>
+            <button class="btn primary" id="btn-inst-save"><i class="ico" data-icon="save"></i> 保存该实例设置</button>
           </div>
         </div>
       </div>
@@ -278,7 +279,7 @@
         </div>
         <p class="hint">下方默认展示下载量最高的整合包，点击卡片进入详情页一键安装。支持中文关键词搜索；卡片右侧会附上该整合包的网上常用中文名（无则留空）。</p>
       </div>
-      <h2 id="pack-list-title">🔥 热门整合包（按下载量）</h2>
+      <h2 id="pack-list-title"><i class="ico" data-icon="flame"></i> 热门整合包（按下载量）</h2>
       <div class="pack-grid" id="pack-list"><div class="empty">加载中…</div></div>
     </section>
 
@@ -303,7 +304,7 @@
         </div>
         <p class="hint">选择“安装到版本”后会自动按该实例的 MC 版本与加载器筛选兼容 Mod。点卡片查看可用版本并下载。</p>
       </div>
-      <h2 id="mod-list-title">🔥 热门 Mod（按下载量）</h2>
+      <h2 id="mod-list-title"><i class="ico" data-icon="flame"></i> 热门 Mod（按下载量）</h2>
       <div class="pack-grid" id="mod-grid"><div class="empty">加载中…</div></div>
       <div id="mod-qver-panel" style="display:none">
         <h2 id="mod-qver-title">可用版本</h2>
@@ -315,8 +316,8 @@
     <section class="page" id="page-shader">
       <h1>光影包 / 资源包</h1>
       <div class="data-tabs">
-        <button class="data-tab active" data-stab="shader">✨ 光影包</button>
-        <button class="data-tab" data-stab="rpack">🎨 资源包</button>
+        <button class="data-tab active" data-stab="shader"><i class="ico" data-icon="sparkles"></i> 光影包</button>
+        <button class="data-tab" data-stab="rpack"><i class="ico" data-icon="palette"></i> 资源包</button>
       </div>
       <div class="data-panel" id="spanel-shader">
         <div class="card">
@@ -326,7 +327,7 @@
           </div>
           <p class="hint">下方默认展示下载量最高的光影包，点击卡片进入详情页下载/安装。支持中文关键词搜索；卡片右侧会附上网上常用中文名（无则留空）。</p>
         </div>
-        <h2 id="shader-list-title">🔥 热门光影包（按下载量）</h2>
+        <h2 id="shader-list-title"><i class="ico" data-icon="flame"></i> 热门光影包（按下载量）</h2>
         <div class="pack-grid" id="shader-list"><div class="empty">加载中…</div></div>
       </div>
       <div class="data-panel" id="spanel-rpack" style="display:none">
@@ -334,11 +335,11 @@
           <div class="row">
             <input id="in-rpack-query" type="text" placeholder="搜索资源包，如 Faithful / 材质包（支持中文）">
             <button id="btn-rpack-search" class="btn primary">搜索</button>
-            <button class="btn ghost" id="btn-rpack-open">📂 打开资源包文件夹</button>
+            <button class="btn ghost" id="btn-rpack-open"><i class="ico" data-icon="folder"></i> 打开资源包文件夹</button>
           </div>
           <p class="hint">资源包会下载到 .minecraft/resourcepacks，可在游戏“选项 → 资源包”中启用。</p>
         </div>
-        <h2 id="rpack-list-title">🔥 热门资源包（按下载量）</h2>
+        <h2 id="rpack-list-title"><i class="ico" data-icon="flame"></i> 热门资源包（按下载量）</h2>
         <div class="pack-grid" id="rpack-list"><div class="empty">加载中…</div></div>
       </div>
     </section>
@@ -347,24 +348,24 @@
     <section class="page" id="page-data">
       <h1>存档与备份</h1>
       <div class="data-tabs">
-        <button class="data-tab active" data-dtab="worlds">🌍 存档（世界）</button>
-        <button class="data-tab" data-dtab="instances">📦 实例备份</button>
-        <button class="data-tab" data-dtab="shots">🖼️ 截图</button>
-        <button class="data-tab" data-dtab="import">📥 导入官方版本</button>
+        <button class="data-tab active" data-dtab="worlds"><i class="ico" data-icon="globe"></i> 存档（世界）</button>
+        <button class="data-tab" data-dtab="instances"><i class="ico" data-icon="box"></i> 实例备份</button>
+        <button class="data-tab" data-dtab="shots"><i class="ico" data-icon="image"></i> 截图</button>
+        <button class="data-tab" data-dtab="import"><i class="ico" data-icon="download"></i> 导入官方版本</button>
       </div>
 
       <!-- 存档 -->
       <div class="data-panel" id="dpanel-worlds">
         <div class="row">
-          <button class="btn primary" id="btn-world-open">📂 打开存档文件夹</button>
-          <button class="btn ghost" id="btn-world-refresh" style="margin-left:auto">🔄 刷新</button>
+          <button class="btn primary" id="btn-world-open"><i class="ico" data-icon="folder"></i> 打开存档文件夹</button>
+          <button class="btn ghost" id="btn-world-refresh" style="margin-left:auto"><i class="ico" data-icon="refresh"></i> 刷新</button>
         </div>
         <p class="hint">定时备份你的世界，升级版本或装错 Mod 造成损坏时可一键还原。删除会移入回收站（.trash），可恢复。</p>
         <ul class="data-list" id="world-list"><li class="empty">加载中…</li></ul>
         <div id="world-bk-panel" style="display:none">
           <div class="row" style="margin-top:14px">
             <h2 id="wbk-title" style="margin:0">备份列表</h2>
-            <button class="btn ghost" id="btn-wbk-close" style="margin-left:auto">✕ 关闭</button>
+            <button class="btn ghost" id="btn-wbk-close" style="margin-left:auto"><i class="ico" data-icon="close"></i> 关闭</button>
           </div>
           <ul class="data-list" id="world-bk-list"><li class="empty">加载中…</li></ul>
         </div>
@@ -374,14 +375,14 @@
       <div class="data-panel" id="dpanel-instances" style="display:none">
         <div class="row">
           <h2 style="margin:0">本地实例</h2>
-          <button class="btn ghost" id="btn-inst-refresh" style="margin-left:auto">🔄 刷新</button>
+          <button class="btn ghost" id="btn-inst-refresh" style="margin-left:auto"><i class="ico" data-icon="refresh"></i> 刷新</button>
         </div>
         <p class="hint">把整个实例（含全部 Mod、配置）打包成一个 zip。升级整合包或搞坏环境后可一键回滚。</p>
         <ul class="data-list" id="inst-list"><li class="empty">加载中…</li></ul>
         <div id="inst-bk-panel" style="display:none">
           <div class="row" style="margin-top:14px">
             <h2 id="ibk-title" style="margin:0">实例备份</h2>
-            <button class="btn ghost" id="btn-ibk-close" style="margin-left:auto">✕ 关闭</button>
+            <button class="btn ghost" id="btn-ibk-close" style="margin-left:auto"><i class="ico" data-icon="close"></i> 关闭</button>
           </div>
           <ul class="data-list" id="inst-bk-list"><li class="empty">加载中…</li></ul>
         </div>
@@ -390,8 +391,8 @@
       <!-- 截图 -->
       <div class="data-panel" id="dpanel-shots" style="display:none">
         <div class="row">
-          <button class="btn primary" id="btn-shot-open">📂 打开截图文件夹</button>
-          <button class="btn ghost" id="btn-shot-refresh" style="margin-left:auto">🔄 刷新</button>
+          <button class="btn primary" id="btn-shot-open"><i class="ico" data-icon="folder"></i> 打开截图文件夹</button>
+          <button class="btn ghost" id="btn-shot-refresh" style="margin-left:auto"><i class="ico" data-icon="refresh"></i> 刷新</button>
         </div>
         <p class="hint">游戏中按 F2 截的图会出现在这里。点击图片在文件夹中定位。</p>
         <div class="shot-grid" id="shot-list"><div class="empty">加载中…</div></div>
@@ -401,7 +402,7 @@
       <div class="data-panel" id="dpanel-import" style="display:none">
         <div class="row">
           <h2 style="margin:0">从官方启动器导入</h2>
-          <button class="btn ghost" id="btn-import-refresh" style="margin-left:auto">🔄 刷新</button>
+          <button class="btn ghost" id="btn-import-refresh" style="margin-left:auto"><i class="ico" data-icon="refresh"></i> 刷新</button>
         </div>
         <p class="hint" id="import-dir-hint">扫描官方启动器（%APPDATA%\.minecraft）中已有的版本，一键复制到本启动器的游戏目录。缺失的库/resources 会在首次启动时自动补齐。</p>
         <ul class="data-list" id="import-list"><li class="empty">加载中…</li></ul>
@@ -422,7 +423,7 @@
             <select id="sel-detail-target" style="flex:1"></select>
           </div>
           <div class="row">
-            <button id="btn-detail-install" class="btn primary">⬇ 一键安装</button>
+            <button id="btn-detail-install" class="btn primary"><i class="ico" data-icon="download"></i> 一键安装</button>
             <button id="btn-detail-page" class="btn ghost">在 Modrinth 上查看</button>
           </div>
         </div>
@@ -433,7 +434,7 @@
         <div class="progress-text" id="detail-progress-text"></div>
         <ul class="install-steps" id="detail-steps"></ul>
       </div>
-      <h2 id="detail-deps-title" style="display:none">📦 前置 Mod（依赖）</h2>
+      <h2 id="detail-deps-title" style="display:none"><i class="ico" data-icon="box"></i> 前置 Mod（依赖）</h2>
       <ul class="version-list" id="detail-deps-list" style="display:none"></ul>
       <h2 id="detail-ver-title">全部可用版本</h2>
       <ul class="version-list" id="detail-ver-list"><li class="empty">加载中…</li></ul>
@@ -446,11 +447,11 @@
       <!-- 管理视图 -->
       <div id="srv-manage-view">
         <div class="card" id="srv-mgr-list-card">
-          <h2 style="display:flex;align-items:center;gap:10px">🗂️ 我的服务器 <span class="hint" id="srv-mgr-count" style="font-weight:400;margin-left:auto"></span></h2>
+          <h2 style="display:flex;align-items:center;gap:10px"><i class="ico" data-icon="list"></i> 我的服务器 <span class="hint" id="srv-mgr-count" style="font-weight:400;margin-left:auto"></span></h2>
           <p class="hint" style="margin-top:2px">点一下切换当前服务器（目录、Mod、存档、更新等都会跟着切）；点「🛠 管理」下的模块即刻生效。</p>
           <div id="srv-mgr-list-box" class="srv-servers"><div class="empty">加载中…</div></div>
           <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap">
-            <button class="btn" id="btn-srv-add-existing">📂 添加已有服务器目录</button>
+            <button class="btn" id="btn-srv-add-existing"><i class="ico" data-icon="folder"></i> 添加已有服务器目录</button>
           </div>
         </div>
         <div class="row" style="align-items:center;gap:10px;margin-bottom:10px">
@@ -476,8 +477,8 @@
       <div class="card">
         <h2>控制</h2>
         <div class="row">
-          <button id="btn-srv-start" class="btn primary">▶ 启动服务器</button>
-          <button id="btn-srv-stop" class="btn">⏹ 停止</button>
+          <button id="btn-srv-start" class="btn primary"><i class="ico" data-icon="play"></i> 启动服务器</button>
+          <button id="btn-srv-stop" class="btn"><i class="ico" data-icon="stop"></i> 停止</button>
           <button id="btn-srv-open" class="btn ghost">打开目录</button>
         </div>
         <div class="row">
@@ -487,7 +488,7 @@
 
         <!-- 玩家管理：赋予/撤销管理员权限等 -->
         <div class="srv-tool">
-          <div class="srv-tool-title">👤 玩家管理</div>
+          <div class="srv-tool-title"><i class="ico" data-icon="user"></i> 玩家管理</div>
           <div class="row" style="gap:8px;flex-wrap:wrap">
             <input id="in-srv-player" type="text" placeholder="输入玩家名（游戏内 ID）" style="flex:1;min-width:140px" maxlength="16">
             <button id="btn-srv-op" class="btn primary mini">给管理员</button>
@@ -500,28 +501,28 @@
 
         <!-- 常用指令快捷键 -->
         <div class="srv-tool">
-          <div class="srv-tool-title">⚡ 常用指令</div>
+          <div class="srv-tool-title"><i class="ico" data-icon="bolt"></i> 常用指令</div>
           <div class="quick-cmds" id="quick-cmds">
-            <button class="qcmd" data-cmd="time set day">☀ 设为白天</button>
-            <button class="qcmd" data-cmd="time set night">🌙 设为夜晚</button>
-            <button class="qcmd" data-cmd="weather clear">🌤 晴天</button>
-            <button class="qcmd" data-cmd="weather rain">🌧 下雨</button>
-            <button class="qcmd" data-cmd="weather thunder">⛈ 雷暴</button>
-            <button class="qcmd" data-cmd="difficulty peaceful">😌 和平</button>
-            <button class="qcmd" data-cmd="difficulty normal">⚔ 普通</button>
-            <button class="qcmd" data-cmd="difficulty hard">💀 困难</button>
-            <button class="qcmd" data-cmd="gamemode survival @a">🧱 全体生存</button>
-            <button class="qcmd" data-cmd="gamemode creative @a">🎨 全体创造</button>
-            <button class="qcmd" data-cmd="gamerule keepInventory true">🎒 死亡不掉落</button>
-            <button class="qcmd" data-cmd="gamerule keepInventory false">🎒 死亡掉落</button>
-            <button class="qcmd" data-cmd="gamerule doDaylightCycle false">🕒 锁定时间</button>
-            <button class="qcmd" data-cmd="gamerule doDaylightCycle true">🕒 恢复昼夜</button>
-            <button class="qcmd" data-cmd="gamerule mobGriefing false">🛡 禁用怪物破坏</button>
-            <button class="qcmd" data-cmd="gamerule doMobSpawning false">🚫 禁用刷怪</button>
-            <button class="qcmd" data-cmd="save-all">💾 立即存档</button>
-            <button class="qcmd" data-cmd="whitelist on">📋 开白名单</button>
-            <button class="qcmd" data-cmd="whitelist off">📋 关白名单</button>
-            <button class="qcmd" data-cmd="list">👥 查看在线</button>
+            <button class="qcmd" data-cmd="time set day"><i class="ico" data-icon="sun"></i> 设为白天</button>
+            <button class="qcmd" data-cmd="time set night"><i class="ico" data-icon="moon"></i> 设为夜晚</button>
+            <button class="qcmd" data-cmd="weather clear"><i class="ico" data-icon="sun"></i> 晴天</button>
+            <button class="qcmd" data-cmd="weather rain"><i class="ico" data-icon="cloud-rain"></i> 下雨</button>
+            <button class="qcmd" data-cmd="weather thunder"><i class="ico" data-icon="cloud-lightning"></i> 雷暴</button>
+            <button class="qcmd" data-cmd="difficulty peaceful"><i class="ico" data-icon="smile"></i> 和平</button>
+            <button class="qcmd" data-cmd="difficulty normal"><i class="ico" data-icon="sword"></i> 普通</button>
+            <button class="qcmd" data-cmd="difficulty hard"><i class="ico" data-icon="skull"></i> 困难</button>
+            <button class="qcmd" data-cmd="gamemode survival @a"><i class="ico" data-icon="cube"></i> 全体生存</button>
+            <button class="qcmd" data-cmd="gamemode creative @a"><i class="ico" data-icon="palette"></i> 全体创造</button>
+            <button class="qcmd" data-cmd="gamerule keepInventory true"><i class="ico" data-icon="save"></i> 死亡不掉落</button>
+            <button class="qcmd" data-cmd="gamerule keepInventory false"><i class="ico" data-icon="save"></i> 死亡掉落</button>
+            <button class="qcmd" data-cmd="gamerule doDaylightCycle false"><i class="ico" data-icon="clock"></i> 锁定时间</button>
+            <button class="qcmd" data-cmd="gamerule doDaylightCycle true"><i class="ico" data-icon="clock"></i> 恢复昼夜</button>
+            <button class="qcmd" data-cmd="gamerule mobGriefing false"><i class="ico" data-icon="shield"></i> 禁用怪物破坏</button>
+            <button class="qcmd" data-cmd="gamerule doMobSpawning false"><i class="ico" data-icon="ban"></i> 禁用刷怪</button>
+            <button class="qcmd" data-cmd="save-all"><i class="ico" data-icon="save"></i> 立即存档</button>
+            <button class="qcmd" data-cmd="whitelist on"><i class="ico" data-icon="list"></i> 开白名单</button>
+            <button class="qcmd" data-cmd="whitelist off"><i class="ico" data-icon="list"></i> 关白名单</button>
+            <button class="qcmd" data-cmd="list"><i class="ico" data-icon="users"></i> 查看在线</button>
           </div>
           <p class="hint" style="margin-top:4px">点击即发送到后台；带 <code>@a</code> 的表示对全部玩家生效。部分规则对已生成的区域立即生效。</p>
         </div>
@@ -530,7 +531,7 @@
       <!-- 聊天栏 + 在线玩家 -->
       <div class="card chat-card">
         <div class="chat-head">
-          <h2 style="margin:0">💬 服务器聊天</h2>
+          <h2 style="margin:0"><i class="ico" data-icon="chat"></i> 服务器聊天</h2>
           <span class="chat-online" id="chat-online"><i class="dot"></i> 在线 <b id="chat-online-n">0</b> 人</span>
         </div>
         <div class="chat-players" id="chat-players"><span class="chat-empty">暂无玩家在线</span></div>
@@ -543,33 +544,33 @@
 
       <!-- 一键邀请 -->
       <div class="card">
-        <h2>🌐 联机地址（把这个发给朋友）</h2>
+        <h2><i class="ico" data-icon="globe"></i> 联机地址（把这个发给朋友）</h2>
         <div class="net-grid">
           <div class="net-item">
-            <div class="net-label">🏠 局域网地址（同一 WiFi / 同一路由器下用）</div>
+            <div class="net-label"><i class="ico" data-icon="home"></i> 局域网地址（同一 WiFi / 同一路由器下用）</div>
             <div class="net-val"><code id="net-lan">检测中…</code><button class="btn mini" id="btn-copy-lan">复制</button></div>
           </div>
           <div class="net-item">
-            <div class="net-label">🌍 公网 IP（远程联机 / 端口映射用）</div>
+            <div class="net-label"><i class="ico" data-icon="globe"></i> 公网 IP（远程联机 / 端口映射用）</div>
             <div class="net-val"><code id="net-pub">检测中…</code><button class="btn mini" id="btn-copy-pub">复制</button></div>
           </div>
           <div class="net-item">
-            <div class="net-label">🔌 端口</div>
+            <div class="net-label"><i class="ico" data-icon="plug"></i> 端口</div>
             <div class="net-val"><code id="net-port">25565</code></div>
           </div>
           <div class="net-item">
-            <div class="net-label">🔐 正版验证</div>
+            <div class="net-label"><i class="ico" data-icon="lock"></i> 正版验证</div>
             <div class="net-val"><span id="net-online">—</span><button class="btn mini" id="btn-toggle-online">切换</button></div>
           </div>
         </div>
         <p class="hint" id="net-tip">同一局域网：把<strong>局域网地址</strong>发给朋友，他在多人游戏里「添加服务器」粘贴即可。\n公网联机：把<strong>公网 IP:端口</strong>发给朋友，并确保已在路由器做端口映射（或使用内网穿透）。</p>
         <div class="row end">
-          <button id="btn-net-refresh" class="btn">🔄 刷新地址</button>
+          <button id="btn-net-refresh" class="btn"><i class="ico" data-icon="refresh"></i> 刷新地址</button>
         </div>
       </div>
 
       <div class="card invite-card">
-        <h2>📨 一键邀请朋友</h2>
+        <h2><i class="ico" data-icon="chat"></i> 一键邀请朋友</h2>
         <p class="hint" style="margin-top:2px">生成一段可直接粘贴给朋友的邀请信息（含服务器地址）。“复制邀请”后发给朋友，他在游戏里「多人游戏 → 直接连接 / 添加服务器」粘贴即可进服。</p>
         <div class="invite-actions">
           <button class="btn primary" id="btn-invite-gen">生成邀请信息</button>
@@ -580,7 +581,7 @@
       </div>
 
       <div class="card" id="srv-mod-card">
-        <h2>🧩 服务器装 Mod</h2>
+        <h2><i class="ico" data-icon="puzzle"></i> 服务器装 Mod</h2>
         <p class="hint">给服务器装模组 Mod（<b>仅 Fabric / Forge / NeoForge 服务端有效</b>）。会自动按服务器当前的游戏版本与加载器筛选兼容 Mod，下载到服务器的 <code>mods</code> 文件夹。
           <b>装完需重启服务器生效</b>；Paper / 原版服务端请用「插件」而不是 Mod。</p>
         <div class="srvw-summary">
@@ -591,8 +592,8 @@
         <div class="row" style="margin-top:10px">
           <input id="in-srvm-query" type="text" placeholder="搜索 Mod，如 sodium / JEI / 小地图 / 机械动力（支持中文）">
           <button class="btn primary" id="btn-srvm-search">搜索</button>
-          <button class="btn ghost" id="btn-srvm-refresh">🔄 刷新已装</button>
-          <button class="btn ghost" id="btn-srvm-open">📂 打开 mods 文件夹</button>
+          <button class="btn ghost" id="btn-srvm-refresh"><i class="ico" data-icon="refresh"></i> 刷新已装</button>
+          <button class="btn ghost" id="btn-srvm-open"><i class="ico" data-icon="folder"></i> 打开 mods 文件夹</button>
         </div>
         <p class="hint" id="srvm-filter" style="margin-top:6px"></p>
         <div class="progress-bar" style="margin-top:8px;display:none" id="srvm-progress-wrap"><div class="progress-inner" id="srvm-progress"></div></div>
@@ -606,7 +607,7 @@
       </div>
 
       <div class="card" id="srv-backup-card">
-        <h2>💾 服务器存档备份</h2>
+        <h2><i class="ico" data-icon="save"></i> 服务器存档备份</h2>
         <p class="hint">把服务器世界（主世界 <code id="srvw-name">world</code> + 下界 + 末地）一起打包备份，防止炸图、误删、换版本搞坏。备份存在服务器目录下的 <code>.backups\worlds</code>。
           <b>建议先在页面上⏹停止服务器再备份/恢复</b>，避免存档写入一半导致备份不完整。</p>
         <div class="srvw-summary">
@@ -615,9 +616,9 @@
           <span class="srv-chip" id="srvw-mtime">最后修改：—</span>
         </div>
         <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">
-          <button class="btn primary" id="btn-srvw-backup">💾 立即备份存档</button>
-          <button class="btn" id="btn-srvw-refresh">🔄 刷新</button>
-          <button class="btn ghost" id="btn-srvw-open">📂 打开服务器目录</button>
+          <button class="btn primary" id="btn-srvw-backup"><i class="ico" data-icon="save"></i> 立即备份存档</button>
+          <button class="btn" id="btn-srvw-refresh"><i class="ico" data-icon="refresh"></i> 刷新</button>
+          <button class="btn ghost" id="btn-srvw-open"><i class="ico" data-icon="folder"></i> 打开服务器目录</button>
         </div>
         <div class="srvw-auto">
           <label class="chk-inline"><input type="checkbox" id="chk-auto-backup"> <b>自动存档</b>（服务器运行中定时静默备份）</label>
@@ -636,7 +637,7 @@
       </div>
 
       <div class="card" id="srv-update-card">
-        <h2>⬆️ 服务端自动更新</h2>
+        <h2><i class="ico" data-icon="upload"></i> 服务端自动更新</h2>
         <p class="hint">自动检测当前服务端类型与版本，并对比官方最新构建（目前支持 Paper）。<b>更新前请先停止服务器</b>；旧服务端 jar 会自动备份到 <code>.backups\server-jar</code>。</p>
         <div class="srvw-summary">
           <span class="srv-chip" id="srvu-type">类型：—</span>
@@ -645,13 +646,13 @@
         </div>
         <p class="hint" id="srvu-note" style="margin-top:6px"></p>
         <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">
-          <button class="btn" id="btn-srvu-check">🔍 检查更新</button>
-          <button class="btn primary" id="btn-srvu-apply" disabled>⬆️ 一键更新</button>
+          <button class="btn" id="btn-srvu-check"><i class="ico" data-icon="search"></i> 检查更新</button>
+          <button class="btn primary" id="btn-srvu-apply" disabled><i class="ico" data-icon="upload"></i> 一键更新</button>
         </div>
       </div>
 
       <details class="card adv-box" id="tunnel-card">
-        <summary>🚇 内网穿透（一键让外网朋友直连，不用改路由器）</summary>
+        <summary><i class="ico" data-icon="route"></i> 内网穿透（一键让外网朋友直连，不用改路由器）</summary>
         <p class="hint">原理：用一个公网中转服务器把你的本地端口映射到公网。基于开源 frp（MIT）实现。
           你需要有一个 frp 服务端地址（可自建，或用你手上的免费 frp 服务）；没账号的情况下可以用下方推荐渠道。</p>
         <div class="srv-opt-grid">
@@ -662,9 +663,9 @@
           <div><label>Token（可选）</label><input id="in-tun-token" type="text" placeholder="服务端要求的 auth token"></div>
         </div>
         <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">
-          <button class="btn" id="btn-tun-dl">⬇ 下载 frp 客户端</button>
-          <button class="btn primary" id="btn-tun-start">🚇 启动隧道</button>
-          <button class="btn" id="btn-tun-stop">⏹ 停止隧道</button>
+          <button class="btn" id="btn-tun-dl"><i class="ico" data-icon="download"></i> 下载 frp 客户端</button>
+          <button class="btn primary" id="btn-tun-start"><i class="ico" data-icon="route"></i> 启动隧道</button>
+          <button class="btn" id="btn-tun-stop"><i class="ico" data-icon="stop"></i> 停止隧道</button>
         </div>
         <p class="hint" style="margin-top:10px">推荐渠道（自行注册获取服务端地址与 token）：
           <a href="#" class="tun-link" data-url="https://www.natfrp.com">SakuraFrp（国内常用）</a> ·
@@ -687,21 +688,21 @@
 
       <!-- 已有服务器概览（只读，不改服务器的管理操作） -->
       <div class="card srv-overview" id="srv-overview-card">
-        <h2 style="display:flex;align-items:center;gap:10px">🖥️ 我的服务器 <span class="hint" id="srv-ov-count" style="font-weight:400;margin-left:auto"></span>
-          <button class="btn ghost mini" id="btn-srv-ov-manage" style="margin-left:auto">🛠 去管理</button>
+        <h2 style="display:flex;align-items:center;gap:10px"><i class="ico" data-icon="server"></i> 我的服务器 <span class="hint" id="srv-ov-count" style="font-weight:400;margin-left:auto"></span>
+          <button class="btn ghost mini" id="btn-srv-ov-manage" style="margin-left:auto"><i class="ico" data-icon="wrench"></i> 去管理</button>
         </h2>
         <div id="srv-ov-box" class="srv-ov-box"><div class="empty">加载中…</div></div>
       </div>
 
       <div class="card form">
-        <h2>➕ 创建服务器</h2>
+        <h2><i class="ico" data-icon="plus"></i> 创建服务器</h2>
         <p class="hint" style="margin-top:2px">填好目录、类型、版本，点最下方「创建服务器」。<b>已建好的服务器</b>请到左侧「🛠️ 服务器管理」里启动 / 改配置 / 装 Mod / 备份。</p>
         <details class="adv-box" id="srv-carry-box" style="margin-top:10px">
-          <summary>📦 按已下载整合包建服（自动定版本/加载器 + 带上它的模组）</summary>
+          <summary><i class="ico" data-icon="box"></i> 按已下载整合包建服（自动定版本/加载器 + 带上它的模组）</summary>
           <p class="hint" style="margin-top:6px">选一个本机已经下载好的整合包，建服时会<b>自动把加载器类型和 MC 版本填好</b>，并把该包的 <code>mods</code> 全部复制到服务器的 <code>mods</code> 文件夹。（仅 Fabric / Forge / NeoForge 生效；Paper/原版不支持 Mod）</p>
           <div class="row" style="gap:8px;flex-wrap:wrap">
             <select id="sel-srv-pack" style="flex:1;min-width:220px"><option value="">— 不使用整合包（手动选类型/版本）—</option></select>
-            <button class="btn mini" id="btn-srv-pack-refresh">🔄 刷新</button>
+            <button class="btn mini" id="btn-srv-pack-refresh"><i class="ico" data-icon="refresh"></i> 刷新</button>
           </div>
           <div class="hint" id="srv-pack-info" style="margin-top:6px"></div>
           <ul class="mod-list" id="srv-pack-mods" style="display:none;max-height:200px;overflow:auto;margin-top:6px"></ul>
@@ -710,8 +711,8 @@
         <label>服务器目录</label>
         <div class="row">
           <input id="in-srv-dir" type="text" placeholder="点「选择文件夹」或「新建文件夹」指定服务器目录">
-          <button id="btn-srv-pick" class="btn">📂 选择文件夹</button>
-          <button id="btn-srv-newdir" class="btn">➕ 新建文件夹</button>
+          <button id="btn-srv-pick" class="btn"><i class="ico" data-icon="folder"></i> 选择文件夹</button>
+          <button id="btn-srv-newdir" class="btn"><i class="ico" data-icon="plus"></i> 新建文件夹</button>
         </div>
         <label>服务端类型</label>
         <div class="row">
@@ -726,7 +727,7 @@
         </div>
 
         <details class="adv-box" id="srv-options">
-          <summary>⚙️ 服务器选项（可稍后修改）</summary>
+          <summary><i class="ico" data-icon="settings"></i> 服务器选项（可稍后修改）</summary>
           <div class="srv-opt-grid">
             <div>
               <label>游戏模式</label>
@@ -772,19 +773,19 @@
         </div>
         <input id="in-srv-mem" type="hidden" value="2048" />
         <div class="row end">
-          <button id="btn-srv-quick" class="btn" title="自动选择推荐配置（Paper + 推荐内存）并一步建服">⚡ 一键快速建服</button>
+          <button id="btn-srv-quick" class="btn" title="自动选择推荐配置（Paper + 推荐内存）并一步建服"><i class="ico" data-icon="bolt"></i> 一键快速建服</button>
           <button id="btn-srv-create" class="btn primary">创建服务器</button>
         </div>
         <div class="progress-bar" style="margin-top:8px"><div class="progress-inner" id="srv-progress"></div></div>
         <div class="create-status" id="create-status" style="display:none"></div>
         <details class="adv-box" id="srv-log-box" style="margin-top:10px">
-          <summary>📜 创建日志（点开看下载/写入详情）</summary>
+          <summary><i class="ico" data-icon="scroll"></i> 创建日志（点开看下载/写入详情）</summary>
           <pre id="srv-create-log" class="srv-log"></pre>
         </details>
       </div>
 
       <details class="card usage tut-collapse">
-        <summary class="tut-summary">📖 使用说明（新手必读）</summary>
+        <summary class="tut-summary"><i class="ico" data-icon="book"></i> 使用说明（新手必读）</summary>
         <div class="tut-inner">
         <ol class="usage-list">
           <li><b>选目录</b>：指定一个空文件夹作为服务器目录（如 <code>D:\mc-server</code>），不要用已有游戏目录。</li>
@@ -800,7 +801,7 @@
       </details>
 
       <details class="card usage tut-collapse">
-        <summary class="tut-summary">⚠️ 注意事项（端口映射 / 常见问题）</summary>
+        <summary class="tut-summary"><i class="ico" data-icon="warning"></i> 注意事项（端口映射 / 常见问题）</summary>
         <div class="tut-inner">
         <p class="hint tut-intro" style="margin-top:2px">同一 WiFi 下直接发给朋友「局域网地址」即可，<b>不需要</b>这一步。只有当朋友不在你家里（用手机热点/其他地方网络）时才需要做端口映射。</p>
 
@@ -837,7 +838,7 @@
         <p class="usage-list" style="padding-left:0;list-style:none;margin:6px 0 0">朋友在游戏里「多人游戏 → 添加服务器 → 服务器地址」填：</p>
         <p style="margin:8px 0 0"><code class="big-code">你的公网IP:端口</code> 例如 <code>106.4.251.252:25565</code></p>
 
-        <h3 class="tut-h">⚠️ 常见问题</h3>
+        <h3 class="tut-h"><i class="ico" data-icon="warning"></i> 常见问题</h3>
         <ul class="usage-list">
           <li><b>朋友连不上？</b>先确认服务器已「▶ 启动」且日志出现 <code>Done</code>；再确认防火墙放行：Windows「防火墙」→「允许应用通过」里勾上 <code>java.exe</code>（专用 + 公用都勾）。</li>
           <li><b>公网 IP 一会儿就变？</b>多数家庭宽带是动态公网 IP，重启光猫会变。要稳定可用 DDNS（域名解析）或内网穿透。</li>
@@ -859,7 +860,7 @@
         </div>
         <div id="acct-list" class="acct-list"></div>
         <div class="row end" id="acct-actions">
-          <button class="btn primary" id="btn-ms-login">➕ 添加微软正版账号</button>
+          <button class="btn primary" id="btn-ms-login"><i class="ico" data-icon="plus"></i> 添加微软正版账号</button>
         </div>
         <div id="ms-login-flow" style="display:none" class="ms-flow">
           <p class="hint">① 浏览器已打开登录页；若未打开，请手动访问：<br>
@@ -882,8 +883,8 @@
 
       <div class="card" id="skin-card">
         <div class="acct-list-head">
-          <span class="acct-list-title">🎨 皮肤与披风</span>
-          <button class="btn ghost mini" id="btn-skin-refresh" style="margin-left:auto">🔄 刷新</button>
+          <span class="acct-list-title"><i class="ico" data-icon="palette"></i> 皮肤与披风</span>
+          <button class="btn ghost mini" id="btn-skin-refresh" style="margin-left:auto"><i class="ico" data-icon="refresh"></i> 刷新</button>
         </div>
         <p class="hint" id="skin-hint">登录微软正版账号后可在此更换皮肤/披风。</p>
         <div id="skin-body" style="display:none">
@@ -892,7 +893,7 @@
             <div class="skin-info">
               <div class="skin-name" id="skin-name-acc"></div>
               <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
-                <button class="btn primary mini" id="btn-skin-upload">⬆ 上传新皮肤</button>
+                <button class="btn primary mini" id="btn-skin-upload"><i class="ico" data-icon="upload"></i> 上传新皮肤</button>
                 <select id="sel-skin-variant" class="mini-sel">
                   <option value="classic">经典（广臂）</option>
                   <option value="slim">细臂 Slim</option>
@@ -921,7 +922,7 @@
           <input id="in-java" type="text" placeholder="自动">
           <button id="btn-pick-java" class="btn">浏览</button>
         </div>
-        <div class="row"><button id="btn-detect-java" class="btn ghost">🔍 自动检测 Java</button></div>
+        <div class="row"><button id="btn-detect-java" class="btn ghost"><i class="ico" data-icon="search"></i> 自动检测 Java</button></div>
         <ul class="java-list" id="java-list"></ul>
 
         <label>最大内存分配</label>
@@ -939,7 +940,7 @@
         <input id="in-mem" type="hidden" value="4096" />
 
         <details class="adv-box">
-          <summary>⚙️ 高级启动参数（JVM / 游戏参数，可选）</summary>
+          <summary><i class="ico" data-icon="settings"></i> 高级启动参数（JVM / 游戏参数，可选）</summary>
           <label>JVM 参数（加在 java 命令后）</label>
           <input id="in-jvmargs" type="text" placeholder="如 -XX:+UseG1GC -XX:MaxGCPauseMillis=50">
           <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:6px">
@@ -971,7 +972,7 @@
         <input id="in-cfkey" type="text" placeholder="$2a$10$...">
 
         <div class="settings-divider"></div>
-        <h2 class="settings-h2">🎨 自定义外观（启动器皮肤）</h2>
+        <h2 class="settings-h2"><i class="ico" data-icon="palette"></i> 自定义外观（启动器皮肤）</h2>
         <p class="hint" style="margin-top:2px">自定义启动器自身的界面风格（不是游戏内玩家皮肤）。</p>
 
         <label>主题色</label>
@@ -992,7 +993,7 @@
         <p class="hint">支持 jpg / png / webp。清除后回到上方预设背景。</p>
 
         <div class="settings-divider"></div>
-        <h2 class="settings-h2">🧭 使用习惯</h2>
+        <h2 class="settings-h2"><i class="ico" data-icon="compass"></i> 使用习惯</h2>
         <p class="hint" style="margin-top:2px">让启动器更贴合你的使用方式。</p>
         <label class="row" style="align-items:center;gap:10px">
           <input id="in-min-on-launch" type="checkbox" style="flex:none;width:18px;height:18px">
@@ -1009,7 +1010,7 @@
         <p class="hint">开启后可帮助作者了解使用情况，不会影响启动速度；可随时关闭。</p>
 
         <div class="settings-divider"></div>
-        <h2 class="settings-h2">⚡ 性能</h2>
+        <h2 class="settings-h2"><i class="ico" data-icon="bolt"></i> 性能</h2>
         <p class="hint" style="margin-top:2px">根据电脑配置调整界面渲染效果，降低内存与 GPU 占用。</p>
 
         <label class="row" style="align-items:center;gap:10px">
@@ -1037,7 +1038,7 @@
         <div class="about-ver">版本 <span id="about-ver">1.0.0</span></div>
         <p class="about-slogan">简洁易用的 Minecraft 启动器</p>
         <div class="about-links">
-          <button class="btn primary" id="btn-check-update">🔍 检查更新</button>
+          <button class="btn primary" id="btn-check-update"><i class="ico" data-icon="search"></i> 检查更新</button>
           <button class="btn" id="btn-about-repo">项目主页</button>
           <button class="btn ghost" id="btn-about-issues">反馈问题</button>
         </div>
@@ -1063,11 +1064,11 @@
       <div class="card">
         <h2>法律与许可</h2>
         <div class="legal-links">
-          <button class="btn ghost legal-link" data-doc="LICENSE">📜 开源许可（GPL-3.0）</button>
-          <button class="btn ghost legal-link" data-doc="PRIVACY">🔒 隐私政策</button>
-          <button class="btn ghost legal-link" data-doc="TERMS">📋 用户协议</button>
-          <button class="btn ghost legal-link" data-doc="DISCLAIMER">⚠️ 免责声明</button>
-          <button class="btn ghost legal-link" data-doc="THIRD-PARTY-NOTICES">🧾 第三方许可</button>
+          <button class="btn ghost legal-link" data-doc="LICENSE"><i class="ico" data-icon="scroll"></i> 开源许可（GPL-3.0）</button>
+          <button class="btn ghost legal-link" data-doc="PRIVACY"><i class="ico" data-icon="lock"></i> 隐私政策</button>
+          <button class="btn ghost legal-link" data-doc="TERMS"><i class="ico" data-icon="list"></i> 用户协议</button>
+          <button class="btn ghost legal-link" data-doc="DISCLAIMER"><i class="ico" data-icon="warning"></i> 免责声明</button>
+          <button class="btn ghost legal-link" data-doc="THIRD-PARTY-NOTICES"><i class="ico" data-icon="scroll"></i> 第三方许可</button>
         </div>
       </div>
       <div class="card">
@@ -1084,11 +1085,22 @@
     <section class="page" id="page-log">
       <h1>运行日志</h1>
       <div class="row" style="margin-bottom:12px">
-        <button class="btn ghost" id="btn-log-copy">📋 复制全部</button>
-        <button class="btn ghost" id="btn-log-clear">🗑 清空</button>
+        <button class="btn ghost" id="btn-log-copy"><i class="ico" data-icon="list"></i> 复制全部</button>
+        <button class="btn ghost" id="btn-log-clear"><i class="ico" data-icon="trash"></i> 清空</button>
         <span class="hint" id="log-count" style="margin-left:auto"></span>
       </div>
       <pre class="log" id="log-box"></pre>
+    </section>
+
+    <!-- 下载中心 -->
+    <section class="page" id="page-downloads">
+      <h1>下载中心</h1>
+      <p class="hint" style="margin:-6px 0 14px">统一查看所有下载 / 安装任务。任务在发起下载或安装后自动出现，失败可一键重试。</p>
+      <div class="row" style="margin-bottom:12px;align-items:center;gap:10px">
+        <span class="dl-summary" id="dl-summary">暂无任务</span>
+        <button class="btn ghost" id="dl-clear" style="margin-left:auto"><i class="ico" data-icon="trash"></i> 清理已完成</button>
+      </div>
+      <ul class="dl-task-list" id="dl-task-list"><li class="empty">暂无下载任务。</li></ul>
     </section>
   </main>
 </div>
@@ -1109,12 +1121,14 @@
   <div class="modal-box">
     <div class="modal-head">
       <h2 id="legal-title">文档</h2>
-      <button class="btn ghost" id="legal-close">✕ 关闭</button>
+      <button class="btn ghost" id="legal-close"><i class="ico" data-icon="close"></i> 关闭</button>
     </div>
     <pre class="legal-body" id="legal-content">加载中…</pre>
   </div>
 </div>
+<script src="icons.js"></script>
 <script src="js/core.js"></script>
+<script src="js/downloads.js"></script>
 <script src="js/account.js"></script>
 <script src="js/versions.js"></script>
 <script src="js/mod.js"></script>

@@ -19,8 +19,35 @@
   --text-soft: #5b6473;
   --text-mute: #8b93a3;
 
+  /* 圆角尺度（统一 token） */
   --radius: 18px;
   --radius-sm: 12px;
+  --radius-lg: 24px;
+  --radius-xs: 8px;
+  --radius-pill: 999px;
+
+  /* 间距尺度（统一 token） */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  /* 阴影尺度（统一 token） */
+  --shadow-sm: 0 2px 8px rgba(31, 45, 90, 0.10);
+  --shadow-md: 0 8px 24px rgba(31, 45, 90, 0.14);
+  --shadow-lg: 0 16px 44px rgba(31, 45, 90, 0.20);
+
+  /* 语义状态色 */
+  --ok: #1a9e63;
+  --warn: #d98816;
+  --err: #d8443c;
+  --info: #2f6ae0;
+
+  /* 过渡时长 */
+  --t-fast: .15s ease;
+  --t-mid: .28s cubic-bezier(.22, .61, .36, 1);
 }
 
 html, body { height: 100%; }
@@ -481,6 +508,60 @@ pre.srv-log {
 
 /* 空状态 */
 .empty { color: var(--text-mute); text-align: center; padding: 30px 0; }
+
+/* ---------- 图标工具类（SVG 图标与文字基线对齐）---------- */
+.ico { display: inline-block; vertical-align: -3px; line-height: 0; }
+.ico svg { display: block; }
+.ni-ico.ico, .qcmd .ico { vertical-align: -2px; }
+
+/* ---------- 统一过渡（可挂到任意元素）---------- */
+.smooth { transition: transform var(--t-mid), box-shadow var(--t-mid), background var(--t-fast), border-color var(--t-fast), color var(--t-fast); }
+
+/* ---------- 淡入动画（列表/卡片出现）---------- */
+@keyframes cubikFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.fade-in { animation: cubikFadeIn var(--t-mid) both; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+
+/* 按钮/可点击卡片的统一按压反馈 */
+.btn:active, .qcmd:active, .qa-card:active, .pack-card:active, .nav-item:active { transform: translateY(1px) scale(.995); }
+
+/* ---------- 下载中心 ---------- */
+.nav-dl-badge {
+  margin-left: auto; min-width: 17px; height: 17px; padding: 0 5px;
+  border-radius: 999px; background: var(--accent); color: #fff;
+  font-size: 10.5px; font-weight: 700; line-height: 17px; text-align: center;
+}
+.dl-summary { font-size: 12.5px; color: var(--text-soft); font-weight: 600; }
+.dl-task-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.dl-task {
+  border: 1px solid rgba(255,255,255,.6); border-radius: var(--radius-sm);
+  background: rgba(255,255,255,.5); padding: 12px 14px;
+  box-shadow: var(--shadow-sm);
+}
+.dl-task.done { border-color: rgba(26,158,99,.32); }
+.dl-task.err { border-color: rgba(216,68,60,.36); }
+.dl-task-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.dl-task-label { font-size: 13.5px; font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dl-task-phase { font-size: 11.5px; color: var(--text-mute); flex: none; }
+.dl-task.done .dl-task-phase { color: var(--ok); }
+.dl-task.err .dl-task-phase { color: var(--err); }
+.dl-task-bar { height: 7px; border-radius: 999px; background: rgba(120,150,220,.18); overflow: hidden; }
+.dl-task-inner { height: 100%; border-radius: 999px; background: linear-gradient(90deg,#7ba0ff,#2f6ae0); transition: width var(--t-mid); }
+.dl-task.done .dl-task-inner { background: linear-gradient(90deg,#5fd08a,#1a9e63); }
+.dl-task.err .dl-task-inner { background: linear-gradient(90deg,#ff9a9a,#d8443c); }
+.dl-task-foot { display: flex; align-items: center; gap: 10px; margin-top: 7px; }
+.dl-task-pct { font-size: 11.5px; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+.dl-task-ops { margin-left: auto; display: flex; gap: 8px; }
+.dl-op {
+  font-size: 11.5px; font-weight: 600; padding: 3px 10px; cursor: pointer;
+  border-radius: 999px; border: 1px solid rgba(120,150,220,.4);
+  background: rgba(255,255,255,.7); color: var(--accent);
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+.dl-op:hover { background: rgba(231,239,255,.95); border-color: rgba(106,140,255,.8); }
+.dl-task-err { font-size: 11.5px; color: var(--err); margin-top: 7px; word-break: break-all; }
 
 /* 按钮禁用态 */
 .btn:disabled, .ver-download-btn:disabled { opacity: .55; cursor: not-allowed; }
@@ -1081,3 +1162,12 @@ body.perf-mode .ver-card { background: rgba(248,250,255,.92); }
 /* 冲突检测面板分组（v1.2） */
 .mcp-group { margin: 6px 0; }
 .mcp-group-title { font-size: 12px; font-weight: 700; color: var(--text-soft); padding: 4px 2px; }
+
+/* ---------- SVG 图标尺寸适配（小标签/按钮内联） ---------- */
+.btn .ico, .vd-tab .ico, .data-tab .ico, .qcmd .ico, .tut-summary .ico, .adv-box > summary .ico,
+.srv-tool-title .ico, .net-label .ico, .acct-list-title .ico, .legal-link .ico, .hvp-item .ico { vertical-align: -2px; }
+.btn .ico svg, .qcmd .ico svg, .vd-tab .ico svg, .data-tab .ico svg,
+.srv-tool-title .ico svg, .net-label .ico svg, .acct-list-title .ico svg,
+.tut-summary .ico svg, .adv-box > summary .ico svg, .legal-link .ico svg { width: 15px; height: 15px; }
+.tg .ico svg, .pk-dl .ico svg, .ver-dl .ico svg, .pk-tag .ico svg, .pk-meta .ico svg { width: 13px; height: 13px; }
+.w-ico-fallback .ico svg { width: 22px; height: 22px; }

@@ -36,7 +36,7 @@ async function loadWorlds() {
     li.className = 'data-item';
     const iconHtml = w.hasIcon
       ? `<img class="w-ico" src="file://${encodeURI(w.iconPath.replace(/\\/g, '/'))}" onerror="this.style.display='none'">`
-      : '<div class="w-ico w-ico-fallback">🌍</div>';
+      : '<div class="w-ico w-ico-fallback">' + icon('globe') + '</div>';
     const date = w.lastPlayed ? new Date(w.lastPlayed).toLocaleString() : '—';
     li.innerHTML = `${iconHtml}
       <div class="data-body">
@@ -44,15 +44,15 @@ async function loadWorlds() {
         <div class="data-sub">大小 ${esc(w.sizeText)} · 最后修改 ${esc(date)} · 备份 ${w.backups} 份</div>
       </div>
       <div class="data-actions">
-        <button class="btn primary mini" data-act="backup">💾 备份</button>
-        <button class="btn ghost mini" data-act="restore">♻️ 备份列表</button>
-        <button class="btn ghost mini" data-act="del">🗑 删除</button>
+        <button class="btn primary mini" data-act="backup">${icon('save')} 备份</button>
+        <button class="btn ghost mini" data-act="restore">${icon('recycle')} 备份列表</button>
+        <button class="btn ghost mini" data-act="del">${icon('trash')} 删除</button>
       </div>`;
     li.querySelector('[data-act="backup"]').onclick = async () => {
       const b = li.querySelector('[data-act="backup"]');
       b.disabled = true; b.textContent = '备份中…';
       const rr = await window.api.worldBackup({ name: w.name });
-      b.disabled = false; b.textContent = '💾 备份';
+      b.disabled = false; b.innerHTML = icon('save') + ' 备份';
       if (rr.ok) { log('data', `已备份世界 ${w.name}（${rr.sizeText}）`); loadWorlds(); }
       else alert('备份失败：' + rr.error);
     };
@@ -73,7 +73,7 @@ async function openWorldBackups(name) {
   const ul = $('world-bk-list');
   if (!panel || !ul) return;
   panel.style.display = '';
-  $('wbk-title').textContent = `💾 「${name}」的备份`;
+  $('wbk-title').innerHTML = icon('save') + ' 「' + esc(name) + '」的备份';
   ul.innerHTML = '<li class="empty">加载中…</li>';
   const r = await window.api.worldBackups({ name });
   if (!r.ok) { ul.innerHTML = `<li class="empty">加载失败：${esc(r.error)}</li>`; return; }
@@ -83,14 +83,14 @@ async function openWorldBackups(name) {
     const li = document.createElement('li');
     li.className = 'data-item';
     const date = b.ts ? new Date(b.ts).toLocaleString() : '—';
-    li.innerHTML = `<div class="w-ico w-ico-fallback">🗜️</div>
+    li.innerHTML = `<div class="w-ico w-ico-fallback">${icon('archive')}</div>
       <div class="data-body">
         <div class="data-name">${esc(date)}</div>
         <div class="data-sub">大小 ${esc(b.sizeText)}</div>
       </div>
       <div class="data-actions">
-        <button class="btn primary mini" data-act="restore">♻️ 还原</button>
-        <button class="btn ghost mini" data-act="del">🗑 删除</button>
+        <button class="btn primary mini" data-act="restore">${icon('recycle')} 还原</button>
+        <button class="btn ghost mini" data-act="del">${icon('trash')} 删除</button>
       </div>`;
     li.querySelector('[data-act="restore"]').onclick = async () => {
       if (!confirm('还原会用该备份覆盖当前世界（覆盖前会自动再备份一份）。继续？')) return;
@@ -119,17 +119,17 @@ async function loadInstances() {
     const name = typeof v === 'string' ? v : v.name;
     const li = document.createElement('li');
     li.className = 'data-item';
-    li.innerHTML = `<div class="w-ico w-ico-fallback">📦</div>
+    li.innerHTML = `<div class="w-ico w-ico-fallback">${icon('box')}</div>
       <div class="data-body"><div class="data-name">${esc(name)}</div><div class="data-sub">点击“备份”打包整个实例</div></div>
       <div class="data-actions">
-        <button class="btn primary mini" data-act="backup">💾 备份</button>
-        <button class="btn ghost mini" data-act="list">♻️ 备份列表</button>
+        <button class="btn primary mini" data-act="backup">${icon('save')} 备份</button>
+        <button class="btn ghost mini" data-act="list">${icon('recycle')} 备份列表</button>
       </div>`;
     li.querySelector('[data-act="backup"]').onclick = async () => {
       const b = li.querySelector('[data-act="backup"]');
       b.disabled = true; b.textContent = '打包中…';
       const rr = await window.api.instanceBackup({ name });
-      b.disabled = false; b.textContent = '💾 备份';
+      b.disabled = false; b.innerHTML = icon('save') + ' 备份';
       if (rr.ok) { log('data', `已备份实例 ${name}（${rr.sizeText}）`); alert('备份完成：' + rr.sizeText); }
       else alert('备份失败：' + rr.error);
     };
@@ -144,7 +144,7 @@ async function openInstanceBackups(name) {
   const ul = $('inst-bk-list');
   if (!panel || !ul) return;
   panel.style.display = '';
-  $('ibk-title').textContent = `📦 「${name}」的实例备份`;
+  $('ibk-title').innerHTML = icon('box') + ' 「' + esc(name) + '」的实例备份';
   ul.innerHTML = '<li class="empty">加载中…</li>';
   const r = await window.api.instanceBackups({ name });
   if (!r.ok) { ul.innerHTML = `<li class="empty">加载失败：${esc(r.error)}</li>`; return; }
@@ -154,11 +154,11 @@ async function openInstanceBackups(name) {
     const li = document.createElement('li');
     li.className = 'data-item';
     const date = b.ts ? new Date(b.ts).toLocaleString() : '—';
-    li.innerHTML = `<div class="w-ico w-ico-fallback">🗜️</div>
+    li.innerHTML = `<div class="w-ico w-ico-fallback">${icon('archive')}</div>
       <div class="data-body"><div class="data-name">${esc(date)}</div><div class="data-sub">大小 ${esc(b.sizeText)}</div></div>
       <div class="data-actions">
-        <button class="btn primary mini" data-act="restore">♻️ 还原</button>
-        <button class="btn ghost mini" data-act="del">🗑 删除</button>
+        <button class="btn primary mini" data-act="restore">${icon('recycle')} 还原</button>
+        <button class="btn ghost mini" data-act="del">${icon('trash')} 删除</button>
       </div>`;
     li.querySelector('[data-act="restore"]').onclick = async () => {
       if (!confirm('还原会用该备份覆盖当前实例（覆盖前会自动再备份一份）。继续？')) return;
@@ -206,19 +206,19 @@ async function loadImportables() {
   r.list.forEach((v) => {
     const li = document.createElement('li');
     li.className = 'data-item';
-    li.innerHTML = `<div class="w-ico w-ico-fallback">${v.hasJar ? '🎮' : '📄'}</div>
+    li.innerHTML = `<div class="w-ico w-ico-fallback">${v.hasJar ? icon('game') : icon('file')}</div>
       <div class="data-body"><div class="data-name">${esc(v.name)}</div><div class="data-sub">大小 ${esc(v.sizeText)}${v.extras && v.extras.length ? ' · 含 ' + esc(v.extras.join('/')) : ''}${v.hasJar ? '' : ' · 无 jar，需重新下载'}</div></div>
       <div class="data-actions"></div>`;
     const act = li.querySelector('.data-actions');
     if (v.already) {
       act.innerHTML = '<span class="hint" style="margin:0">已存在</span>';
     } else {
-      act.innerHTML = '<button class="btn primary mini">📥 导入</button>';
+      act.innerHTML = '<button class="btn primary mini">' + icon('download') + ' 导入</button>';
       act.querySelector('button').onclick = async () => {
         const b = act.querySelector('button'); b.disabled = true; b.textContent = '导入中…';
         const rr = await window.api.importVersion({ name: v.name });
         if (rr.ok) { log('data', `已导入版本 ${v.name}`); await refreshVersions(); loadImportables(); }
-        else { alert('导入失败：' + rr.error); b.disabled = false; b.textContent = '📥 导入'; }
+        else { alert('导入失败：' + rr.error); b.disabled = false; b.innerHTML = icon('download') + ' 导入'; }
       };
     }
     ul.appendChild(li);
@@ -244,7 +244,7 @@ async function runCheckUpdate(silent, prefer) {
   if (el) el.innerHTML = silent ? '' : '正在检查更新…';
   if (btn && !silent) { btn.disabled = true; btn.textContent = '检查中…'; }
   const r = await window.api.checkUpdateP({ prefer: prefer || 'installer' });
-  if (btn) { btn.disabled = false; btn.textContent = '🔍 检查更新'; }
+  if (btn) { btn.disabled = false; btn.innerHTML = icon('search') + ' 检查更新'; }
   if (!r.ok) {
     if (silent) return; // 静默检查失败不打扰用户
     const map = {
@@ -253,7 +253,7 @@ async function runCheckUpdate(silent, prefer) {
       TIMEOUT: '请求超时，请检查网络后重试。',
       OFFLINE: '网络不可用（可能无法访问 GitHub）。'
     };
-    el.innerHTML = `⚠ 检查失败：${esc(map[r.error] || r.hint || r.raw || '未知错误')}`;
+    el.innerHTML = `${icon('warning')} 检查失败：${esc(map[r.error] || r.hint || r.raw || '未知错误')}`;
     return;
   }
   if (r.hasUpdate) {
@@ -263,12 +263,12 @@ async function runCheckUpdate(silent, prefer) {
     const hasInst = r.installer && r.installer.url;
     const hasPort = r.portable && r.portable.url;
     el.innerHTML =
-      `🎉 发现新版本 <b>${esc(r.latest)}</b>（当前 ${esc(r.current)}）${pre}${sizeTxt}${dateTxt}` +
+      `${icon('sparkles')} 发现新版本 <b>${esc(r.latest)}</b>（当前 ${esc(r.current)}）${pre}${sizeTxt}${dateTxt}` +
       `<div class="upd-actions">` +
-      (hasInst ? `<a href="#" class="btn primary upd-dl-btn" id="upd-auto">⚡ 一键更新（自动下载并安装）</a>` : '') +
-      (hasInst ? `<a href="#" class="btn upd-dl-btn" id="upd-dl-inst">⬇ 下载安装版${r.installer.size ? ' (' + (r.installer.size / 1048576).toFixed(0) + 'MB)' : ''}</a>` : '') +
-      (hasPort ? `<a href="#" class="btn upd-dl-btn" id="upd-dl-port">⬇ 下载免安装版${r.portable.size ? ' (' + (r.portable.size / 1048576).toFixed(0) + 'MB)' : ''}</a>` : '') +
-      (!hasInst && !hasPort && r.downloadUrl ? `<a href="#" class="btn primary upd-dl-btn" id="upd-dl-any">⬇ 下载新版本</a>` : '') +
+      (hasInst ? `<a href="#" class="btn primary upd-dl-btn" id="upd-auto">${icon('bolt')} 一键更新（自动下载并安装）</a>` : '') +
+      (hasInst ? `<a href="#" class="btn upd-dl-btn" id="upd-dl-inst">${icon('download')} 下载安装版${r.installer.size ? ' (' + (r.installer.size / 1048576).toFixed(0) + 'MB)' : ''}</a>` : '') +
+      (hasPort ? `<a href="#" class="btn upd-dl-btn" id="upd-dl-port">${icon('download')} 下载免安装版${r.portable.size ? ' (' + (r.portable.size / 1048576).toFixed(0) + 'MB)' : ''}</a>` : '') +
+      (!hasInst && !hasPort && r.downloadUrl ? `<a href="#" class="btn primary upd-dl-btn" id="upd-dl-any">${icon('download')} 下载新版本</a>` : '') +
       (r.url ? ` <a href="#" id="upd-page" class="upd-link">查看发布页</a>` : '') +
       `</div>` +
       `<div class="upd-progress-wrap" id="upd-prog-wrap" style="display:none"><div class="progress-bar"><div class="progress-inner" id="upd-prog"></div></div><div class="progress-text" id="upd-prog-text"></div></div>`;
@@ -283,7 +283,7 @@ async function runCheckUpdate(silent, prefer) {
 
     if (notes && r.notes && r.notes.trim()) {
       notes.style.display = 'block';
-      notes.innerHTML = `<div class="upd-notes-title">📝 更新内容</div><div class="upd-notes-body"></div>`;
+      notes.innerHTML = `<div class="upd-notes-title">${icon('edit')} 更新内容</div><div class="upd-notes-body"></div>`;
       notes.querySelector('.upd-notes-body').textContent = r.notes.trim();
     }
   } else {

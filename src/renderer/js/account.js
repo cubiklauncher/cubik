@@ -29,7 +29,7 @@ async function refreshAccountUI() {
           `<div class="acct-type">${a.uuid ? '微软账号' : '离线'}</div></div>` + badge +
           `<div class="acct-item-actions">` +
           (a.active ? '' : `<button class="btn mini acct-switch" data-idx="${a.index}">切换</button>`) +
-          `<button class="btn mini ghost acct-del" data-idx="${a.index}">✕</button>` +
+          `<button class="btn mini ghost acct-del" data-idx="${a.index}">${icon('close')}</button>` +
           `</div>`;
         list.appendChild(item);
       });
@@ -114,9 +114,9 @@ async function refreshSkinUI() {
 if ($('btn-skin-refresh')) $('btn-skin-refresh').onclick = () => refreshSkinUI();
 if ($('btn-skin-upload')) $('btn-skin-upload').onclick = async () => {
   const btn = $('btn-skin-upload');
-  btn.disabled = true; btn.textContent = '上传中…';
+  btn.disabled = true; btn.innerHTML = '上传中…';
   const r = await window.api.skinUpload({ variant: ($('sel-skin-variant') || {}).value || 'classic' });
-  btn.disabled = false; btn.textContent = '⬆ 上传新皮肤';
+  btn.disabled = false; btn.innerHTML = icon('upload') + ' 上传新皮肤';
   if (r.ok) { log('data', '皮肤已更新'); refreshSkinUI(); }
   else if (!r.canceled) alert('上传失败：' + (r.error || '未知错误'));
 };

@@ -66,7 +66,7 @@ if ($('btn-log-clear')) $('btn-log-clear').onclick = () => { $('log-box').textCo
 if ($('btn-log-copy')) $('btn-log-copy').onclick = async () => {
   const txt = $('log-box').textContent || '';
   if (!txt) return;
-  try { await navigator.clipboard.writeText(txt); $('btn-log-copy').textContent = '✔ 已复制'; setTimeout(()=>{ $('btn-log-copy').textContent='📋 复制全部'; }, 1500); }
+  try { await navigator.clipboard.writeText(txt); $('btn-log-copy').textContent = '✔ 已复制'; setTimeout(()=>{ $('btn-log-copy').innerHTML = icon('list') + ' 复制全部'; }, 1500); }
   catch { alert('复制失败，请手动选中复制'); }
 };
 $('btn-refresh').onclick = refreshVersions;

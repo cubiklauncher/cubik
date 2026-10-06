@@ -42,14 +42,14 @@ async function refreshVersions() {
           <div class="ver-tags">
             <span class="tg mc">MC ${esc(meta.mcVersion || v)}</span>
             ${loaderTag}
-            <span class="tg">📚 ${meta.libraries} 支持库</span>
-            ${meta.mods ? `<span class="tg">🧩 ${meta.mods} Mod</span>` : ''}
+            <span class="tg">${icon('book')} ${meta.libraries} 支持库</span>
+            ${meta.mods ? `<span class="tg">${icon('puzzle')} ${meta.mods} Mod</span>` : ''}
           </div>
         </div>
       </div>
       <div class="ver-right">
-        <button class="btn ghost ver-manage-btn" title="管理模组与支持库">⚙ 管理</button>
-        <button class="btn danger ver-del-btn" style="display:none" title="删除版本">🗑 删除</button>
+        <button class="btn ghost ver-manage-btn" title="管理模组与支持库">${icon('settings')} 管理</button>
+        <button class="btn danger ver-del-btn" style="display:none" title="删除版本">${icon('trash')} 删除</button>
       </div>`;
     li.querySelector('.ver-manage-btn').onclick = (e) => { e.stopPropagation(); openVersionDetail(v); };
     li.querySelector('.ver-del-btn').onclick = async (e) => {
@@ -221,7 +221,7 @@ $('btn-van-install').onclick = async () => {
     log('data', `==== 开始下载原版 ${ver} ====`);
     const r = await window.api.installVanilla({ version: ver });
     if (!r.ok) {
-      btn.disabled = false; btn.textContent = '⬇ 下载并安装';
+      btn.disabled = false; btn.innerHTML = icon('download') + ' 下载并安装';
       log('data', '下载失败：' + r.error);
       return alert('下载失败：' + r.error);
     }
@@ -230,14 +230,14 @@ $('btn-van-install').onclick = async () => {
   } else {
     const lv = $('sel-van-loaderver').value;
     if (!lv || lv.startsWith('加载') || lv.startsWith('该版本') || lv.startsWith('请先')) {
-      btn.disabled = false; btn.textContent = '⬇ 下载并安装';
+      btn.disabled = false; btn.innerHTML = icon('download') + ' 下载并安装';
       return alert('请选择加载器版本');
     }
     instanceName = `${ver}-${kind}${lv}`;
     log('data', `==== 安装 ${kind} ${lv} (MC ${ver}) ====`);
     const r = await window.api.loaderInstall({ kind, mcVersion: ver, loaderVersion: lv, instanceName });
     if (!r.ok) {
-      btn.disabled = false; btn.textContent = '⬇ 下载并安装';
+      btn.disabled = false; btn.innerHTML = icon('download') + ' 下载并安装';
       log('data', '安装失败：' + r.error);
       return alert('安装失败：' + r.error);
     }
@@ -260,7 +260,7 @@ $('btn-van-install').onclick = async () => {
   }
 
   btn.disabled = false;
-  btn.textContent = '⬇ 下载并安装';
+  btn.innerHTML = icon('download') + ' 下载并安装';
   await refreshVersions();
   const msg = wantOptifine ? '游戏和 OptiFine 已装进同一个版本！' : '安装完成！';
   alert(msg);
@@ -323,8 +323,8 @@ async function openVersionDetail(name) {
     $('vd-meta').innerHTML =
       `<span class="tg mc">MC ${esc(m.mcVersion)}</span>` +
       `<span class="tg loader">${esc(m.loader)}</span>` +
-      `<span class="tg">📚 ${m.libraries} 支持库</span>` +
-      `<span class="tg">🧩 ${m.mods} Mod</span>`;
+      `<span class="tg">${icon('book')} ${m.libraries} 支持库</span>` +
+      `<span class="tg">${icon('puzzle')} ${m.mods} Mod</span>`;
   }
   setVdTab(vdTab);
   $('version-detail').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -389,7 +389,7 @@ async function loadMods() {
       </div>
       <div class="mod-actions">
         <label class="switch"><input type="checkbox" ${mod.disabled ? '' : 'checked'}><span></span></label>
-        <button class="btn ghost mod-del">🗑</button>
+        <button class="btn ghost mod-del">${icon('trash')}</button>
       </div>`;
     li.querySelector('input').onchange = async (e) => {
       // 勾选=启用，取消=禁用
@@ -434,7 +434,7 @@ if ($('btn-mod-check-updates')) $('btn-mod-check-updates').onclick = async () =>
   const list = $('mod-list');
   btn.disabled = true; btn.textContent = '检查中…';
   const r = await window.api.modCheckUpdates({ version: vdCurrent });
-  btn.disabled = false; btn.textContent = '🔄 检查更新';
+  btn.disabled = false; btn.innerHTML = icon('refresh') + ' 检查更新';
   if (!r || !r.ok) { alert('检查失败：' + ((r && r.error) || '未知错误')); return; }
   if (!r.list.length) { alert(`已扫描 ${r.total || 0} 个 Mod，均无 Modrinth 可查的新版本。`); return; }
   // 在 mod 列表上方插入更新提示
@@ -445,16 +445,16 @@ if ($('btn-mod-check-updates')) $('btn-mod-check-updates').onclick = async () =>
     panel.className = 'dyn-mod-update-panel';
     list.parentNode.insertBefore(panel, list);
   }
-  panel.innerHTML = `<div class="mup-head">🔄 发现 ${r.list.length} 个可更新 Mod：</div>` +
+  panel.innerHTML = `<div class="mup-head">${icon('refresh')} 发现 ${r.list.length} 个可更新 Mod：</div>` +
     r.list.map((u, i) => {
       const tag = u.compatible ? '<span class="tg mc">兼容</span>' : '<span class="tg loader" style="background:rgba(224,128,63,.16);color:#b5621f">需核实</span>';
       return `<div class="mup-item" data-i="${i}">
         <div class="mup-body"><div class="mup-name">${esc(u.file)}</div><div class="mup-sub">新版：${esc(u.version)} ${tag}</div></div>
-        <button class="btn primary mini" data-act="up">⬆ 更新</button>
+        <button class="btn primary mini" data-act="up">${icon('upload')} 更新</button>
       </div>`;
     }).join('') +
     `<div class="row end" style="gap:8px">
-       <button class="btn primary mini" id="mup-update-all">⬆ 一键更新全部兼容项</button>
+       <button class="btn primary mini" id="mup-update-all">${icon('upload')} 一键更新全部兼容项</button>
        <button class="btn ghost mini" id="mup-close">关闭</button>
      </div>`;
   panel.querySelectorAll('[data-act="up"]').forEach((b) => {
@@ -466,7 +466,7 @@ if ($('btn-mod-check-updates')) $('btn-mod-check-updates').onclick = async () =>
       try { await window.api.modsDelete({ version: vdCurrent, file: u.file }); } catch {}
       const rr = await window.api.modInstall({ version: vdCurrent, url: u.download, filename: u.filename });
       if (rr && rr.ok) { b.textContent = '✔ 完成'; log('data', `已更新 Mod ${u.file} -> ${u.version}`); loadMods(); }
-      else { b.disabled = false; b.textContent = '⬆ 更新'; alert('更新失败：' + ((rr && rr.error) || '未知')); }
+      else { b.disabled = false; b.innerHTML = icon('upload') + ' 更新'; alert('更新失败：' + ((rr && rr.error) || '未知')); }
     };
   });
   const cl = panel.querySelector('#mup-close');
@@ -491,11 +491,11 @@ if ($('btn-mod-check-updates')) $('btn-mod-check-updates').onclick = async () =>
         if (rr.results) rr.results.filter((x) => !x.ok).forEach((x) => log('data', `✗ ${x.file} 失败：${x.error || ''}`));
         setVdTab('mods'); loadMods();
       } else {
-        allBtn.disabled = false; allBtn.textContent = '⬆ 一键更新全部兼容项';
+        allBtn.disabled = false; allBtn.innerHTML = icon('upload') + ' 一键更新全部兼容项';
         alert('批量更新失败：' + ((rr && rr.error) || '未知'));
       }
     } catch (e) {
-      allBtn.disabled = false; allBtn.textContent = '⬆ 一键更新全部兼容项';
+      allBtn.disabled = false; allBtn.innerHTML = icon('upload') + ' 一键更新全部兼容项';
       alert('批量更新异常：' + e.message);
     }
   };
@@ -506,7 +506,7 @@ if ($('btn-mod-conflicts')) $('btn-mod-conflicts').onclick = async () => {
   const btn = $('btn-mod-conflicts');
   btn.disabled = true; btn.textContent = '检测中…';
   const r = await window.api.modsConflicts({ version: vdCurrent });
-  btn.disabled = false; btn.textContent = '⚠️ 冲突检测';
+  btn.disabled = false; btn.innerHTML = icon('warning') + ' 冲突检测';
   if (!r || !r.ok) { alert('检测失败：' + ((r && r.error) || '未知错误')); return; }
   const list = $('mod-list');
   let panel = $('dyn-mod-conflict-panel');
@@ -522,11 +522,11 @@ if ($('btn-mod-conflicts')) $('btn-mod-conflicts').onclick = async () => {
     panel.querySelector('#mcp-close').onclick = () => panel.remove();
     return;
   }
-  panel.innerHTML = `<div class="mup-head">⚠️ 发现 ${r.groups.length} 组重复 Mod（可能冲突）：</div>` +
+  panel.innerHTML = `<div class="mup-head">${icon('warning')} 发现 ${r.groups.length} 组重复 Mod（可能冲突）：</div>` +
     r.groups.map((g, gi) => {
       const files = g.files.map((f) => `<div class="mup-item" data-g="${gi}" data-f="${esc(f)}">
           <div class="mup-body"><div class="mup-name">${esc(f)}</div><div class="mup-sub">同一 Mod 的重复文件，建议只保留一个</div></div>
-          <button class="btn ghost mini" data-act="del">🗑 删除</button>
+          <button class="btn ghost mini" data-act="del">${icon('trash')} 删除</button>
         </div>`).join('');
       return `<div class="mcp-group"><div class="mcp-group-title">${esc(g.key)}</div>${files}</div>`;
     }).join('') +
@@ -539,7 +539,7 @@ if ($('btn-mod-conflicts')) $('btn-mod-conflicts').onclick = async () => {
       b.disabled = true; b.textContent = '删除中…';
       const rr = await window.api.modsDelete({ version: vdCurrent, file });
       if (rr && rr.ok) { loadMods(); $('btn-mod-conflicts').click(); }
-      else { b.disabled = false; b.textContent = '🗑 删除'; alert('删除失败：' + ((rr && rr.error) || '未知')); }
+      else { b.disabled = false; b.innerHTML = icon('trash') + ' 删除'; alert('删除失败：' + ((rr && rr.error) || '未知')); }
     };
   });
   panel.querySelector('#mcp-close').onclick = () => panel.remove();

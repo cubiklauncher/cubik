@@ -51,7 +51,7 @@ function renderCards(container, list, onPick) {
         <div class="pk-title">${esc(p.title)}${p.zhName ? `<span class="pk-zh">${esc(p.zhName)}</span>` : ''}</div>
         <div class="pk-desc">${esc(p.description || '')}</div>
         <div class="pk-meta">
-          <span class="pk-dl">⬇ ${fmtNum(p.downloads || 0)} 下载</span>
+          <span class="pk-dl">${icon('download')} ${fmtNum(p.downloads || 0)} 下载</span>
           <span class="pk-tag">${esc(p.author || (p.source === 'curseforge' ? 'CurseForge' : 'Modrinth'))}</span>
         </div>
       </div>`;
@@ -65,7 +65,7 @@ $('btn-pack-search').onclick = async () => {
   const query = $('in-pack-query').value.trim();
   if (!query) return loadPackTop();
   const list = $('pack-list');
-  $('pack-list-title').textContent = '🔍 搜索结果：' + query;
+  $('pack-list-title').innerHTML = icon('search') + ' 搜索结果：' + esc(query);
   list.innerHTML = '<div class="empty">搜索中…</div>';
   const res = source === 'all'
     ? await window.api.searchAll({ kind: 'modpack', query })
@@ -77,7 +77,7 @@ $('btn-pack-search').onclick = async () => {
 async function loadPackTop() {
   packLoaded = true;
   const list = $('pack-list');
-  $('pack-list-title').textContent = '🔥 热门整合包（按下载量）';
+  $('pack-list-title').innerHTML = icon('flame') + ' 热门整合包（按下载量）';
   list.innerHTML = '<div class="empty">加载中…</div>';
   const res = await window.api.packTop({ type: 'modpack', offset: 0 });
   if (!res.ok) { list.innerHTML = `<div class="empty">加载失败：${res.error}</div>`; return; }
@@ -89,7 +89,7 @@ $('btn-shader-search').onclick = async () => {
   const query = $('in-shader-query').value.trim();
   if (!query) return loadShaderTop();
   const list = $('shader-list');
-  $('shader-list-title').textContent = '🔍 搜索结果：' + query;
+  $('shader-list-title').innerHTML = icon('search') + ' 搜索结果：' + esc(query);
   list.innerHTML = '<div class="empty">搜索中…</div>';
   const res = await window.api.shaderSearch({ query });
   if (!res.ok) { list.innerHTML = `<div class="empty">搜索失败：${res.error}</div>`; return; }
@@ -99,7 +99,7 @@ $('btn-shader-search').onclick = async () => {
 async function loadShaderTop() {
   shaderLoaded = true;
   const list = $('shader-list');
-  $('shader-list-title').textContent = '🔥 热门光影包（按下载量）';
+  $('shader-list-title').innerHTML = icon('flame') + ' 热门光影包（按下载量）';
   list.innerHTML = '<div class="empty">加载中…</div>';
   const res = await window.api.packTop({ type: 'shader', offset: 0 });
   if (!res.ok) { list.innerHTML = `<div class="empty">加载失败：${res.error}</div>`; return; }
@@ -121,7 +121,7 @@ async function loadRpackTop() {
   rpackLoaded = true;
   const list = $('rpack-list');
   if (!list) return;
-  $('rpack-list-title').textContent = '🔥 热门资源包（按下载量）';
+  $('rpack-list-title').innerHTML = icon('flame') + ' 热门资源包（按下载量）';
   list.innerHTML = '<div class="empty">加载中…</div>';
   const res = await window.api.rpackSearch({ query: '' });
   if (!res.ok) { list.innerHTML = `<div class="empty">加载失败：${res.error}</div>`; return; }
@@ -131,7 +131,7 @@ if ($('btn-rpack-search')) $('btn-rpack-search').onclick = async () => {
   const q = $('in-rpack-query').value.trim();
   const list = $('rpack-list');
   if (!q) return loadRpackTop();
-  $('rpack-list-title').textContent = '🔍 搜索结果：' + q;
+  $('rpack-list-title').innerHTML = icon('search') + ' 搜索结果：' + esc(q);
   list.innerHTML = '<div class="empty">搜索中…</div>';
   const res = await window.api.rpackSearch({ query: q });
   if (!res.ok) { list.innerHTML = `<div class="empty">搜索失败：${res.error}</div>`; return; }
@@ -159,7 +159,7 @@ async function openDetail(kind, pack) {
   $('detail-title').textContent = pack.title;
   const kindLabel = kind === 'shader' ? '光影包' : isRpack ? '资源包' : isMod ? 'Mod' : '整合包';
   $('detail-meta').innerHTML =
-    `<span class="tg dl">⬇ ${fmtNum(pack.downloads || 0)} 下载</span>` +
+    `<span class="tg dl">${icon('download')} ${fmtNum(pack.downloads || 0)} 下载</span>` +
     `<span class="tg">${kindLabel}</span>` +
     `<span class="tg">${esc(pack.author || (source === 'curseforge' ? 'CurseForge' : 'Modrinth'))}</span>`;
   $('detail-desc').textContent = pack.description || '';
@@ -170,15 +170,15 @@ async function openDetail(kind, pack) {
     targetRow.style.display = 'flex';
     $('detail-target-label').textContent = '安装到版本:';
     await fillDetailTargets(pack);
-    $('btn-detail-install').textContent = '⬇ 下载此 Mod';
+    $('btn-detail-install').innerHTML = icon('download') + ' 下载此 Mod';
   } else if (isRpack) {
     targetRow.style.display = 'flex';
     $('detail-target-label').textContent = '安装到实例（可选）:';
     await fillDetailTargets(pack, true);
-    $('btn-detail-install').textContent = '⬇ 一键安装资源包';
+    $('btn-detail-install').innerHTML = icon('download') + ' 一键安装资源包';
   } else {
     targetRow.style.display = 'none';
-    $('btn-detail-install').textContent = kind === 'shader' ? '⬇ 一键安装光影包' : '⬇ 一键安装整合包';
+    $('btn-detail-install').innerHTML = kind === 'shader' ? icon('download') + ' 一键安装光影包' : icon('download') + ' 一键安装整合包';
   }
   $('detail-progress-card').style.display = 'none';
   $('detail-steps').innerHTML = '';
@@ -191,8 +191,8 @@ async function openDetail(kind, pack) {
     if (i.description) $('detail-desc').textContent = i.description;
     const cats = (i.categories || []).slice(0, 4).map((c) => `<span class="tg">${esc(c)}</span>`).join('');
     $('detail-meta').innerHTML =
-      `<span class="tg dl">⬇ ${fmtNum(i.downloads || 0)} 下载</span>` +
-      `<span class="tg">❤ ${fmtNum(i.followers || 0)}</span>` +
+      `<span class="tg dl">${icon('download')} ${fmtNum(i.downloads || 0)} 下载</span>` +
+      `<span class="tg">${icon('heart')} ${fmtNum(i.followers || 0)}</span>` +
       `<span class="tg">${kindLabel}</span>` + cats +
       (pack.zhName ? `<span class="tg">中文常用名：${esc(pack.zhName)}</span>` : '');
   } else if (pack.zhName) {
@@ -277,7 +277,7 @@ async function showModDeps(v, pack, target) {
   if (!titleEl || !listEl) return;
   titleEl.style.display = 'block';
   listEl.style.display = 'block';
-  titleEl.textContent = '📦 前置 Mod（依赖）';
+  titleEl.innerHTML = icon('box') + ' 前置 Mod（依赖）';
   listEl.innerHTML = '<li class="empty">查询前置中…</li>';
   window.__hasRequiredDeps = false;
 
@@ -302,7 +302,7 @@ async function showModDeps(v, pack, target) {
   }
   const deps = (r.dependencies || []).filter((d) => d.type === 'required' || d.type === 'optional' || d.type === 'incompatible');
   if (!deps.length) {
-    titleEl.textContent = '📦 前置 Mod（依赖）';
+    titleEl.innerHTML = icon('box') + ' 前置 Mod（依赖）';
     listEl.innerHTML = '<li class="empty">✅ 无前置 Mod（可直接用）</li>';
     return;
   }
@@ -311,7 +311,7 @@ async function showModDeps(v, pack, target) {
   const optional = deps.filter((d) => d.type === 'optional');
   window.__hasRequiredDeps = required.length > 0;
 
-  titleEl.textContent = `📦 前置 Mod（依赖）${required.length ? ` — ⚠️ ${required.length} 个必需` : ''}`;
+  titleEl.innerHTML = icon('box') + ' 前置 Mod（依赖）' + (required.length ? ' — ' + icon('warning') + ' ' + required.length + ' 个必需' : '');
   listEl.innerHTML = '';
 
   const makeRow = (d, kindLabel, cls) => {
@@ -360,7 +360,7 @@ async function showModDeps(v, pack, target) {
   const incompat = deps.filter((d) => d.type === 'incompatible');
   incompat.forEach((d) => {
     const li = document.createElement('li');
-    li.innerHTML = `<div class="ver-left"><div class="ver-name" style="color:#f87171">⛔ ${esc(d.title || d.id)}</div><div class="ver-tags"><span class="tg" style="background:rgba(248,113,113,.15);color:#f87171">不兼容</span></div></div>`;
+    li.innerHTML = `<div class="ver-left"><div class="ver-name" style="color:#f87171">${icon('ban')} ${esc(d.title || d.id)}</div><div class="ver-tags"><span class="tg" style="background:rgba(248,113,113,.15);color:#f87171">不兼容</span></div></div>`;
     listEl.appendChild(li);
   });
 }
@@ -375,7 +375,7 @@ function renderVersions(ul, list, onDownload) {
     const loaderTags = (v.loaders || []).map((l) => `<span class="tg loader">${esc(l)}</span>`).join('');
     const typeCls = v.type === 'beta' ? 'beta' : v.type === 'alpha' ? 'alpha' : 'rel';
     const typeTag = v.type ? `<span class="tg ${typeCls}">${v.type}</span>` : '';
-    const dlTag = v.downloads != null ? `<span class="ver-dl">⬇ ${fmtNum(v.downloads)}</span>` : '';
+    const dlTag = v.downloads != null ? `<span class="ver-dl">${icon('download')} ${fmtNum(v.downloads)}</span>` : '';
     li.innerHTML = `
       <div class="ver-left">
         <div class="ver-name">${esc(v.name || v.version)}</div>

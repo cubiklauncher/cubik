@@ -26,7 +26,7 @@ async function loadModStore(query) {
 </div>`; $('mod-store-filter').textContent = ''; return; }
       if (!r.list.length) list.innerHTML = '<div class="empty">暂时取不到热门列表，可直接在上方输入关键词搜索</div>';
       else renderMcmodCards(list, r.list, (p) => openMcmodDetail(p));
-      $('mod-store-filter').textContent = '来源：MC百科 · 🔥 热门 Mod（按下载量，输入关键词可搜索）';
+      $('mod-store-filter').textContent = '来源：MC百科 · 热门 Mod（按下载量，输入关键词可搜索）';
       return;
     }
     const r = await window.api.mcmodSearch({ query, kind: 'mod' });
@@ -56,7 +56,7 @@ if ($('btn-manage-toggle')) {
   $('btn-manage-toggle').onclick = () => {
     manageMode = !manageMode;
     $('manage-bar').style.display = manageMode ? 'flex' : 'none';
-    $('btn-manage-toggle').textContent = manageMode ? '✔ 完成管理' : '🗂 管理游戏版本';
+    $('btn-manage-toggle').innerHTML = manageMode ? icon('check') + ' 完成管理' : icon('list') + ' 管理游戏版本';
     document.querySelectorAll('.ver-del-btn').forEach((b) => { b.style.display = manageMode ? '' : 'none'; });
   };
 }
@@ -75,9 +75,9 @@ async function loadTrash() {
     const when = it.deletedAt ? new Date(it.deletedAt).toLocaleString() : '未知时间';
     li.innerHTML = `<div class="ver-left"><div class="ver-main">
         <div class="ver-name">${esc(it.origName)}</div>
-        <div class="ver-tags"><span class="tg">🗑 删除于 ${esc(when)}</span><span class="tg">${it.sizeMB} MB</span></div>
+        <div class="ver-tags"><span class="tg">${icon('trash')} 删除于 ${esc(when)}</span><span class="tg">${it.sizeMB} MB</span></div>
       </div></div>
-      <div class="ver-right"><button class="btn primary ver-restore-btn">♻️ 恢复</button></div>`;
+      <div class="ver-right"><button class="btn primary ver-restore-btn">${icon('recycle')} 恢复</button></div>`;
     li.querySelector('.ver-restore-btn').onclick = async (e) => {
       e.stopPropagation();
       const rr = await window.api.trashRestore({ dir: it.dir });
@@ -154,14 +154,14 @@ async function loadModPageGrid(query) {
     if (!query) {
       const r = await window.api.mcmodHot({ kind: 'mod', limit: 30 });
       if (!r.ok) { grid.innerHTML = `<div class="empty">加载失败：${esc(r.error)}</div>`; return; }
-      $('mod-list-title').textContent = '🔥 MC百科 热门 Mod（按下载量）';
+      $('mod-list-title').innerHTML = icon('flame') + ' MC百科 热门 Mod（按下载量）';
       if (!r.list.length) { grid.innerHTML = '<div class="empty">暂时取不到热门列表，可直接在上方输入中文名搜索</div>'; return; }
       renderMcmodCards(grid, r.list, (p) => openMcmodDetail(p));
       return;
     }
     const r = await window.api.mcmodSearch({ query, kind: 'mod' });
     if (!r.ok) { grid.innerHTML = `<div class="empty">搜索失败：${esc(r.error)}</div>`; return; }
-    $('mod-list-title').textContent = `🔍 MC百科搜索结果：${query}`;
+    $('mod-list-title').innerHTML = icon('search') + ' MC百科搜索结果：' + esc(query);
     if (!r.list.length) { grid.innerHTML = '<div class="empty">MC百科未找到结果（试试更完整的中文名）</div>'; return; }
     renderMcmodCards(grid, r.list, (p) => openMcmodDetail(p));
     return;
@@ -171,7 +171,7 @@ async function loadModPageGrid(query) {
   else if (mcSel) { params.mc = mcSel; if (localVersions.length) params.loader = ''; }
   const r = await window.api.modSearch(params);
   if (!r.ok) { grid.innerHTML = `<div class="empty">搜索失败：${esc(r.error)}</div>`; return; }
-  $('mod-list-title').textContent = query ? `🔍 搜索结果：${query}` : '🔥 热门 Mod（按下载量）';
+  $('mod-list-title').innerHTML = query ? icon('search') + ' 搜索结果：' + esc(query) : icon('flame') + ' 热门 Mod（按下载量）';
   if (!r.list.length) { grid.innerHTML = '<div class="empty">未找到结果</div>'; return; }
   renderCards(grid, r.list, (p) => openDetail('mod', p));
 }
@@ -195,7 +195,7 @@ function renderMcmodCards(container, list, onPick) {
         </div>
         <div class="pk-desc">${esc(p.description || '')}</div>
         <div class="pk-meta">
-          <span class="pk-tag">📚 MC百科</span>
+          <span class="pk-tag">${icon('book')} MC百科</span>
           <span class="pk-tag">${p.kind === 'modpack' ? '整合包' : 'Mod'}</span>
           ${(p.categories || []).slice(0, 2).map((c) => `<span class="pk-tag">${esc(c)}</span>`).join('')}
         </div>
@@ -216,13 +216,13 @@ async function openMcmodDetail(pack) {
   $('detail-icon').src = '';
   $('detail-title').textContent = pack.title + (pack.zhName && pack.zhName !== pack.title ? '（' + pack.zhName + '）' : '');
   $('detail-meta').innerHTML =
-    `<span class="tg">📚 MC百科</span>` +
+    `<span class="tg">${icon('book')} MC百科</span>` +
     `<span class="tg">${pack.kind === 'modpack' ? '整合包' : 'Mod'}</span>` +
     (pack.enName ? `<span class="tg">${esc(pack.enName)}</span>` : '') +
     (pack.shortName ? `<span class="tg">简称：${esc(pack.shortName)}</span>` : '');
   $('detail-desc').textContent = pack.description || '';
   $('detail-mod-target-row').style.display = 'none';
-  $('btn-detail-install').textContent = '🌐 打开 MC百科页面（下载）';
+  $('btn-detail-install').innerHTML = icon('globe') + ' 打开 MC百科页面（下载）';
   $('detail-progress-card').style.display = 'none';
   $('detail-steps').innerHTML = '';
 
@@ -236,7 +236,7 @@ async function openMcmodDetail(pack) {
   const dependents = r.dependents || [];
   let html = '';
   if (prereqs.length) {
-    html += prereqs.map((q) => `<li><div class="ver-left"><div class="ver-name">🧩 ${esc(q.name)}</div><div class="ver-tags">${q.scope ? `<span class="tg">${esc(q.scope)}</span>` : ''}<span class="tg">前置 Mod</span></div></div><div class="ver-right"><button class="btn mini" data-open="${esc(q.url)}">查看</button></div></li>`).join('');
+    html += prereqs.map((q) => `<li><div class="ver-left"><div class="ver-name">${icon('puzzle')} ${esc(q.name)}</div><div class="ver-tags">${q.scope ? `<span class="tg">${esc(q.scope)}</span>` : ''}<span class="tg">前置 Mod</span></div></div><div class="ver-right"><button class="btn mini" data-open="${esc(q.url)}">查看</button></div></li>`).join('');
   } else {
     html += '<li class="empty">✅ 无前置 Mod（可直接安装）</li>';
   }

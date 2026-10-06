@@ -343,7 +343,7 @@ async function syncServerDirToUI() {
 
 // 进入「服务器管理」（切到 srvmanage 页面）
 async function enterServerManage(name) {
-  if (name && $('srv-manage-title')) $('srv-manage-title').textContent = '🛠 正在管理：' + name;
+  if (name && $('srv-manage-title')) $('srv-manage-title').innerHTML = icon('wrench') + ' 正在管理：' + esc(name);
   await loadServerListIntoManage(name);
   goPage('srvmanage');
 }
@@ -366,7 +366,7 @@ async function loadServerListIntoManage(activeName) {
   const list = r.list || [];
   const act = list.find((s) => s.id === srvActiveId);
   if ($('srv-manage-title')) {
-    $('srv-manage-title').textContent = '🛠 正在管理：' + (activeName || (act && act.name) || '服务器');
+    $('srv-manage-title').innerHTML = icon('wrench') + ' 正在管理：' + esc(activeName || (act && act.name) || '服务器');
   }
   const cnt = $('srv-mgr-count');
   if (cnt) cnt.textContent = list.length ? `共 ${list.length} 个` : '';
@@ -392,9 +392,9 @@ async function loadServerListIntoManage(activeName) {
         <div class="srv-item-tags">${tags}</div>
       </div>
       <div class="srv-item-actions">
-        <button class="btn mini primary srv-mgr-manage" data-id="${esc(s.id)}" title="管理这个服务器">🛠 管理</button>
-        <button class="btn mini srv-mgr-rename" data-id="${esc(s.id)}" title="重命名">✏️</button>
-        <button class="btn mini ghost srv-mgr-remove" data-id="${esc(s.id)}" title="移出列表">🗑</button>
+        <button class="btn mini primary srv-mgr-manage" data-id="${esc(s.id)}" title="管理这个服务器">${icon('wrench')} 管理</button>
+        <button class="btn mini srv-mgr-rename" data-id="${esc(s.id)}" title="重命名">${icon('edit')}</button>
+        <button class="btn mini ghost srv-mgr-remove" data-id="${esc(s.id)}" title="移出列表">${icon('trash')}</button>
       </div>
     </div>`;
   }).join('');
@@ -568,7 +568,7 @@ async function loadServerMods() {
       </div>
       <div class="mod-actions">
         <label class="switch" title="${m.disabled ? '启用' : '停用'}"><input type="checkbox" class="srvm-toggle" data-file="${esc(m.file)}" ${m.disabled ? '' : 'checked'}><span></span></label>
-        <button class="btn mini ghost srvm-del" data-file="${esc(m.file)}" title="删除">🗑</button>
+        <button class="btn mini ghost srvm-del" data-file="${esc(m.file)}" title="删除">${icon('trash')}</button>
       </div>
     </li>`;
   }).join('');
@@ -690,13 +690,13 @@ async function refreshServerBackup() {
   const r = await window.api.serverWorldBackups();
   const list = (r && r.ok ? r.list : []) || [];
   if (!list.length) {
-    box.innerHTML = '<div class="srvw-empty">还没有备份。点「💾 立即备份存档」创建第一个备份。</div>';
+    box.innerHTML = '<div class="srvw-empty">还没有备份。点「' + icon('save') + ' 立即备份存档」创建第一个备份。</div>';
     return;
   }
   box.innerHTML = list.map((b) => `
     <div class="srvw-row">
       <div class="srvw-main">
-        <div class="srvw-title">🗺 ${esc(b.world || 'world')} · ${fmtTime(b.ts || b.mtime)}</div>
+        <div class="srvw-title">${icon('map')} ${esc(b.world || 'world')} · ${fmtTime(b.ts || b.mtime)}</div>
         <div class="srvw-sub">${esc(b.sizeText || '')}${b.note ? ' · ' + esc(b.note) : ''}</div>
       </div>
       <button class="btn mini" data-act="restore" data-file="${esc(b.file)}">恢复</button>
@@ -895,7 +895,7 @@ $('btn-launch').onclick = async () => {
     log('data', '启动失败：' + res.error);
     $('progress-text').textContent = '启动失败：' + res.error;
     btn.disabled = false;
-    btn.textContent = '▶ 启动游戏';
+    btn.innerHTML = icon('play') + ' 启动游戏';
   } else {
     log('data', '启动命令已发出，游戏进程运行中…');
     markVersionUsed(selectedVersion);
