@@ -79,12 +79,18 @@ function createWindow() {
   });
   ctx.setWin(win);
   win.setMenuBarVisibility(false);
-  win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
-
-  win.once('ready-to-show', () => {
+  // DOM 解析完成即显示窗口（比 ready-to-show 早，避免等待完整首帧绘制）；
+  // ready-to-show 作为兼底，防止 dom-ready 未触发时窗口永远不显示。
+  let shown = false;
+  const showNow = (why) => {
+    if (shown) return;
+    shown = true;
     win.show();
-    console.log('[启动耗时] 窗口可见: ' + (Date.now() - t0) + 'ms');
-  });
+    console.log('[启动耗时] 窗口可见(' + why + '): ' + (Date.now() - t0) + 'ms');
+  };
+  win.webContents.once('dom-ready', () => showNow('dom-ready'));
+  win.once('ready-to-show', () => showNow('ready-to-show'));
+  win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//i.test(url)) shell.openExternal(url);
