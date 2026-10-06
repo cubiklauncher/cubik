@@ -591,17 +591,15 @@ function createWindow() {
           if (nv) { nv.click(); await new Promise(r => setTimeout(r, 400)); }
           srv.mgrBackedToServerPage = document.getElementById('page-server').classList.contains('active');
         } catch (e) { srv.mgrErr = String(e && e.message); }
-        // 「新建服务器」流程：管理页点「新建服务器」→ 跳转到「服务器」页建服表单并预填目录
+        // 「新建服务器」流程：直接去「服务器」页看建服表单默认目录（不应是已有服务器目录）
         try {
-          const mg = document.querySelector('.nav-item[data-page="srvmanage"]');
-          if (mg) { mg.click(); await new Promise(r => setTimeout(r, 1000)); }
-          srv.newGotoBtnExists = !!document.getElementById('btn-srv-goto-create');
-          const nb = document.getElementById('btn-srv-goto-create');
-          if (nb) { nb.click(); await new Promise(r => setTimeout(r, 1500)); }
+          const sp = document.querySelector('.nav-item[data-page="server"]');
+          if (sp) { sp.click(); await new Promise(r => setTimeout(r, 1200)); }
           srv.newLandedOnServerPage = document.getElementById('page-server').classList.contains('active');
           srv.newDirFilled = (document.getElementById('in-srv-dir') || {}).value || '';
           srv.newVerSelOpts = document.querySelectorAll('#sel-srv-mcver option').length;
           srv.newServerPageCards = [...document.querySelectorAll('#page-server .card h2, #page-server .card summary')].map(h => h.textContent.trim()).join(' | ');
+          srv.newManageHasCreateBtn = !!document.getElementById('btn-srv-goto-create');
         } catch (e) { srv.newErr = String(e && e.message); }
         // 服务器页卡片顺序（验证重排）
         srv.srvCardOrder = [...document.querySelectorAll('#page-server .card, #page-server details.card')].map(function(c){

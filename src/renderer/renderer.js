@@ -70,7 +70,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (btn.dataset.page === 'shader' && !shaderLoaded) loadShaderTop();
     if (btn.dataset.page === 'data') loadDataPage();
     if (btn.dataset.page === 'mod' && !modPageLoaded) loadModPage();
-    if (btn.dataset.page === 'server') { refreshNetInfo(); try { loadServerVersions(); } catch {} try { renderServerOverview(); } catch {} }
+    if (btn.dataset.page === 'server') { refreshNetInfo(); try { loadServerVersions(); } catch {} try { renderServerOverview(); } catch {} try { refreshCreateDirDefault(); } catch {} }
     if (btn.dataset.page === 'srvmanage') { try { loadServerListIntoManage(); } catch {}
       refreshServerBackup(); loadAutoBackup(); checkServerUpdateUI(true); refreshNetInfo(); try { loadServerMods(); } catch {} try { refreshServerStatus(); } catch {} }
     if (btn.dataset.page === 'vanilla' && !window.__vanLoaded) { window.__vanLoaded = true; loadVanillaVersions(); }
@@ -180,7 +180,9 @@ async function init() {
   $('sel-source').value = cfg.downloadSource || 'bmclapi';
   $('in-autojava').checked = cfg.autoJava !== false;
   $('in-cfkey').value = cfg.cfApiKey || '';
-  $('in-srv-dir').value = cfg.serverDir || (cfg.mcDir + '\\server');
+  // 建服目录：给一个全新的建议目录（D:\mc-server、D:\mc-server2…避开已有服务器）
+  // 不要默认成现有服务器的目录，否则容易误覆盖/建到同一处
+  $('in-srv-dir').value = suggestNewServerDir(cfg);
   // 高级启动参数
   if ($('in-jvmargs')) $('in-jvmargs').value = cfg.jvmArgs || '';
   if ($('in-gameargs')) $('in-gameargs').value = cfg.gameArgs || '';
@@ -2309,11 +2311,9 @@ $('btn-srv-quick').onclick = async () => {
     if ($('srv-mem-label')) $('srv-mem-label').textContent = d.memory + ' MB';
   }
   if (!$('in-srv-dir').value.trim()) {
-    const mc = ($('in-mcdir') && $('in-mcdir').value.trim()) || 'D:\\.minecraft';
-    const base = mc.replace(/[\\/]versions.*$/, '').replace(/[\\/]\.minecraft$/, '');
-    $('in-srv-dir').value = ($('in-mcdir') ? mc.split('\\').slice(0, -1).join('\\') : 'D:') + '\\mc-server';
+    $('in-srv-dir').value = await suggestNewServerDirAsync();
   }
-  $('srv-log').textContent += '\n===== ⚡ 一键快速建服（自动推荐配置）=====\n';
+  if ($('srv-create-log')) $('srv-create-log').textContent += '\n===== ⚡ 一键快速建服（自动推荐配置）=====\n';
   $('btn-srv-create').click();
 };
 
@@ -2653,18 +2653,48 @@ async function loadServerListIntoManage(activeName) {
   });
 }
 
-async function doNewServer() {
-  // 新建：推荐一个默认目录（D:\mc-server、 D:\mc-server2 … 自动避开已存在）并引导用户选择/新建文件夹
-  const dirEl = $('in-srv-dir');
-  if (!dirEl) { alert('界面未就绪，请重新打开服务器页再试'); return; }
-  let base = 'D:\\mc-server';
+// 计算一个全新的服务器目录建议：D:\mc-server、D:\mc-server2、…（避开列表里已有的以及磁盘上已存在的）
+async function suggestNewServerDirAsync() {
+  const cfgMc = (cfg && cfg.mcDir) || 'D:\\.minecraft';
+  const drive = (cfgMc.match(/^[A-Za-z]:/) || ['D:'])[0];
+  const base = drive + '\\mc-server';
+  const used = new Set();
   try {
     const lr = await window.api.serverList();
-    const used = new Set((lr && lr.ok ? lr.list : []).map((s) => (s.dir || '').toLowerCase()));
-    let n = 1, cand = base;
-    while (used.has(cand.toLowerCase())) { n += 1; cand = base + n; }
-    base = cand;
+    (lr && lr.ok ? lr.list : []).forEach((s) => { if (s && s.dir) used.add(String(s.dir).toLowerCase()); });
   } catch {}
+  let n = 1, cand = base;
+  while (used.has(cand.toLowerCase())) { n += 1; cand = base + n; }
+  return cand;
+}
+// 同步版本（启动时用，没有已有列表信息，仅避开当前目录）
+function suggestNewServerDir(cfgObj) {
+  const cfgMc = (cfgObj && cfgObj.mcDir) || 'D:\\.minecraft';
+  const drive = (cfgMc.match(/^[A-Za-z]:/) || ['D:'])[0];
+  const base = drive + '\\mc-server';
+  // 若默认目录恰好等于现有服务器目录，则加数字区分
+  const cur = (cfgObj && cfgObj.serverDir) || '';
+  if (cur && cur.toLowerCase() === base.toLowerCase()) return base + '2';
+  return base;
+}
+
+// 进入服务器页时：若建服目录还是旧的（指向已有服务器目录）或为空，刷新为全新建议目录
+async function refreshCreateDirDefault() {
+  const el = $('in-srv-dir');
+  if (!el) return;
+  const cur = el.value.trim();
+  const cfgServerDir = (cfg && cfg.serverDir) || '';
+  const stale = !cur || (cfgServerDir && cur.toLowerCase() === cfgServerDir.toLowerCase());
+  if (stale) {
+    try { el.value = await suggestNewServerDirAsync(); } catch {}
+  }
+}
+
+async function doNewServer() {
+  // 新建：推荐一个全新的目录（D:\mc-server、D:\mc-server2…自动避开已有服务器）
+  const dirEl = $('in-srv-dir');
+  if (!dirEl) { alert('界面未就绪，请重新打开服务器页再试'); return; }
+  const base = await suggestNewServerDirAsync();
   dirEl.value = base;
   if ($('srv-options')) $('srv-options').open = true;
   log('data', '新建服务器：已填入建议目录 ' + base + '，可直接用或点「选择文件夹/新建文件夹」换成其它位置，然后选类型与版本点「创建服务器」');
@@ -2690,13 +2720,6 @@ async function doNewServer() {
 }
 // 暴露给按钮绑定 / 自动化测试 / 错误重试
 window.__doNewServer = doNewServer;
-// 「服务器管理」页的「新建服务器」按钮：跳到「服务器」页的建服表单并预填目录
-if ($('btn-srv-goto-create')) {
-  $('btn-srv-goto-create').addEventListener('click', () => {
-    goPage('server');
-    Promise.resolve().then(() => doNewServer()).catch((e) => log('error', '新建服务器出错：' + (e && e.message ? e.message : e)));
-  });
-}
 if ($('btn-srv-add-existing')) $('btn-srv-add-existing').onclick = async () => {
   const dir = await window.api.pickDir();
   if (!dir) return;
