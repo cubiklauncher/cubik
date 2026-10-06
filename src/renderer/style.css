@@ -1020,3 +1020,60 @@ body.perf-mode .ver-card { background: rgba(248,250,255,.92); }
 .hvp-more { padding: 9px 12px; margin-top: 4px; border-top: 1px solid var(--glass-border); font-size: 12px; color: var(--accent); cursor: pointer; }
 .hvp-more:hover { background: rgba(47,106,224,.08); border-radius: 8px; }
 .ver-recent-tag { font-size: 10px; padding: 1px 6px; border-radius: 999px; background: rgba(47,174,122,.16); color: #2fae7a; margin-left: 4px; vertical-align: middle; }
+
+/* ============================================================
+   主页快捷操作卡片 + 状态行（v1.2 UI 升级）
+   ============================================================ */
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.qa-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 14px 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  box-shadow: 0 4px 18px rgba(31, 45, 90, 0.10);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: var(--text);
+  transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+  position: relative;
+  overflow: hidden;
+}
+.qa-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+  opacity: 0;
+  transition: opacity .16s ease;
+}
+.qa-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(31, 45, 90, 0.18);
+  background: var(--glass-bg-strong);
+}
+.qa-card:hover::before { opacity: 1; }
+.qa-card:active { transform: translateY(-1px) scale(.99); }
+.qa-ico { font-size: 20px; line-height: 1; margin-bottom: 2px; }
+.qa-label { font-size: 13px; font-weight: 700; }
+.qa-sub { font-size: 11px; color: var(--text-mute); }
+
+.stat-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.stat-row .stat-k { color: var(--text-mute); flex: none; }
+.stat-row .stat-v { max-width: 62%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+
+@media (max-width: 720px) {
+  .quick-actions { grid-template-columns: repeat(2, 1fr); }
+}

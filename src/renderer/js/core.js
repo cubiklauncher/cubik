@@ -60,6 +60,11 @@ function howMuchMem(totalGB) {
   return Math.min(rec, Math.round(totalGB * 0.6 * 1024 / 512) * 512);
 }
 
+// ---------- 主页快捷操作 ----------
+document.querySelectorAll('.qa-card').forEach((btn) => {
+  btn.onclick = () => { const p = btn.dataset.go; if (p) goPage(p); };
+});
+
 // ---------- 页面切换 ----------
 document.querySelectorAll('.nav-item').forEach((btn) => {
   btn.onclick = () => {

@@ -18,6 +18,7 @@ function guessType() { return ''; }
 async function refreshVersions() {
   localVersions = await window.api.listVersions();
   $('st-count').textContent = localVersions.length;
+  if ($('qa-ver-count')) $('qa-ver-count').textContent = localVersions.length ? localVersions.length + ' 个版本' : '暂无版本';
   const list = $('version-list');
   if (!localVersions.length) {
     list.innerHTML = '<li class="empty">暂无本地版本，请先在原版启动器下载，或到设置里指向已有 .minecraft 目录</li>';
