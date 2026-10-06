@@ -41,6 +41,24 @@ function zipDir(srcDir, outZip) {
   return outZip;
 }
 
+// 把多个目录打进同一个 zip（各自保留自身目录名）
+// entries: [{ src, name }]；name 为 zip 内的目录名
+function zipDirMulti(entries, outZip) {
+  ensureDir(path.dirname(outZip));
+  const args = ['-a', '-c', '-f', outZip];
+  const seenDirs = new Set();
+  for (const e of entries) {
+    const parent = path.dirname(e.src);
+    if (!seenDirs.has(parent)) { args.push('-C', parent); seenDirs.add(parent); }
+    args.push(e.name);
+  }
+  const r = spawnSync('tar', args, { windowsHide: true, encoding: 'utf8' });
+  if (r.error) throw r.error;
+  if (r.status !== 0) throw new Error('压缩失败：' + (r.stderr || r.stdout || ('exit ' + r.status)).trim());
+  if (!fs.existsSync(outZip)) throw new Error('压缩产物未生成');
+  return outZip;
+}
+
 // 解压 zip 到目标目录：tar -x -f x.zip -C dest
 function unzipTo(zipFile, destDir) {
   ensureDir(destDir);
@@ -263,11 +281,135 @@ function importVersion(mcDir, versionName, opts) {
   return { ok: true, version: versionName };
 }
 
+// ---------- 服务器存档备份/还原 ----------
+// 服务器存档位于 <serverDir>/world（由 server.properties 的 level-name 决定，默认 world）
+function serverWorldName(serverDir) {
+  try {
+    const p = path.join(serverDir, 'server.properties');
+    if (fs.existsSync(p)) {
+      const txt = fs.readFileSync(p, 'utf8');
+      const m = txt.match(/^level-name\s*=\s*(.+)$/m);
+      if (m && m[1].trim()) return m[1].trim();
+    }
+  } catch {}
+  return 'world';
+}
+
+function serverWorldDir(serverDir) {
+  return path.join(serverDir, serverWorldName(serverDir));
+}
+
+// 服务器世界相关目录：主世界 world + 下界 world_nether + 末地 world_the_end
+// （备份必须三者一起，否则恢复后维度不对应）
+function serverWorldParts(serverDir) {
+  const base = serverWorldName(serverDir);
+  const names = [base, base + '_nether', base + '_the_end'];
+  return names.filter((n) => fs.existsSync(path.join(serverDir, n)));
+}
+
+function serverBackupsRoot(serverDir) {
+  return path.join(serverDir, '.backups', 'worlds');
+}
+
+// 服务器存档基本信息（大小、最后修改、备份数量）
+function serverWorldInfo(serverDir) {
+  const worldName = serverWorldName(serverDir);
+  const parts = serverWorldParts(serverDir);
+  const dir = path.join(serverDir, worldName);
+  const exists = fs.existsSync(dir);
+  let size = 0, mtime = 0;
+  for (const n of (parts.length ? parts : [worldName])) {
+    const p = path.join(serverDir, n);
+    if (!fs.existsSync(p)) continue;
+    size += dirSize(p);
+    try { const m = fs.statSync(p).mtimeMs; if (m > mtime) mtime = m; } catch {}
+  }
+  return {
+    worldName,
+    parts,
+    exists,
+    size,
+    sizeText: fmtSize(size),
+    mtime,
+    backups: countServerBackups(serverDir)
+  };
+}
+
+function countServerBackups(serverDir) {
+  const dir = serverBackupsRoot(serverDir);
+  if (!fs.existsSync(dir)) return 0;
+  return fs.readdirSync(dir).filter((f) => /__\d{13}\.zip$/i.test(f)).length;
+}
+
+function listServerBackups(serverDir) {
+  const dir = serverBackupsRoot(serverDir);
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir)
+    .filter((f) => f.endsWith('.zip'))
+    .map((f) => {
+      const full = path.join(dir, f);
+      let size = 0, mtime = 0;
+      try { const st = fs.statSync(full); size = st.size; mtime = st.mtimeMs; } catch {}
+      const m = f.match(/^(.*)__(\d{13})\.zip$/);
+      let note = '';
+      try { note = fs.readFileSync(full + '.note.txt', 'utf8'); } catch {}
+      return { file: f, world: m ? m[1] : '', ts: m ? parseInt(m[2], 10) : 0, size, sizeText: fmtSize(size), mtime, note };
+    })
+    .sort((a, b) => b.ts - a.ts);
+}
+
+// 备份服务器存档（主世界+下界+末地）到 <serverDir>/.backups/worlds/<world>__<ts>.zip
+function backupServerWorld(serverDir, note) {
+  const worldName = serverWorldName(serverDir);
+  const parts = serverWorldParts(serverDir);
+  if (!parts.length) throw new Error('服务器存档不存在：' + worldName);
+  const ts = Date.now();
+  const out = path.join(serverBackupsRoot(serverDir), worldName + '__' + ts + '.zip');
+  zipDirMulti(parts.map((n) => ({ src: path.join(serverDir, n), name: n })), out);
+  if (note) { try { fs.writeFileSync(out + '.note.txt', note, 'utf8'); } catch {} }
+  const size = fs.statSync(out).size;
+  return { ok: true, file: out, name: path.basename(out), size, sizeText: fmtSize(size), parts };
+}
+
+// 从备份恢复服务器存档（先自动备份当前存档，再覆盖；包含三个维度）
+function restoreServerWorld(serverDir, backupFile) {
+  const zip = path.join(serverBackupsRoot(serverDir), backupFile);
+  if (!fs.existsSync(zip)) throw new Error('备份文件不存在');
+  const m = backupFile.match(/^(.*)__(\d{13})\.zip$/);
+  const worldName = m ? m[1] : serverWorldName(serverDir);
+  const parts = [worldName, worldName + '_nether', worldName + '_the_end'];
+  // 当前存档先自动备份
+  try { backupServerWorld(serverDir, '恢复前自动备份'); } catch {}
+  // 删掉当前三个维度目录
+  for (const n of parts) {
+    const p = path.join(serverDir, n);
+    if (fs.existsSync(p)) fs.rmSync(p, { recursive: true, force: true });
+  }
+  unzipTo(zip, serverDir);
+  if (!fs.existsSync(path.join(serverDir, worldName))) throw new Error('恢复后未找到存档目录');
+  return { ok: true, worldName };
+}
+
+function deleteServerBackup(serverDir, backupFile) {
+  const zip = path.join(serverBackupsRoot(serverDir), backupFile);
+  if (!fs.existsSync(zip)) throw new Error('备份不存在');
+  fs.rmSync(zip, { force: true });
+  try { fs.rmSync(zip + '.note.txt', { force: true }); } catch {}
+  return { ok: true };
+}
+
 module.exports = {
   fmtSize,
   dirSize,
   zipDir,
+  zipDirMulti,
   unzipTo,
+  serverWorldInfo,
+  listServerBackups,
+  backupServerWorld,
+  restoreServerWorld,
+  deleteServerBackup,
+  serverWorldName,
   listWorlds,
   listWorldBackups,
   backupWorld,

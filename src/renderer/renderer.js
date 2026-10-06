@@ -70,7 +70,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (btn.dataset.page === 'shader' && !shaderLoaded) loadShaderTop();
     if (btn.dataset.page === 'data') loadDataPage();
     if (btn.dataset.page === 'mod' && !modPageLoaded) loadModPage();
-    if (btn.dataset.page === 'server') refreshNetInfo();
+    if (btn.dataset.page === 'server') { refreshNetInfo(); refreshServerBackup(); }
     if (btn.dataset.page === 'vanilla' && !window.__vanLoaded) { window.__vanLoaded = true; loadVanillaVersions(); }
     if (btn.dataset.page === 'versions') refreshVersions();
   };
@@ -2322,6 +2322,73 @@ if ($('btn-toggle-online')) $('btn-toggle-online').onclick = async () => {
 };
 if ($('btn-copy-lan')) $('btn-copy-lan').onclick = () => copyText($('net-lan').dataset.copy || $('net-lan').textContent, $('btn-copy-lan'));
 if ($('btn-copy-pub')) $('btn-copy-pub').onclick = () => copyText($('net-pub').dataset.copy || $('net-pub').textContent, $('btn-copy-pub'));
+
+// ---------- 服务器存档备份 ----------
+function fmtTime(ms) {
+  if (!ms) return '—';
+  const d = new Date(ms);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+async function refreshServerBackup() {
+  const box = $('srvw-list');
+  if (!box) return;
+  const info = await window.api.serverWorldInfo();
+  if (info && info.ok && info.info) {
+    const i = info.info;
+    $('srvw-name').textContent = i.worldName || 'world';
+    const partsTxt = (i.parts && i.parts.length > 1) ? '（' + i.parts.length + ' 个维度）' : '';
+    $('srvw-size').textContent = '存档大小：' + (i.exists ? i.sizeText + partsTxt : '未生成');
+    $('srvw-count').textContent = '备份数量：' + (i.backups || 0);
+    $('srvw-mtime').textContent = '最后修改：' + (i.exists ? fmtTime(i.mtime) : '—');
+  }
+  const r = await window.api.serverWorldBackups();
+  const list = (r && r.ok ? r.list : []) || [];
+  if (!list.length) {
+    box.innerHTML = '<div class="srvw-empty">还没有备份。点「💾 立即备份存档」创建第一个备份。</div>';
+    return;
+  }
+  box.innerHTML = list.map((b) => `
+    <div class="srvw-row">
+      <div class="srvw-main">
+        <div class="srvw-title">🗺 ${esc(b.world || 'world')} · ${fmtTime(b.ts || b.mtime)}</div>
+        <div class="srvw-sub">${esc(b.sizeText || '')}${b.note ? ' · ' + esc(b.note) : ''}</div>
+      </div>
+      <button class="btn mini" data-act="restore" data-file="${esc(b.file)}">恢复</button>
+      <button class="btn mini ghost" data-act="del" data-file="${esc(b.file)}">删除</button>
+    </div>`).join('');
+  box.querySelectorAll('button[data-act]').forEach((btn) => {
+    btn.onclick = async () => {
+      const file = btn.dataset.file;
+      if (btn.dataset.act === 'restore') {
+        if (!confirm('恢复后当前存档会被覆盖（已自动先备份一份）。建议先停止服务器。\n确定恢复这个备份？')) return;
+        const rr = await window.api.serverWorldRestore({ file });
+        if (!rr || !rr.ok) return alert('恢复失败：' + ((rr && rr.error) || '未知错误'));
+        alert('已恢复存档。重启服务器后生效。');
+      } else {
+        if (!confirm('确定删除这个备份？不可恢复。')) return;
+        const rr = await window.api.serverWorldBackupDelete({ file });
+        if (!rr || !rr.ok) return alert('删除失败：' + ((rr && rr.error) || '未知错误'));
+      }
+      refreshServerBackup();
+    };
+  });
+}
+if ($('btn-srvw-backup')) $('btn-srvw-backup').onclick = async () => {
+  const btn = $('btn-srvw-backup');
+  const o = btn.textContent; btn.textContent = '备份中…'; btn.disabled = true;
+  const st = await window.api.serverStatus();
+  if (st && st.running && !confirm('服务器正在运行，存档可能写入一半导致备份不完整。\n建议先停止服务器。仍要继续备份吗？')) {
+    btn.textContent = o; btn.disabled = false; return;
+  }
+  const r = await window.api.serverWorldBackup({ note: '手动备份' });
+  btn.textContent = o; btn.disabled = false;
+  if (!r || !r.ok) return alert('备份失败：' + ((r && r.error) || '未知错误'));
+  alert('备份完成：' + (r.sizeText || ''));
+  refreshServerBackup();
+};
+if ($('btn-srvw-refresh')) $('btn-srvw-refresh').onclick = refreshServerBackup;
+if ($('btn-srvw-open')) $('btn-srvw-open').onclick = () => window.api.serverWorldOpen();
 $('btn-srv-open').onclick = () => window.api.openPath($('in-srv-dir').value.trim());
 $('btn-srv-cmd').onclick = async () => {
   const c = $('in-srv-cmd').value.trim();

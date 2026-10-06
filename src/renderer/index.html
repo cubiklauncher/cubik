@@ -629,6 +629,23 @@
         </div>
       </div>
 
+      <div class="card" id="srv-backup-card">
+        <h2>💾 服务器存档备份</h2>
+        <p class="hint">把服务器世界（主世界 <code id="srvw-name">world</code> + 下界 + 末地）一起打包备份，防止炸图、误删、换版本搞坏。备份存在服务器目录下的 <code>.backups\worlds</code>。
+          <b>建议先在页面上⏹停止服务器再备份/恢复</b>，避免存档写入一半导致备份不完整。</p>
+        <div class="srvw-summary">
+          <span class="srv-chip" id="srvw-size">存档大小：—</span>
+          <span class="srv-chip" id="srvw-count">备份数量：—</span>
+          <span class="srv-chip" id="srvw-mtime">最后修改：—</span>
+        </div>
+        <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">
+          <button class="btn primary" id="btn-srvw-backup">💾 立即备份存档</button>
+          <button class="btn" id="btn-srvw-refresh">🔄 刷新</button>
+          <button class="btn ghost" id="btn-srvw-open">📂 打开服务器目录</button>
+        </div>
+        <div id="srvw-list" class="srvw-list" style="margin-top:12px"></div>
+      </div>
+
       <details class="card adv-box" id="tunnel-card">
         <summary>🚇 内网穿透（一键让外网朋友直连，不用改路由器）</summary>
         <p class="hint">原理：用一个公网中转服务器把你的本地端口映射到公网。基于开源 frp（MIT）实现。

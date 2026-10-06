@@ -694,6 +694,17 @@ body[data-skin="graphite"] { --text: #1c2130; }
   border: 1px solid rgba(120,150,220,.22); padding: 5px 12px; border-radius: 999px; }
 .srv-chip b { color: var(--accent); }
 
+/* ---------- 服务器存档备份 ---------- */
+.srvw-summary { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.srvw-list { display: flex; flex-direction: column; gap: 8px; }
+.srvw-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px;
+  background: rgba(255,255,255,.55); border: 1px solid rgba(120,150,220,.18); }
+.srvw-row .srvw-main { flex: 1; min-width: 0; }
+.srvw-row .srvw-title { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.srvw-row .srvw-sub { font-size: 12px; color: var(--text-mute); margin-top: 2px; }
+.srvw-empty { font-size: 13px; color: var(--text-mute); padding: 14px; text-align: center;
+  background: rgba(255,255,255,.4); border: 1px dashed rgba(120,150,220,.28); border-radius: 12px; }
+
 /* ---------- 服务器聊天栏 ---------- */
 .chat-card { display: flex; flex-direction: column; gap: 10px; }
 .chat-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }

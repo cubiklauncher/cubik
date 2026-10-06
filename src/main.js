@@ -411,6 +411,9 @@ function createWindow() {
         srv.srvTypeForge = !!document.querySelector('#sel-srv-type option[value="forge"]');
         srv.tunnelCard = !!document.getElementById('btn-tun-start');
         srv.autoUpdBtn = true;
+        // 新增：服务器存档备份卡
+        srv.srvwCard = !!document.getElementById('btn-srvw-backup');
+        srv.srvwList = !!document.getElementById('srvw-list');
         // 新增：存档与备份页 / 资源包 / 实例设置
         srv.dataNav = !!document.querySelector('.nav-item[data-page="data"]');
         document.querySelector('.nav-item[data-page="data"]').click();
@@ -499,9 +502,20 @@ function createWindow() {
         await new Promise((r) => setTimeout(r, 800));
         const png = await win.webContents.capturePage();
         require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-srv-shot.png'), png.toPNG());
+        // 额外：滚动到服务器存档备份卡并截图
+        try {
+          await win.webContents.executeJavaScript(`(() => {
+            const c = document.getElementById('srv-backup-card');
+            if (c) { c.scrollIntoView({ block: 'center' }); return true; }
+            return false;
+          })()`);
+          await new Promise((r) => setTimeout(r, 600));
+          const png2 = await win.webContents.capturePage();
+          require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-srvw-shot.png'), png2.toPNG());
+        } catch (e) {}
       } catch (e) {}
     } catch (e) { console.log('SELFTEST_ERROR ' + e.message); try { require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), 'SELFTEST_ERROR ' + e.message); } catch {} }
-    setTimeout(() => app.quit(), 400);
+    setTimeout(() => app.quit(), 1500);
   });
 }
 
@@ -1345,6 +1359,34 @@ ipcMain.handle('world:backup-delete', (_e, { file }) => {
 });
 ipcMain.handle('world:open', () => {
   const dir = path.join(loadConfig().mcDir, 'saves');
+  fs.mkdirSync(dir, { recursive: true });
+  return shell.openPath(dir);
+});
+
+// 服务器存档备份（serverDir 下的世界）
+const srvDir = () => path.join(loadConfig().serverDir || path.join(loadConfig().mcDir, 'server'));
+ipcMain.handle('server-world:info', () => {
+  try { return { ok: true, info: backup.serverWorldInfo(srvDir()) }; }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('server-world:backup', (_e, { note } = {}) => {
+  try { return backup.backupServerWorld(srvDir(), note); }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('server-world:backups', () => {
+  try { return { ok: true, list: backup.listServerBackups(srvDir()) }; }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('server-world:restore', (_e, { file }) => {
+  try { return backup.restoreServerWorld(srvDir(), file); }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('server-world:backup-delete', (_e, { file }) => {
+  try { return backup.deleteServerBackup(srvDir(), file); }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('server-world:open', () => {
+  const dir = srvDir();
   fs.mkdirSync(dir, { recursive: true });
   return shell.openPath(dir);
 });
