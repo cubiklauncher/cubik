@@ -160,6 +160,36 @@ function attachSelfTest(win, app) {
             firstCard: vcards[0] ? vcards[0].textContent.trim().slice(0,60) : null,
             cacheHint: document.getElementById('van-cache-hint') ? document.getElementById('van-cache-hint').textContent : null
           };
+          // 下载中心（新增）
+          try {
+            res.dl = {};
+            res.dl.nav = !!document.querySelector('.nav-item[data-page="downloads"]');
+            res.dl.fns = [typeof dlStart, typeof dlUpdate, typeof dlFinish, typeof dlRender, typeof dlClearFinished].join(',');
+            document.querySelector('.nav-item[data-page="downloads"]').click();
+            await new Promise(r => setTimeout(r, 300));
+            res.dl.pageActive = document.getElementById('page-downloads').classList.contains('active');
+            res.dl.emptyText = (document.getElementById('dl-task-list').textContent || '').trim().slice(0, 20);
+            const tid = dlStart('测试：安装整合包', 'pack', null);
+            dlUpdate(tid, { pct: 37, done: 370, total: 1000, label: '测试：安装整合包' });
+            await new Promise(r => setTimeout(r, 120));
+            res.dl.taskCount = document.querySelectorAll('#dl-task-list .dl-task').length;
+            res.dl.taskPct = (document.querySelector('#dl-task-list .dl-task-pct') || {}).textContent;
+            res.dl.taskPhase = (document.querySelector('#dl-task-list .dl-task-phase') || {}).textContent;
+            res.dl.badge = document.getElementById('nav-dl-badge').textContent;
+            dlFinish(tid, { ok: true, label: '测试：安装整合包' });
+            await new Promise(r => setTimeout(r, 120));
+            res.dl.done = document.querySelectorAll('#dl-task-list .dl-task.done').length;
+            const tid2 = dlStart('测试：下载 Mod', 'mod', function(){});
+            dlFinish(tid2, { ok: false, error: '网络超时' });
+            await new Promise(r => setTimeout(r, 120));
+            res.dl.err = document.querySelectorAll('#dl-task-list .dl-task.err').length;
+            res.dl.retryBtn = document.querySelectorAll('#dl-task-list [data-dl-retry]').length;
+            res.dl.summary = document.getElementById('dl-summary').textContent;
+            dlClearFinished();
+            await new Promise(r => setTimeout(r, 120));
+            res.dl.cleared = document.querySelectorAll('#dl-task-list .dl-task').length;
+            document.querySelector('.nav-item[data-page="home"]').click();
+          } catch (e) { res.dlErr = e.message; }
           return JSON.stringify(res);
         })()`);
         require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), out);
@@ -168,6 +198,23 @@ function attachSelfTest(win, app) {
         await new Promise((r) => setTimeout(r, 1500));
         const png = await win.webContents.capturePage();
         require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-ver-shot.png'), png.toPNG());
+        // 截图下载中心页（造几个任务）
+        try {
+          await win.webContents.executeJavaScript(`
+            (function(){
+              document.querySelector('.nav-item[data-page="downloads"]').click();
+              dlTasks.length = 0;
+              var a = dlStart('安装整合包：科技空岛', 'pack', null); dlUpdate(a,{pct:63,done:630,total:1000,label:'安装整合包：科技空岛'});
+              var b = dlStart('下载 Mod：JEI 物品管理器', 'mod', null); dlFinish(b,{ok:true,label:'下载 Mod：JEI 物品管理器'});
+              var c = dlStart('下载光影包：BSL Shaders', 'shader', function(){}); dlFinish(c,{ok:false,error:'连接超时，请重试'});
+              dlRender();
+            })()
+          `);
+          await new Promise((r) => setTimeout(r, 600));
+          const pngDl = await win.webContents.capturePage();
+          require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-dl-shot.png'), pngDl.toPNG());
+          await win.webContents.executeJavaScript(`dlTasks.length = 0; dlRender(); document.querySelector('.nav-item[data-page="home"]').click();`);
+        } catch (e) {}
       } catch (e) { try { require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), 'ERR ' + e.message); } catch {} }
       setTimeout(() => app.quit(), 300);
       return;
@@ -421,6 +468,25 @@ function attachSelfTest(win, app) {
         await new Promise((r) => setTimeout(r, 700));
         const pngNav = await win.webContents.capturePage();
         require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-nav-shot.png'), pngNav.toPNG());
+      } catch (e) {}
+      // 截图：进入服务器管理页
+      try {
+        // 下载中心截图（先造几个任务）
+        await win.webContents.executeJavaScript(`
+          (function(){
+            document.querySelector('.nav-item[data-page="downloads"]').click();
+            try{
+              dlTasks.length = 0;
+              var a = dlStart('安装整合包：科技空岛', 'pack', null); dlUpdate(a,{pct:63,done:630,total:1000,label:'安装整合包：科技空岛'});
+              var b = dlStart('下载 Mod：JEI', 'mod', null); dlUpdate(b,{pct:100,done:1,total:1,label:'下载 Mod：JEI'}); dlFinish(b,{ok:true,label:'下载 Mod：JEI'});
+              var c = dlStart('下载光影包：BSL Shaders', 'shader', function(){}); dlFinish(c,{ok:false,error:'连接超时，请重试'});
+              dlRender();
+            }catch(e){}
+          })()
+        `);
+        await new Promise((r) => setTimeout(r, 700));
+        const pngDl = await win.webContents.capturePage();
+        require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-dl-shot.png'), pngDl.toPNG());
       } catch (e) {}
       // 截图：进入服务器管理页
       try {
