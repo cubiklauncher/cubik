@@ -6,6 +6,11 @@
 
 整合包 / 光影包一键安装 · 原版游戏下载 · 服务器创建管理
 
+官网：[**https://wodefa66666.github.io/cubik/**](https://wodefa66666.github.io/cubik/)
+
+[![官网](https://img.shields.io/badge/官网-访问-2ea44f?style=for-the-badge)](https://wodefa66666.github.io/cubik/)
+[![Releases](https://img.shields.io/github/v/release/wodefa66666/cubik?style=for-the-badge&color=blue)](https://github.com/wodefa66666/cubik/releases)
+
 </div>
 
 ---
@@ -27,6 +32,8 @@
 ## 🚀 快速开始
 
 ### 下载使用
+
+> 官网下载页：**https://wodefa66666.github.io/cubik/#download**
 
 1. 从 Releases 下载 `Cubik-x.x.x-x64.exe`（安装版）或 `Cubik-x.x.x-portable.exe`（免安装版）
 2. 运行即可。首次使用建议先到「设置」确认游戏目录与下载源（默认 BMCLAPI 国内镜像）
