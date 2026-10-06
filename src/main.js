@@ -576,17 +576,20 @@ function createWindow() {
         try {
           const rp = document.querySelector('.nav-item[data-page="server"]');
           if (rp) { rp.click(); await new Promise(r => setTimeout(r, 500)); }
-          const lv = document.getElementById('srv-list-card');
-          const mv = document.getElementById('srv-manage-view');
-          srv.mgrBeforeListShown = lv.style.display !== 'none';
-          const mb = document.querySelector('.srv-manage');
-          if (mb) { mb.click(); await new Promise(r => setTimeout(r, 800)); }
-          srv.mgrEnteredListHidden = lv.style.display === 'none';
-          srv.mgrEnteredViewShown = mv.style.display !== 'none';
-          srv.mgrTitle = (document.getElementById('srv-manage-title') || {}).textContent || '';
-          const bk = document.getElementById('btn-srv-manage-back');
-          if (bk) { bk.click(); await new Promise(r => setTimeout(r, 400)); }
-          srv.mgrBackedToList = lv.style.display !== 'none' && mv.style.display === 'none';
+          srv.navSrvManage = !!document.querySelector('.nav-item[data-page="srvmanage"]');
+          srv.navSrvManageLabel = (document.querySelector('.nav-item[data-page="srvmanage"] .ni-label') || {}).textContent || '';
+          srv.pageSrvManage = !!document.getElementById('page-srvmanage');
+          srv.mgrOwnListBox = !!document.getElementById('srv-mgr-list-box');
+          srv.listPageNoManageView = !document.querySelector('#page-server #srv-manage-view');
+          const mb = document.querySelector('#page-server .srv-manage');
+          if (mb) { mb.click(); await new Promise(r => setTimeout(r, 1200)); }
+          srv.mgrEnteredSrvManagePage = document.getElementById('page-srvmanage').classList.contains('active');
+          srv.mgrEnteredListHidden = !document.getElementById('page-server').classList.contains('active');
+          srv.mgrTitle2 = (document.getElementById('srv-manage-title') || {}).textContent || '';
+          srv.mgrListItems = document.querySelectorAll('#srv-mgr-list-box .srv-item').length;
+          const nv = document.querySelector('.nav-item[data-page="server"]');
+          if (nv) { nv.click(); await new Promise(r => setTimeout(r, 400)); }
+          srv.mgrBackedToServerPage = document.getElementById('page-server').classList.contains('active');
         } catch (e) { srv.mgrErr = String(e && e.message); }
         // 「新建服务器」按钮全流程（列表视图点击 → 回列表 → 建议目录 → 进管理视图 → 建服表单可见）
         try {
@@ -689,6 +692,17 @@ function createWindow() {
         await new Promise((r) => setTimeout(r, 700));
         const pngNav = await win.webContents.capturePage();
         require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-nav-shot.png'), pngNav.toPNG());
+      } catch (e) {}
+      // 截图：进入服务器管理页
+      try {
+        await win.webContents.executeJavaScript(`document.querySelector('.nav-item[data-page="srvmanage"]').click()`);
+        await new Promise((r) => setTimeout(r, 1500));
+        const pngMg = await win.webContents.capturePage();
+        require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-srvmanage.png'), pngMg.toPNG());
+        await win.webContents.executeJavaScript(`document.querySelector('.content').scrollTop = 400`);
+        await new Promise((r) => setTimeout(r, 500));
+        const pngMg2 = await win.webContents.capturePage();
+        require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-srvmanage2.png'), pngMg2.toPNG());
       } catch (e) {}
       // 截图（用于人工核对渲染）—— 切到服务器页
       try {

@@ -70,7 +70,9 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (btn.dataset.page === 'shader' && !shaderLoaded) loadShaderTop();
     if (btn.dataset.page === 'data') loadDataPage();
     if (btn.dataset.page === 'mod' && !modPageLoaded) loadModPage();
-    if (btn.dataset.page === 'server') { if (typeof exitServerManage === 'function') exitServerManage(); refreshNetInfo(); refreshServerBackup(); loadAutoBackup(); checkServerUpdateUI(true); try { loadServerMods(); } catch {} try { loadServerList(); } catch {} }
+    if (btn.dataset.page === 'server') { refreshNetInfo(); refreshServerBackup(); loadAutoBackup(); checkServerUpdateUI(true); try { loadServerMods(); } catch {} try { loadServerList(); } catch {} }
+    if (btn.dataset.page === 'srvmanage') { try { loadServerListIntoManage(); } catch {}
+      refreshServerBackup(); loadAutoBackup(); checkServerUpdateUI(true); refreshNetInfo(); try { loadServerMods(); } catch {} try { refreshServerStatus(); } catch {} }
     if (btn.dataset.page === 'vanilla' && !window.__vanLoaded) { window.__vanLoaded = true; loadVanillaVersions(); }
     if (btn.dataset.page === 'versions') refreshVersions();
   };
@@ -2582,26 +2584,91 @@ async function syncServerDirToUI() {
   if (act.memory && window.srvMemSlider) window.srvMemSlider.set(act.memory);
 }
 
-// 进入「服务器管理」视图（隐藏列表，显示管理卡片）
-function enterServerManage(name) {
-  const lv = $('srv-list-card');
-  const mv = $('srv-manage-view');
-  if (lv) lv.style.display = 'none';
-  if (mv) mv.style.display = '';
-  if ($('srv-manage-title')) $('srv-manage-title').textContent = '🛠 正在管理：' + (name || '服务器');
-  document.querySelector('.content').scrollTop = 0;
+// 进入「服务器管理」（切到 srvmanage 页面）
+async function enterServerManage(name) {
+  if (name && $('srv-manage-title')) $('srv-manage-title').textContent = '🛠 正在管理：' + name;
+  await loadServerListIntoManage(name);
+  goPage('srvmanage');
 }
 
-// 返回服务器列表视图
+// 返回服务器列表页
 function exitServerManage() {
-  const lv = $('srv-list-card');
-  const mv = $('srv-manage-view');
-  if (mv) mv.style.display = 'none';
-  if (lv) lv.style.display = '';
-  document.querySelector('.content').scrollTop = 0;
-  loadServerList();
+  goPage('server');
 }
-if ($('btn-srv-manage-back')) $('btn-srv-manage-back').onclick = () => exitServerManage();
+// 返回按钮已移除（改用侧栏导航）；不引用不存在的 DOM
+
+
+// 把「我的服务器」列表渲染到管理页（点卡片切换，点🛠管理进入）
+async function loadServerListIntoManage(activeName) {
+  const box = $('srv-mgr-list-box');
+  if (!box) return;
+  box.innerHTML = '<div class="empty">加载中…</div>';
+  const r = await window.api.serverList();
+  if (!r || !r.ok) { box.innerHTML = `<div class="empty">读取失败：${esc((r && r.error) || '')}</div>`; return; }
+  srvActiveId = r.activeServerId || '';
+  const list = r.list || [];
+  const act = list.find((s) => s.id === srvActiveId);
+  if ($('srv-manage-title')) {
+    $('srv-manage-title').textContent = '🛠 正在管理：' + (activeName || (act && act.name) || '服务器');
+  }
+  const cnt = $('srv-mgr-count');
+  if (cnt) cnt.textContent = list.length ? `共 ${list.length} 个` : '';
+  if (!list.length) {
+    box.innerHTML = '<div class="empty">还没有服务器，请到「服务器」页新建或添加</div>';
+    return;
+  }
+  const typeLabel = (t) => ({ vanilla: '原版', paper: 'Paper', spigot: 'Spigot', fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge' }[t] || t || '未知');
+  box.innerHTML = list.map((s) => {
+    const t = s.detectedType || s.type || '';
+    const mc = s.detectedMc || s.mcVersion || '';
+    const tags = [
+      `<span class="tg">${esc(typeLabel(t))}</span>`,
+      mc ? `<span class="tg">MC ${esc(mc)}</span>` : '',
+      s.running ? '<span class="tg on">● 运行中</span>' : '',
+      !s.exists ? '<span class="tg miss">目录不存在</span>' : '',
+    ].join('');
+    return `
+    <div class="srv-item${s.isActive ? ' active' : ''}" data-id="${esc(s.id)}">
+      <div class="srv-item-main">
+        <div class="srv-item-name">${esc(s.name)}${s.isActive ? '<span class="srv-item-badge">当前</span>' : ''}</div>
+        <div class="srv-item-dir" title="${esc(s.dir)}">${esc(s.dir)}</div>
+        <div class="srv-item-tags">${tags}</div>
+      </div>
+      <div class="srv-item-actions">
+        <button class="btn mini primary srv-mgr-manage" data-id="${esc(s.id)}" title="管理这个服务器">🛠 管理</button>
+      </div>
+    </div>`;
+  }).join('');
+  // 点卡片切换当前服务器
+  box.querySelectorAll('.srv-item').forEach((el) => {
+    el.onclick = async (e) => {
+      if (e.target.closest('.srv-mgr-manage')) return;
+      const id = el.dataset.id;
+      if (id === srvActiveId) return;
+      const rr = await window.api.serverSwitch({ id });
+      if (!rr || !rr.ok) return alert('切换失败：' + ((rr && rr.error) || '未知错误'));
+      log('data', `已切换到服务器：${rr.server.name}（${rr.server.dir}）`);
+      await syncServerDirToUI();
+      await loadServerListIntoManage(rr.server.name);
+      refreshServerBackup(); loadServerMods(); refreshServerStatus(); checkServerUpdateUI(true);
+    };
+  });
+  // 点「🛠 管理」：切换并刷新管理页
+  box.querySelectorAll('.srv-mgr-manage').forEach((b) => {
+    b.onclick = async (e) => {
+      e.stopPropagation();
+      const id = b.dataset.id;
+      const cur = list.find((s) => s.id === id);
+      if (id !== srvActiveId) {
+        const rr = await window.api.serverSwitch({ id });
+        if (!rr || !rr.ok) return alert('切换失败：' + ((rr && rr.error) || '未知错误'));
+        await syncServerDirToUI();
+      }
+      await loadServerListIntoManage(cur ? cur.name : '');
+      refreshServerBackup(); loadServerMods(); refreshServerStatus(); checkServerUpdateUI(true); loadAutoBackup(); refreshNetInfo();
+    };
+  });
+}
 
 async function doNewServer() {
   // 新建：推荐一个默认目录（D:\mc-server、 D:\mc-server2 … 自动避开已存在）并引导用户选择/新建文件夹

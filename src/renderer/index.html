@@ -35,6 +35,7 @@
       <div class="nav-group">
         <div class="nav-group-title">联机与账号</div>
         <button class="nav-item" data-page="server"><span class="ni-ico">🖥️</span><span class="ni-label">服务器</span></button>
+        <button class="nav-item" data-page="srvmanage"><span class="ni-ico">🛠️</span><span class="ni-label">服务器管理</span></button>
         <button class="nav-item" data-page="account"><span class="ni-ico">👤</span><span class="ni-label">账号</span></button>
       </div>
       <div class="nav-group">
@@ -424,25 +425,18 @@
       <ul class="version-list" id="detail-ver-list"><li class="empty">加载中…</li></ul>
     </section>
 
-    <!-- 服务器 -->
-    <section class="page" id="page-server">
-      <h1>Minecraft 服务器</h1>
+    <!-- 服务器：服务器管理（联机与账号） -->
+    <section class="page" id="page-srvmanage">
+      <h1>服务器管理</h1>
 
-      <!-- 多服务器列表 -->
-      <div class="card" id="srv-list-card">
-        <h2 style="display:flex;align-items:center;gap:10px">🗂️ 我的服务器 <span class="hint" id="srv-list-count" style="font-weight:400;margin-left:auto"></span></h2>
-        <p class="hint" style="margin-top:2px">管理多个服务器：点一下即可切换当前服务器（目录、Mod、存档、更新等都会跟着切）。</p>
-        <div id="srv-list-box" class="srv-servers"><div class="empty">加载中…</div></div>
-        <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap">
-          <button class="btn primary" id="btn-srv-new">➕ 新建服务器</button>
-          <button class="btn" id="btn-srv-add-existing">📂 添加已有服务器目录</button>
+      <!-- 管理视图 -->
+      <div id="srv-manage-view">
+        <div class="card" id="srv-mgr-list-card">
+          <h2 style="display:flex;align-items:center;gap:10px">🗂️ 我的服务器 <span class="hint" id="srv-mgr-count" style="font-weight:400;margin-left:auto"></span></h2>
+          <p class="hint" style="margin-top:2px">点一下切换当前服务器（目录、Mod、存档、更新等都会跟着切）；点「🛠 管理」下的模块即刻生效。</p>
+          <div id="srv-mgr-list-box" class="srv-servers"><div class="empty">加载中…</div></div>
         </div>
-      </div>
-
-      <!-- 管理视图：点列表中某台的「管理」进入 -->
-      <div id="srv-manage-view" style="display:none">
         <div class="row" style="align-items:center;gap:10px;margin-bottom:10px">
-          <button class="btn ghost" id="btn-srv-manage-back">← 返回服务器列表</button>
           <span class="srv-manage-title" id="srv-manage-title"></span>
         </div>
 
@@ -799,6 +793,20 @@
         </div>
       </details>
       </div><!-- /srv-manage-view -->
+    </section>
+
+    <!-- 服务器：我的服务器（列表） -->
+    <section class="page" id="page-server">
+      <h1>我的服务器</h1>
+      <div class="card" id="srv-list-card">
+        <h2 style="display:flex;align-items:center;gap:10px">🗂️ 我的服务器 <span class="hint" id="srv-list-count" style="font-weight:400;margin-left:auto"></span></h2>
+        <p class="hint" style="margin-top:2px">管理多个服务器：点一下即可切换当前服务器（目录、Mod、存档、更新等都会跟着切）。点「🛠 管理」进入服务器管理。</p>
+        <div id="srv-list-box" class="srv-servers"><div class="empty">加载中…</div></div>
+        <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap">
+          <button class="btn primary" id="btn-srv-new">➕ 新建服务器</button>
+          <button class="btn" id="btn-srv-add-existing">📂 添加已有服务器目录</button>
+        </div>
+      </div>
     </section>
 
     <!-- 账号 -->
