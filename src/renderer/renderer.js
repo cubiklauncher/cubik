@@ -70,7 +70,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (btn.dataset.page === 'shader' && !shaderLoaded) loadShaderTop();
     if (btn.dataset.page === 'data') loadDataPage();
     if (btn.dataset.page === 'mod' && !modPageLoaded) loadModPage();
-    if (btn.dataset.page === 'server') { refreshNetInfo(); refreshServerBackup(); loadAutoBackup(); checkServerUpdateUI(true); try { loadServerMods(); } catch {} try { loadServerList(); } catch {} }
+    if (btn.dataset.page === 'server') { refreshNetInfo(); try { loadServerVersions(); } catch {} }
     if (btn.dataset.page === 'srvmanage') { try { loadServerListIntoManage(); } catch {}
       refreshServerBackup(); loadAutoBackup(); checkServerUpdateUI(true); refreshNetInfo(); try { loadServerMods(); } catch {} try { refreshServerStatus(); } catch {} }
     if (btn.dataset.page === 'vanilla' && !window.__vanLoaded) { window.__vanLoaded = true; loadVanillaVersions(); }
@@ -2352,7 +2352,9 @@ $('btn-srv-create').onclick = async () => {
           const ar = await window.api.serverAdd({ dir: opts.dir, name: opts.dir.split(/[\\/]/).pop() || 'Server', type: opts.type, mcVersion: opts.mcVersion, memory: parseInt(opts.memory, 10) || 2048 });
           if (ar && ar.ok) srvActiveId = ar.activeServerId;
         }
-        await loadServerList();
+        try { await loadServerList(); } catch {}
+        // 建完后切到「服务器管理」页，方便直接启动/管理
+        setTimeout(() => { try { enterServerManage(opts.dir.split(/[\\/]/).pop() || '服务器'); } catch {} }, 600);
       } catch {}
     }
   } catch (e) {
@@ -2468,98 +2470,8 @@ if ($('btn-copy-pub')) $('btn-copy-pub').onclick = () => copyText($('net-pub').d
 
 // ---------- 多服务器列表 ----------
 let srvActiveId = '';
-async function loadServerList() {
-  const box = $('srv-list-box');
-  if (!box) return;
-  box.innerHTML = '<div class="empty">加载中…</div>';
-  const r = await window.api.serverList();
-  if (!r || !r.ok) { box.innerHTML = `<div class="empty">读取失败：${esc((r && r.error) || '')}</div>`; return; }
-  srvActiveId = r.activeServerId || '';
-  const list = r.list || [];
-  $('srv-list-count').textContent = list.length ? `共 ${list.length} 个` : '';
-  if (!list.length) {
-    box.innerHTML = '<div class="srvw-empty">还没有服务器，点下方「新建服务器」或「添加已有服务器目录」</div>';
-    return;
-  }
-  const typeLabel = (t) => ({ vanilla: '原版', paper: 'Paper', spigot: 'Spigot', fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge' }[t] || t || '未知');
-  box.innerHTML = list.map((s) => {
-    const t = s.detectedType || s.type || '';
-    const mc = s.detectedMc || s.mcVersion || '';
-    const tags = [
-      `<span class="tg">${esc(typeLabel(t))}</span>`,
-      mc ? `<span class="tg">MC ${esc(mc)}</span>` : '',
-      s.running ? '<span class="tg on">● 运行中</span>' : '',
-      !s.exists ? '<span class="tg miss">目录不存在</span>' : '',
-    ].join('');
-    return `
-    <div class="srv-item${s.isActive ? ' active' : ''}" data-id="${esc(s.id)}">
-      <div class="srv-item-main">
-        <div class="srv-item-name">${esc(s.name)}${s.isActive ? '<span class="srv-item-badge">当前</span>' : ''}</div>
-        <div class="srv-item-dir" title="${esc(s.dir)}">${esc(s.dir)}</div>
-        <div class="srv-item-tags">${tags}</div>
-      </div>
-      <div class="srv-item-actions">
-        <button class="btn mini primary srv-manage" data-id="${esc(s.id)}" title="管理这个服务器">🛠 管理</button>
-        <button class="btn mini srv-rename" data-id="${esc(s.id)}" title="重命名">✏️</button>
-        <button class="btn mini ghost srv-remove" data-id="${esc(s.id)}" title="移出列表">🗑</button>
-      </div>
-    </div>`;
-  }).join('');
-  // 点击卡片切换；点「管理」直接进入管理视图
-  box.querySelectorAll('.srv-item').forEach((el) => {
-    el.onclick = async (e) => {
-      if (e.target.closest('.srv-rename') || e.target.closest('.srv-remove') || e.target.closest('.srv-manage')) return;
-      const id = el.dataset.id;
-      if (id === srvActiveId) return;
-      const rr = await window.api.serverSwitch({ id });
-      if (!rr || !rr.ok) return alert('切换失败：' + ((rr && rr.error) || '未知错误'));
-      log('data', `已切换到服务器：${rr.server.name}（${rr.server.dir}）`);
-      await syncServerDirToUI();
-      await loadServerList();
-      refreshServerBackup(); loadServerMods(); refreshServerStatus(); checkServerUpdateUI(true);
-    };
-  });
-  // 「小程序→管理」：切到该服务器并进入管理视图
-  box.querySelectorAll('.srv-manage').forEach((b) => {
-    b.onclick = async (e) => {
-      e.stopPropagation();
-      const id = b.dataset.id;
-      const cur = list.find((s) => s.id === id);
-      if (id !== srvActiveId) {
-        const rr = await window.api.serverSwitch({ id });
-        if (!rr || !rr.ok) return alert('切换失败：' + ((rr && rr.error) || '未知错误'));
-      }
-      await syncServerDirToUI();
-      enterServerManage(cur ? cur.name : '');
-      refreshServerBackup(); loadServerMods(); refreshServerStatus(); checkServerUpdateUI(true); loadAutoBackup(); refreshNetInfo();
-    };
-  });
-  box.querySelectorAll('.srv-rename').forEach((b) => {
-    b.onclick = async (e) => {
-      e.stopPropagation();
-      const id = b.dataset.id;
-      const cur = list.find((s) => s.id === id);
-      const name = prompt('重命名服务器：', cur ? cur.name : '');
-      if (name == null) return;
-      const rr = await window.api.serverRename({ id, name });
-      if (!rr || !rr.ok) return alert('重命名失败：' + ((rr && rr.error) || '未知错误'));
-      loadServerList();
-    };
-  });
-  box.querySelectorAll('.srv-remove').forEach((b) => {
-    b.onclick = async (e) => {
-      e.stopPropagation();
-      const id = b.dataset.id;
-      const cur = list.find((s) => s.id === id);
-      if (!confirm('从列表移除服务器？\n' + (cur ? cur.name + '\n' + cur.dir : '') + '\n\n（只从列表移除，不会删除服务器文件）')) return;
-      const rr = await window.api.serverRemove({ id });
-      if (!rr || !rr.ok) return alert('移除失败：' + ((rr && rr.error) || '未知错误'));
-      await syncServerDirToUI();
-      loadServerList();
-      refreshServerBackup(); loadServerMods(); refreshServerStatus(); checkServerUpdateUI(true);
-    };
-  });
-}
+// 兼容旧调用：刷新「服务器管理」页的服务器列表
+async function loadServerList() { await loadServerListIntoManage(); }
 
 // 把当前激活服务器的目录同步到建服表单/内存/端口等
 async function syncServerDirToUI() {
@@ -2636,13 +2548,15 @@ async function loadServerListIntoManage(activeName) {
       </div>
       <div class="srv-item-actions">
         <button class="btn mini primary srv-mgr-manage" data-id="${esc(s.id)}" title="管理这个服务器">🛠 管理</button>
+        <button class="btn mini srv-mgr-rename" data-id="${esc(s.id)}" title="重命名">✏️</button>
+        <button class="btn mini ghost srv-mgr-remove" data-id="${esc(s.id)}" title="移出列表">🗑</button>
       </div>
     </div>`;
   }).join('');
   // 点卡片切换当前服务器
   box.querySelectorAll('.srv-item').forEach((el) => {
     el.onclick = async (e) => {
-      if (e.target.closest('.srv-mgr-manage')) return;
+      if (e.target.closest('.srv-mgr-manage') || e.target.closest('.srv-mgr-rename') || e.target.closest('.srv-mgr-remove')) return;
       const id = el.dataset.id;
       if (id === srvActiveId) return;
       const rr = await window.api.serverSwitch({ id });
@@ -2650,6 +2564,33 @@ async function loadServerListIntoManage(activeName) {
       log('data', `已切换到服务器：${rr.server.name}（${rr.server.dir}）`);
       await syncServerDirToUI();
       await loadServerListIntoManage(rr.server.name);
+      refreshServerBackup(); loadServerMods(); refreshServerStatus(); checkServerUpdateUI(true);
+    };
+  });
+  // 重命名
+  box.querySelectorAll('.srv-mgr-rename').forEach((b) => {
+    b.onclick = async (e) => {
+      e.stopPropagation();
+      const id = b.dataset.id;
+      const cur = list.find((s) => s.id === id);
+      const name = prompt('重命名服务器：', cur ? cur.name : '');
+      if (name == null) return;
+      const rr = await window.api.serverRename({ id, name });
+      if (!rr || !rr.ok) return alert('重命名失败：' + ((rr && rr.error) || '未知错误'));
+      loadServerListIntoManage(cur ? name : '');
+    };
+  });
+  // 移出列表
+  box.querySelectorAll('.srv-mgr-remove').forEach((b) => {
+    b.onclick = async (e) => {
+      e.stopPropagation();
+      const id = b.dataset.id;
+      const cur = list.find((s) => s.id === id);
+      if (!confirm('从列表移除服务器？\n' + (cur ? cur.name + '\n' + cur.dir : '') + '\n\n（只从列表移除，不会删除服务器文件）')) return;
+      const rr = await window.api.serverRemove({ id });
+      if (!rr || !rr.ok) return alert('移除失败：' + ((rr && rr.error) || '未知错误'));
+      await syncServerDirToUI();
+      loadServerListIntoManage();
       refreshServerBackup(); loadServerMods(); refreshServerStatus(); checkServerUpdateUI(true);
     };
   });
@@ -2707,8 +2648,12 @@ async function doNewServer() {
 }
 // 暴露给按钮绑定 / 自动化测试 / 错误重试
 window.__doNewServer = doNewServer;
-if ($('btn-srv-new')) {
-  $('btn-srv-new').addEventListener('click', () => { doNewServer().catch((e) => log('error', '新建服务器出错：' + (e && e.message ? e.message : e))); });
+// 「服务器管理」页的「新建服务器」按钮：跳到「服务器」页的建服表单并预填目录
+if ($('btn-srv-goto-create')) {
+  $('btn-srv-goto-create').addEventListener('click', () => {
+    goPage('server');
+    Promise.resolve().then(() => doNewServer()).catch((e) => log('error', '新建服务器出错：' + (e && e.message ? e.message : e)));
+  });
 }
 if ($('btn-srv-add-existing')) $('btn-srv-add-existing').onclick = async () => {
   const dir = await window.api.pickDir();

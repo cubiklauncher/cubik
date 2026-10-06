@@ -574,39 +574,34 @@ function createWindow() {
         } catch (e) { srv.srvTypeErr = String(e && e.message); }
         // 列表→管理视图切换
         try {
-          const rp = document.querySelector('.nav-item[data-page="server"]');
-          if (rp) { rp.click(); await new Promise(r => setTimeout(r, 500)); }
+          const rp = document.querySelector('.nav-item[data-page="srvmanage"]');
+          if (rp) { rp.click(); await new Promise(r => setTimeout(r, 1500)); }
           srv.navSrvManage = !!document.querySelector('.nav-item[data-page="srvmanage"]');
           srv.navSrvManageLabel = (document.querySelector('.nav-item[data-page="srvmanage"] .ni-label') || {}).textContent || '';
           srv.pageSrvManage = !!document.getElementById('page-srvmanage');
           srv.mgrOwnListBox = !!document.getElementById('srv-mgr-list-box');
           srv.listPageNoManageView = !document.querySelector('#page-server #srv-manage-view');
-          const mb = document.querySelector('#page-server .srv-manage');
-          if (mb) { mb.click(); await new Promise(r => setTimeout(r, 1200)); }
-          srv.mgrEnteredSrvManagePage = document.getElementById('page-srvmanage').classList.contains('active');
-          srv.mgrEnteredListHidden = !document.getElementById('page-server').classList.contains('active');
-          srv.mgrTitle2 = (document.getElementById('srv-manage-title') || {}).textContent || '';
+          srv.mgrOnManagePage = document.getElementById('page-srvmanage').classList.contains('active');
           srv.mgrListItems = document.querySelectorAll('#srv-mgr-list-box .srv-item').length;
+          srv.mgrTitle2 = (document.getElementById('srv-manage-title') || {}).textContent || '';
+          const mb = document.querySelector('#srv-mgr-list-box .srv-mgr-manage');
+          if (mb) { mb.click(); await new Promise(r => setTimeout(r, 1000)); }
+          srv.mgrManageBtnWorks = document.getElementById('page-srvmanage').classList.contains('active');
           const nv = document.querySelector('.nav-item[data-page="server"]');
           if (nv) { nv.click(); await new Promise(r => setTimeout(r, 400)); }
           srv.mgrBackedToServerPage = document.getElementById('page-server').classList.contains('active');
         } catch (e) { srv.mgrErr = String(e && e.message); }
-        // 「新建服务器」按钮全流程（列表视图点击 → 回列表 → 建议目录 → 进管理视图 → 建服表单可见）
+        // 「新建服务器」流程：管理页点「新建服务器」→ 跳转到「服务器」页建服表单并预填目录
         try {
-          const nv = document.querySelector('.nav-item[data-page="server"]');
-          if (nv) { nv.click(); await new Promise(r => setTimeout(r, 600)); }
-          const lv2 = document.getElementById('srv-list-card');
-          const mv2 = document.getElementById('srv-manage-view');
-          srv.newBeforeListShown = lv2.style.display !== 'none';
-          srv.newBtnExists = !!document.getElementById('btn-srv-new');
-          const nb = document.getElementById('btn-srv-new');
-          if (nb) { nb.click(); await new Promise(r => setTimeout(r, 1200)); }
-          const dirVal = (document.getElementById('in-srv-dir') || {}).value || '';
-          srv.newDirFilled = dirVal;
-          srv.newListStayed = lv2.style.display !== 'none';
-          srv.newManageStayedHidden = mv2.style.display === 'none';
-          srv.newOptsOpen = !!(document.getElementById('srv-options') && document.getElementById('srv-options').open);
+          const mg = document.querySelector('.nav-item[data-page="srvmanage"]');
+          if (mg) { mg.click(); await new Promise(r => setTimeout(r, 1000)); }
+          srv.newGotoBtnExists = !!document.getElementById('btn-srv-goto-create');
+          const nb = document.getElementById('btn-srv-goto-create');
+          if (nb) { nb.click(); await new Promise(r => setTimeout(r, 1500)); }
+          srv.newLandedOnServerPage = document.getElementById('page-server').classList.contains('active');
+          srv.newDirFilled = (document.getElementById('in-srv-dir') || {}).value || '';
           srv.newVerSelOpts = document.querySelectorAll('#sel-srv-mcver option').length;
+          srv.newServerPageCards = [...document.querySelectorAll('#page-server .card h2, #page-server .card summary')].map(h => h.textContent.trim()).join(' | ');
         } catch (e) { srv.newErr = String(e && e.message); }
         // 服务器页卡片顺序（验证重排）
         srv.srvCardOrder = [...document.querySelectorAll('#page-server .card, #page-server details.card')].map(function(c){

@@ -435,6 +435,10 @@
           <h2 style="display:flex;align-items:center;gap:10px">🗂️ 我的服务器 <span class="hint" id="srv-mgr-count" style="font-weight:400;margin-left:auto"></span></h2>
           <p class="hint" style="margin-top:2px">点一下切换当前服务器（目录、Mod、存档、更新等都会跟着切）；点「🛠 管理」下的模块即刻生效。</p>
           <div id="srv-mgr-list-box" class="srv-servers"><div class="empty">加载中…</div></div>
+          <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap">
+            <button class="btn" id="btn-srv-goto-create">➕ 新建服务器</button>
+            <button class="btn" id="btn-srv-add-existing">📂 添加已有服务器目录</button>
+          </div>
         </div>
         <div class="row" style="align-items:center;gap:10px;margin-bottom:10px">
           <span class="srv-manage-title" id="srv-manage-title"></span>
@@ -455,77 +459,7 @@
         </div>
       </div>
 
-      <div class="card form">
-        <label>服务器目录</label>
-        <div class="row">
-          <input id="in-srv-dir" type="text" placeholder="点「选择文件夹」或「新建文件夹」指定服务器目录">
-          <button id="btn-srv-pick" class="btn">📂 选择文件夹</button>
-          <button id="btn-srv-newdir" class="btn">➕ 新建文件夹</button>
-        </div>
-        <label>服务端类型</label>
-        <div class="row">
-          <select id="sel-srv-type">
-            <option value="vanilla">原版 Vanilla</option>
-            <option value="paper">Paper（性能优化，推荐）</option>
-            <option value="fabric">Fabric（可装模组）</option>
-            <option value="forge">Forge（模组服务端）</option>
-            <option value="neoforge">NeoForge（新模组服务端）</option>
-          </select>
-          <select id="sel-srv-mcver" style="flex:1"><option>加载中…</option></select>
-        </div>
-
-        <details class="adv-box" id="srv-options">
-          <summary>⚙️ 服务器选项（可稍后修改）</summary>
-          <div class="srv-opt-grid">
-            <div>
-              <label>游戏模式</label>
-              <select id="sel-srv-gamemode">
-                <option value="survival">生存 Survival</option>
-                <option value="creative">创造 Creative</option>
-                <option value="adventure">冒险 Adventure</option>
-                <option value="spectator">旁观 Spectator</option>
-              </select>
-            </div>
-            <div>
-              <label>难度</label>
-              <select id="sel-srv-difficulty">
-                <option value="peaceful">和平 Peaceful</option>
-                <option value="easy" selected>简单 Easy</option>
-                <option value="normal">普通 Normal</option>
-                <option value="hard">困难 Hard</option>
-              </select>
-            </div>
-            <div>
-              <label>最大人数</label>
-              <input id="in-srv-maxplayers" type="number" min="1" max="1000" value="20">
-            </div>
-            <div>
-              <label>端口</label>
-              <input id="in-srv-port" type="number" min="1" max="65535" value="25565">
-            </div>
-          </div>
-          <label>MOTD（服务器列表显示的描述）</label>
-          <input id="in-srv-motd" type="text" value="A Minecraft Server" maxlength="60">
-          <div class="row" style="gap:16px;flex-wrap:wrap;margin-top:8px">
-            <label class="chk-inline"><input type="checkbox" id="chk-srv-online"> 开启正版验证（仅正版可进）</label>
-            <label class="chk-inline"><input type="checkbox" id="chk-srv-pvp" checked> 允许 PVP</label>
-            <label class="chk-inline"><input type="checkbox" id="chk-srv-commandblock"> 允许命令方块</label>
-            <label class="chk-inline"><input type="checkbox" id="chk-srv-whitelist"> 开启白名单</label>
-          </div>
-          <p class="hint">默认<b>不</b>开启正版验证：离线账号也能进。开启后仅正版账号可进入（离线账号会报“无效会话”）。</p>
-        </details>
-        <label>服务器内存（MB）</label>
-        <div class="row" style="align-items:center;gap:12px">
-          <input id="in-srv-mem-range" type="range" min="1024" max="16384" step="512" value="2048" style="flex:1" />
-          <span id="srv-mem-label" style="min-width:80px;font-weight:600">2048 MB</span>
-        </div>
-        <input id="in-srv-mem" type="hidden" value="2048" />
-        <div class="row end">
-          <button id="btn-srv-quick" class="btn" title="自动选择推荐配置（Paper + 推荐内存）并一步建服">⚡ 一键快速建服</button>
-          <button id="btn-srv-create" class="btn primary">创建服务器</button>
-        </div>
-        <div class="progress-bar" style="margin-top:8px"><div class="progress-inner" id="srv-progress"></div></div>
-      </div>
+      
       <div class="card">
         <h2>控制</h2>
         <div class="row">
@@ -728,6 +662,90 @@
       </details>
       <pre class="log" id="srv-log" style="height:300px"></pre>
 
+      
+
+      
+      </div><!-- /srv-manage-view -->
+    </section>
+
+    <!-- 服务器：创建服务器 + 使用说明 + 注意事项 -->
+    <section class="page" id="page-server">
+      <h1>服务器</h1>
+
+      <div class="card form">
+        <h2>➕ 创建服务器</h2>
+        <p class="hint" style="margin-top:2px">填好目录、类型、版本，点最下方「创建服务器」。<b>已建好的服务器</b>请到左侧「🛠️ 服务器管理」里启动 / 改配置 / 装 Mod / 备份。</p>
+        <label>服务器目录</label>
+        <div class="row">
+          <input id="in-srv-dir" type="text" placeholder="点「选择文件夹」或「新建文件夹」指定服务器目录">
+          <button id="btn-srv-pick" class="btn">📂 选择文件夹</button>
+          <button id="btn-srv-newdir" class="btn">➕ 新建文件夹</button>
+        </div>
+        <label>服务端类型</label>
+        <div class="row">
+          <select id="sel-srv-type">
+            <option value="vanilla">原版 Vanilla</option>
+            <option value="paper">Paper（性能优化，推荐）</option>
+            <option value="fabric">Fabric（可装模组）</option>
+            <option value="forge">Forge（模组服务端）</option>
+            <option value="neoforge">NeoForge（新模组服务端）</option>
+          </select>
+          <select id="sel-srv-mcver" style="flex:1"><option>加载中…</option></select>
+        </div>
+
+        <details class="adv-box" id="srv-options">
+          <summary>⚙️ 服务器选项（可稍后修改）</summary>
+          <div class="srv-opt-grid">
+            <div>
+              <label>游戏模式</label>
+              <select id="sel-srv-gamemode">
+                <option value="survival">生存 Survival</option>
+                <option value="creative">创造 Creative</option>
+                <option value="adventure">冒险 Adventure</option>
+                <option value="spectator">旁观 Spectator</option>
+              </select>
+            </div>
+            <div>
+              <label>难度</label>
+              <select id="sel-srv-difficulty">
+                <option value="peaceful">和平 Peaceful</option>
+                <option value="easy" selected>简单 Easy</option>
+                <option value="normal">普通 Normal</option>
+                <option value="hard">困难 Hard</option>
+              </select>
+            </div>
+            <div>
+              <label>最大人数</label>
+              <input id="in-srv-maxplayers" type="number" min="1" max="1000" value="20">
+            </div>
+            <div>
+              <label>端口</label>
+              <input id="in-srv-port" type="number" min="1" max="65535" value="25565">
+            </div>
+          </div>
+          <label>MOTD（服务器列表显示的描述）</label>
+          <input id="in-srv-motd" type="text" value="A Minecraft Server" maxlength="60">
+          <div class="row" style="gap:16px;flex-wrap:wrap;margin-top:8px">
+            <label class="chk-inline"><input type="checkbox" id="chk-srv-online"> 开启正版验证（仅正版可进）</label>
+            <label class="chk-inline"><input type="checkbox" id="chk-srv-pvp" checked> 允许 PVP</label>
+            <label class="chk-inline"><input type="checkbox" id="chk-srv-commandblock"> 允许命令方块</label>
+            <label class="chk-inline"><input type="checkbox" id="chk-srv-whitelist"> 开启白名单</label>
+          </div>
+          <p class="hint">默认<b>不</b>开启正版验证：离线账号也能进。开启后仅正版账号可进入（离线账号会报“无效会话”）。</p>
+        </details>
+        <label>服务器内存（MB）</label>
+        <div class="row" style="align-items:center;gap:12px">
+          <input id="in-srv-mem-range" type="range" min="1024" max="16384" step="512" value="2048" style="flex:1" />
+          <span id="srv-mem-label" style="min-width:80px;font-weight:600">2048 MB</span>
+        </div>
+        <input id="in-srv-mem" type="hidden" value="2048" />
+        <div class="row end">
+          <button id="btn-srv-quick" class="btn" title="自动选择推荐配置（Paper + 推荐内存）并一步建服">⚡ 一键快速建服</button>
+          <button id="btn-srv-create" class="btn primary">创建服务器</button>
+        </div>
+        <div class="progress-bar" style="margin-top:8px"><div class="progress-inner" id="srv-progress"></div></div>
+      </div>
+
       <details class="card usage tut-collapse">
         <summary class="tut-summary">📖 使用说明（新手必读）</summary>
         <div class="tut-inner">
@@ -745,7 +763,7 @@
       </details>
 
       <details class="card usage tut-collapse">
-        <summary class="tut-summary">🔌 端口映射教程（让外网朋友连上你的服务器）</summary>
+        <summary class="tut-summary">⚠️ 注意事项（端口映射 / 常见问题）</summary>
         <div class="tut-inner">
         <p class="hint tut-intro" style="margin-top:2px">同一 WiFi 下直接发给朋友「局域网地址」即可，<b>不需要</b>这一步。只有当朋友不在你家里（用手机热点/其他地方网络）时才需要做端口映射。</p>
 
@@ -792,21 +810,6 @@
         </ul>
         </div>
       </details>
-      </div><!-- /srv-manage-view -->
-    </section>
-
-    <!-- 服务器：我的服务器（列表） -->
-    <section class="page" id="page-server">
-      <h1>我的服务器</h1>
-      <div class="card" id="srv-list-card">
-        <h2 style="display:flex;align-items:center;gap:10px">🗂️ 我的服务器 <span class="hint" id="srv-list-count" style="font-weight:400;margin-left:auto"></span></h2>
-        <p class="hint" style="margin-top:2px">管理多个服务器：点一下即可切换当前服务器（目录、Mod、存档、更新等都会跟着切）。点「🛠 管理」进入服务器管理。</p>
-        <div id="srv-list-box" class="srv-servers"><div class="empty">加载中…</div></div>
-        <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap">
-          <button class="btn primary" id="btn-srv-new">➕ 新建服务器</button>
-          <button class="btn" id="btn-srv-add-existing">📂 添加已有服务器目录</button>
-        </div>
-      </div>
     </section>
 
     <!-- 账号 -->
