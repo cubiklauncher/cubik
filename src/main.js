@@ -446,6 +446,14 @@ function createWindow() {
         srv.srvStatusBar = !!document.getElementById('srv-status-text');
         srv.srvChatLog = !!document.getElementById('chat-log');
         srv.srvStatusChip = !!document.getElementById('srv-status-online');
+        // 服务器控制：玩家管理 + 常用指令
+        srv.srvPlayerInput = !!document.getElementById('in-srv-player');
+        srv.srvOpBtn = !!document.getElementById('btn-srv-op');
+        srv.srvDeopBtn = !!document.getElementById('btn-srv-deop');
+        srv.srvKickBtn = !!document.getElementById('btn-srv-kick');
+        srv.srvBanBtn = !!document.getElementById('btn-srv-ban');
+        srv.quickCmdCount = document.querySelectorAll('#quick-cmds .qcmd').length;
+        srv.quickCmdFirst = (document.querySelector('#quick-cmds .qcmd') || {}).getAttribute ? document.querySelector('#quick-cmds .qcmd').getAttribute('data-cmd') : '';
         // 新增：主页版本切换器 / 使用习惯设置 / 最近排序
         srv.homeVerSwitch = !!document.getElementById('home-ver-pop');
         srv.minOnLaunch = !!document.getElementById('in-min-on-launch');
@@ -477,6 +485,18 @@ function createWindow() {
       try {
         await win.webContents.executeJavaScript("document.querySelector('.nav-item[data-page=\"server\"]').click()");
         await new Promise((r) => setTimeout(r, 1000));
+        // 滚到“控制”卡片（玩家管理 + 常用指令）
+        await win.webContents.executeJavaScript(`
+          (function(){
+            var cards = document.querySelectorAll('#page-server .card');
+            for (var i=0;i<cards.length;i++){
+              var h = cards[i].querySelector('h2');
+              if (h && /控制/.test(h.textContent)) { cards[i].scrollIntoView({block:'start'}); return true; }
+            }
+            return false;
+          })()
+        `);
+        await new Promise((r) => setTimeout(r, 800));
         const png = await win.webContents.capturePage();
         require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-srv-shot.png'), png.toPNG());
       } catch (e) {}

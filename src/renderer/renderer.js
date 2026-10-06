@@ -2330,6 +2330,47 @@ $('btn-srv-cmd').onclick = async () => {
   $('in-srv-cmd').value = '';
 };
 
+// ---------- 服务器：玩家管理（给/撤管理员权限等） ----------
+const SRV_PLAYER_RE = /^[A-Za-z0-9_]{1,16}$/;
+function srvPlayerName() {
+  const el = $('in-srv-player');
+  const name = el ? el.value.trim() : '';
+  if (!name) { alert('请先输入玩家名（游戏内 ID）'); return null; }
+  if (!SRV_PLAYER_RE.test(name)) { alert('玩家名只能包含字母、数字、下划线，长度 1-16（区分大小写）。'); return null; }
+  return name;
+}
+async function srvRunPlayerCmd(maker, verb, confirmMsg) {
+  const name = srvPlayerName();
+  if (!name) return;
+  if (confirmMsg && !confirm(confirmMsg.replace('%s', name))) return;
+  await window.api.serverCmd(maker(name));
+}
+if ($('btn-srv-op')) $('btn-srv-op').onclick = () => srvRunPlayerCmd((n) => 'op ' + n, '给管理员', '确认把 %s 设为管理员（OP）？他将拥有全部权限。');
+if ($('btn-srv-deop')) $('btn-srv-deop').onclick = () => srvRunPlayerCmd((n) => 'deop ' + n, '撤销管理员');
+if ($('btn-srv-kick')) $('btn-srv-kick').onclick = () => srvRunPlayerCmd((n) => 'kick ' + n, '踢出', '确认把 %s 踢出服务器？');
+if ($('btn-srv-ban')) $('btn-srv-ban').onclick = () => srvRunPlayerCmd((n) => 'ban ' + n, '封禁', '确认永久封禁 %s？他已无法再进入服务器。');
+
+// ---------- 服务器：常用指令快捷键 ----------
+(function () {
+  const wrap = $('quick-cmds');
+  if (!wrap) return;
+  wrap.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.qcmd');
+    if (!btn) return;
+    const cmd = btn.getAttribute('data-cmd');
+    if (!cmd) return;
+    btn.disabled = true;
+    const old = btn.textContent;
+    try {
+      await window.api.serverCmd(cmd);
+      btn.textContent = '✓ 已发送';
+    } catch (err) {
+      btn.textContent = '✗ 失败';
+    }
+    setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 900);
+  });
+})();
+
 $('btn-launch').onclick = async () => {
   if (!selectedVersion) {
     alert('请先在「版本选择」里选一个版本');

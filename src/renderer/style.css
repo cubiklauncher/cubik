@@ -273,6 +273,34 @@ input[type=range]::-webkit-slider-thumb {
 .btn.ghost { background: rgba(255,255,255,.4); }
 .hint { font-size: 12px; color: var(--text-mute); margin-top: 8px; }
 
+/* 服务器工具区（玩家管理 / 常用指令） */
+.srv-tool {
+  margin-top: 14px; padding: 12px 13px;
+  background: rgba(255,255,255,.34);
+  border: 1px solid var(--glass-border, rgba(255,255,255,.6));
+  border-radius: 13px;
+}
+.srv-tool-title {
+  font-size: 12.5px; font-weight: 700; color: var(--text-soft);
+  margin-bottom: 9px; letter-spacing: .3px;
+}
+.quick-cmds { display: flex; flex-wrap: wrap; gap: 7px; }
+.qcmd {
+  padding: 6px 11px; border-radius: 9px; cursor: pointer;
+  font-size: 12px; color: var(--text-soft); white-space: nowrap;
+  background: rgba(255,255,255,.5);
+  border: 1px solid rgba(255,255,255,.7);
+  box-shadow: 0 1px 4px rgba(31,45,90,.06);
+  transition: all .15s ease;
+}
+.qcmd:hover {
+  background: linear-gradient(135deg, #6a8cff, #2f6ae0);
+  color: #fff; border-color: rgba(255,255,255,.4);
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px rgba(47,106,224,.28);
+}
+.qcmd:active { transform: translateY(0); }
+
 /* 组件勾选 */
 .addon-checks { display: flex; flex-wrap: wrap; gap: 10px; }
 .addon-check {

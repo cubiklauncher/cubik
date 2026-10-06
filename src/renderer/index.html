@@ -535,6 +535,47 @@
           <input id="in-srv-cmd" type="text" placeholder="输入服务器指令，如 op Steve / say hi">
           <button id="btn-srv-cmd" class="btn">发送</button>
         </div>
+
+        <!-- 玩家管理：赋予/撤销管理员权限等 -->
+        <div class="srv-tool">
+          <div class="srv-tool-title">👤 玩家管理</div>
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            <input id="in-srv-player" type="text" placeholder="输入玩家名（游戏内 ID）" style="flex:1;min-width:140px" maxlength="16">
+            <button id="btn-srv-op" class="btn primary mini">给管理员</button>
+            <button id="btn-srv-deop" class="btn mini">撤销管理员</button>
+            <button id="btn-srv-kick" class="btn mini">踢出</button>
+            <button id="btn-srv-ban" class="btn danger mini">封禁</button>
+          </div>
+          <p class="hint" style="margin-top:4px">给管理员：拥有全部权限（可改游戏模式、传送、开关作弊等）。撤销后恢复普通玩家。也可在下方聊天框用玩家名快速操作。</p>
+        </div>
+
+        <!-- 常用指令快捷键 -->
+        <div class="srv-tool">
+          <div class="srv-tool-title">⚡ 常用指令</div>
+          <div class="quick-cmds" id="quick-cmds">
+            <button class="qcmd" data-cmd="time set day">☀ 设为白天</button>
+            <button class="qcmd" data-cmd="time set night">🌙 设为夜晚</button>
+            <button class="qcmd" data-cmd="weather clear">🌤 晴天</button>
+            <button class="qcmd" data-cmd="weather rain">🌧 下雨</button>
+            <button class="qcmd" data-cmd="weather thunder">⛈ 雷暴</button>
+            <button class="qcmd" data-cmd="difficulty peaceful">😌 和平</button>
+            <button class="qcmd" data-cmd="difficulty normal">⚔ 普通</button>
+            <button class="qcmd" data-cmd="difficulty hard">💀 困难</button>
+            <button class="qcmd" data-cmd="gamemode survival @a">🧱 全体生存</button>
+            <button class="qcmd" data-cmd="gamemode creative @a">🎨 全体创造</button>
+            <button class="qcmd" data-cmd="gamerule keepInventory true">🎒 死亡不掉落</button>
+            <button class="qcmd" data-cmd="gamerule keepInventory false">🎒 死亡掉落</button>
+            <button class="qcmd" data-cmd="gamerule doDaylightCycle false">🕒 锁定时间</button>
+            <button class="qcmd" data-cmd="gamerule doDaylightCycle true">🕒 恢复昼夜</button>
+            <button class="qcmd" data-cmd="gamerule mobGriefing false">🛡 禁用怪物破坏</button>
+            <button class="qcmd" data-cmd="gamerule doMobSpawning false">🚫 禁用刷怪</button>
+            <button class="qcmd" data-cmd="save-all">💾 立即存档</button>
+            <button class="qcmd" data-cmd="whitelist on">📋 开白名单</button>
+            <button class="qcmd" data-cmd="whitelist off">📋 关白名单</button>
+            <button class="qcmd" data-cmd="list">👥 查看在线</button>
+          </div>
+          <p class="hint" style="margin-top:4px">点击即发送到后台；带 <code>@a</code> 的表示对全部玩家生效。部分规则对已生成的区域立即生效。</p>
+        </div>
       </div>
 
       <!-- 聊天栏 + 在线玩家 -->
