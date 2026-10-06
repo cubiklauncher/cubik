@@ -121,6 +121,7 @@ contextBridge.exposeInMainWorld('api', {
   serverUpdateProps: (o) => ipcRenderer.invoke('server:update-props', o),
   serverSay: (o) => ipcRenderer.invoke('server:say', o),
   serverOnline: () => ipcRenderer.invoke('server:online'),
+  serverRefreshOnline: () => ipcRenderer.invoke('server:refresh-online'),
   onServerChat: (cb) => ipcRenderer.on('server:chat', (_e, d) => cb(d)),
   onServerOnline: (cb) => ipcRenderer.on('server:online', (_e, d) => cb(d)),
 

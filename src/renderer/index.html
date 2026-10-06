@@ -422,6 +422,22 @@
     <!-- 服务器 -->
     <section class="page" id="page-server">
       <h1>Minecraft 服务器</h1>
+
+      <!-- 状态条 -->
+      <div class="card srv-status-card">
+        <div class="srv-status-left">
+          <span class="srv-dot" id="srv-dot"></span>
+          <div>
+            <div class="srv-status-text" id="srv-status-text">已停止</div>
+            <div class="srv-status-sub" id="srv-status-sub">选择一个目录并创建服务器即可开服</div>
+          </div>
+        </div>
+        <div class="srv-status-right">
+          <span class="srv-chip" id="srv-chip-online">在线 <b id="srv-status-online">0</b></span>
+          <span class="srv-chip" id="srv-chip-addr">—</span>
+        </div>
+      </div>
+
       <details class="card usage tut-collapse" open>
         <summary class="tut-summary">📖 使用说明</summary>
         <div class="tut-inner">
@@ -883,6 +899,19 @@
       <pre class="log" id="log-box"></pre>
     </section>
   </main>
+</div>
+<div class="modal-mask" id="upd-modal" style="display:none">
+  <div class="modal-box upd-modal-box">
+    <div class="modal-head">
+      <h2 id="upd-modal-title">正在更新</h2>
+    </div>
+    <div class="upd-modal-body">
+      <div class="upd-progress-wrap" id="upd-modal-wrap">
+        <div class="progress-bar"><div class="progress-inner" id="upd-modal-prog"></div></div>
+        <div class="progress-text" id="upd-modal-text">准备中…</div>
+      </div>
+    </div>
+  </div>
 </div>
 <div class="modal-mask" id="legal-modal" style="display:none">
   <div class="modal-box">

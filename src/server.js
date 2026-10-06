@@ -1,4 +1,5 @@
 // server.js - 在启动器内创建/管理 Minecraft 服务器
+// 重写版（v1.0.23）：稳健解析、可靠进程管理、清晰状态机。
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
@@ -7,69 +8,99 @@ const { spawn } = require('child_process');
 const os = require('os');
 
 let serverProc = null;
+let serverState = 'stopped'; // stopped | starting | running | stopping
+let serverStartedAt = 0;
+let serverDir = '';
+let onDataSink = null;
 const UA = { 'User-Agent': 'Cubik/1.0' };
 
 // ---------- 在线玩家 / 聊天追踪 ----------
 // 从服务端 stdout 行中解析玩家进/出/聊天/死亡等事件。
-// 兼容 Vanilla / Paper / Forge / Fabric 常见输出格式。
+// 兼容 Vanilla / Paper / Forge / Fabric / 中文语言包常见输出格式。
 const onlinePlayers = new Set();
-let _pendingKick = null;
 
-// 去掉 ANSI 颜色码
+// 去掉 ANSI 颜色码。
+// 注意：服务端被重定向到管道时，颜色码可能是真正的 ESC 字节(\x1b)，
+// 也可能因平台/编码变成字面量形式的 "[91m"、"[0m"、"§a" 等，逐一清除。
 function stripAnsi(s) {
-  return String(s).replace(/\x1b\[[0-9;]*m/g, '');
+  return String(s)
+    .replace(/\x1b\[[0-9;]*m/g, '')      // 真 ESC 序列
+    .replace(/\[[0-9;]{1,4}m/g, '')       // 字面量 [91m / [0m / [1;32m
+    .replace(/§./g, '')                   // Minecraft § 颜色码
+    .replace(/\r$/, '');
+}
+
+// 取 "[12:34:56 INFO]: " 或 "[12:34:56] [Server thread/INFO]: " 之后的正文
+function bodyOf(line) {
+  // 常见服务端日志前缀： [时间 级别]:  /  [时间] [线程/级别]: 
+  let m = line.match(/\]\s*(?:\[[^\]]*\]\s*)?:\s*(.*)$/);
+  if (m) return m[1];
+  m = line.match(/^\[[^\]]*\]\s*(.*)$/);
+  return m ? m[1] : line;
 }
 
 // 解析一行服务端输出，返回结构化事件或 null
 function parseServerLine(raw) {
-  const line = stripAnsi(raw).replace(/\r$/, '');
+  const line = stripAnsi(raw);
   if (!line.trim()) return null;
-  const ts = Date.now();
+  const body = bodyOf(line).trim();
+  if (!body) return null;
 
-  // 玩家加入："<name> joined the game" / "<name> joined the game (" / "<name>[/ip:端口] logged in with entity id ..."
+  // 玩家加入
   let m =
-    line.match(/\]:\s*([A-Za-z0-9_]{1,16})\s+joined the game/) ||
-    line.match(/\]:\s*([A-Za-z0-9_]{1,16})\[[^\]]*\]\s+logged in with entity id/);
+    body.match(/^([A-Za-z0-9_]{1,16})(?:\[[^\]]*\])?\s+joined the game/) ||
+    body.match(/^([A-Za-z0-9_]{1,16})(?:\[[^\]]*\])?\s+logged in with entity id/) ||
+    body.match(/^([A-Za-z0-9_]{1,16})\s+\u52a0\u5165\u4e86\u6e38\u620f/);
   if (m) {
     const name = m[1];
-    onlinePlayers.add(name);
-    return { type: 'join', name, online: onlinePlayers.size };
+    if (!/^(?:Server|Player|Async|Thread|Netty|Chunk|Main)$/.test(name)) {
+      onlinePlayers.add(name);
+      return { type: 'join', name, online: onlinePlayers.size };
+    }
   }
 
-  // 玩家离开："<name> left the game" / "<name> lost connection: ..."
+  // 玩家离开
   m =
-    line.match(/\]:\s*([A-Za-z0-9_]{1,16})\s+left the game/) ||
-    line.match(/\]:\s*([A-Za-z0-9_]{1,16})\s+lost connection:/);
+    body.match(/^([A-Za-z0-9_]{1,16})\s+left the game/) ||
+    body.match(/^([A-Za-z0-9_]{1,16})\s+lost connection:/) ||
+    body.match(/^([A-Za-z0-9_]{1,16})\s+\u79bb\u5f00\u4e86\u6e38\u620f/);
   if (m) {
     const name = m[1];
     onlinePlayers.delete(name);
     return { type: 'leave', name, online: onlinePlayers.size };
   }
 
-  // 聊天消息："[Not Secure] <name> 内容" 或 "<name> 内容"（Paper/Vanilla 常见）
-  m = line.match(/\]:\s*(?:\[[^\]]*\]\s*)?<([A-Za-z0-9_]{1,16})>\s?(.*)$/);
+  // 聊天消息："[Not Secure] <name> 内容" 或 "<name> 内容"
+  m = body.match(/^(?:\[[^\]]*\]\s*)?<([A-Za-z0-9_]{1,16})>\s?(.*)$/);
   if (m) {
     return { type: 'chat', name: m[1], text: m[2], online: onlinePlayers.size };
   }
 
-  // 系统提示（含加入/离开的彩色提示），如 "[CHAT] xxx"、"* xxx joined"
-  if (/\]:\s*\*?\s*[A-Za-z0-9_]{1,16}\s+(joined|left)\b/.test(line)) {
-    return { type: 'system', text: line.replace(/^.*\]:\s*/, '') };
+  // 系统提示（含加入/离开的彩色提示）
+  if (/^\*?\s*[A-Za-z0-9_]{1,16}\s+(joined|left)\b/.test(body)) {
+    return { type: 'system', text: body };
   }
 
-  // 死亡/成就等广播（可选）
-  m = line.match(/\]:\s*([A-Za-z0-9_]{1,16})\s+(was slain|was killed|drowned|blew up|fell|burned|starved|died|hit the ground|withered away|was shot)/);
-  if (m) return { type: 'death', name: m[1], text: line.replace(/^.*\]:\s*/, '') };
+  // 死亡/成就等广播
+  m = body.match(/^([A-Za-z0-9_]{1,16})\s+(was slain|was killed|drowned|blew up|fell|burned|starved|died|hit the ground|withered away|was shot|went up in flames|walked into)/);
+  if (m) return { type: 'death', name: m[1], text: body };
 
   return null;
 }
 
-// 主动同步在线名单（从日志中的 } 行或 list 命令输出解析）
+// 主动同步在线名单（从 list 命令输出解析，支持中英文）
 function setOnlineFromListLine(line) {
-  // 形如: "There are 2 of a max of 20 players online: Alex, Steve"
-  const m = stripAnsi(line).match(/There are (\d+) of a max of \d+ players online:?\s*(.*)$/);
+  const s = stripAnsi(line);
+  // "There are 2 of a max of 20 players online: Alex, Steve"
+  let m = s.match(/There are (\d+) of a max of \d+ players online:?\s*(.*)$/);
+  // 中文："当前有 2 名玩家在线：Alex, Steve" / "有 2 个玩家在线"
+  if (!m) m = s.match(/\u5f53\u524d\u6709\s*(\d+)\s*\u540d\u73a9\u5bb6\u5728\u7ebf[:\uff1a]?\s*(.*)$/);
+  if (!m) m = s.match(/\u6709\s*(\d+)\s*\u4e2a?\u73a9\u5bb6\u5728\u7ebf[:\uff1a]?\s*(.*)$/);
   if (!m) return false;
-  const names = (m[2] || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const names = (m[2] || '')
+    .split(/[,\uff0c]/)
+    .map((x) => x.trim())
+    .filter((x) => x && !/^(?:and|\u548c)$/i.test(x));
   onlinePlayers.clear();
   names.forEach((n) => onlinePlayers.add(n));
   return true;
@@ -79,6 +110,12 @@ function getOnlinePlayers() {
   return { count: onlinePlayers.size, players: [...onlinePlayers] };
 }
 function resetOnline() { onlinePlayers.clear(); }
+
+// 通过控制台指令让服务端回吐在线名单（list），随后由 setOnlineFromListLine 解析
+function requestOnlineList() {
+  if (!serverProc) return false;
+  try { serverProc.stdin.write('list\n'); return true; } catch { return false; }
+}
 
 function getJSON(url, tries = 3) {
   return new Promise((resolve, reject) => {
@@ -488,12 +525,23 @@ async function createServer(opts, onProgress, onLog) {
 }
 
 function startServer(dir, javaPath, memory, type, onLog, onData) {
-  if (serverProc) return { ok: false, error: '服务器已在运行' };
+  if (serverProc) return { ok: false, error: '\u670d\u52a1\u5668\u5df2\u5728\u8fd0\u884c' };
+  if (!dir || !fs.existsSync(dir)) return { ok: false, error: '\u670d\u52a1\u5668\u76ee\u5f55\u4e0d\u5b58\u5728\uff0c\u8bf7\u5148\u521b\u5efa\u670d\u52a1\u5668' };
+
+  const LOG = onLog || (() => {});
+  const DATA = onData || (() => {});
+  const java = javaPath || 'java';
+
+  // 预检 Java 可执行文件
+  if (!/^java(\.exe)?$/i.test(path.basename(java)) && !fs.existsSync(java)) {
+    return { ok: false, error: '\u672a\u627e\u5230 Java\uff1a' + java + '\uff08\u8bf7\u5148\u5b89\u88c5 Java \u6216\u5728\u8bbe\u7f6e\u91cc\u6307\u5b9a\uff09' };
+  }
 
   // 探测服务端类型与启动 jar
   let srvType = type;
-  const files = fs.readdirSync(dir);
-  // Forge/NeoForge：有 run.bat 或 libraries 目录 + forge jar
+  let files = [];
+  try { files = fs.readdirSync(dir); } catch (e) { return { ok: false, error: '\u65e0\u6cd5\u8bfb\u53d6\u76ee\u5f55\uff1a' + e.message }; }
+
   const isForgeLike = files.includes('run.bat') || files.includes('run.sh') ||
     files.some((f) => /^forge-.*\.jar$/i.test(f)) || files.some((f) => /^neoforge-.*\.jar$/i.test(f)) ||
     fs.existsSync(path.join(dir, 'libraries', 'net', 'minecraftforge')) || fs.existsSync(path.join(dir, 'libraries', 'net', 'neoforged'));
@@ -503,77 +551,118 @@ function startServer(dir, javaPath, memory, type, onLog, onData) {
     else srvType = 'vanilla';
   }
 
-  const java = javaPath || 'java';
+  const spawnOpts = { cwd: dir, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true };
+  let cmd, args, label;
 
   // Forge/NeoForge 优先用生成器提供的 run.bat / @argfile
-  if (isForgeLike) {
-    if (files.includes('run.bat')) {
-      onLog && onLog('使用 Forge 生成的 run.bat 启动…');
-      try {
-        serverProc = spawn('cmd.exe', ['/c', 'run.bat', 'nogui'], { cwd: dir, stdio: ['pipe', 'pipe', 'pipe'] });
-      } catch (e) { serverProc = null; return { ok: false, error: '启动失败：' + e.message }; }
-      hookProc(onData);
-      return { ok: true, args: ['run.bat'] };
+  if (isForgeLike && files.includes('run.bat')) {
+    label = 'Forge run.bat';
+    cmd = 'cmd.exe';
+    args = ['/c', 'run.bat', 'nogui'];
+  } else {
+    // 找启动 jar：优先 server.jar，其次 forge/neoforge/fabric/paper jar
+    let jar = null;
+    if (files.includes('server.jar')) jar = 'server.jar';
+    else {
+      jar = files.find((f) => /^forge-.*-server\.jar$/i.test(f)) ||
+            files.find((f) => /^(?:forge|neoforge|fabric|paper|purpur|spigot|craftbukkit)-.*\.jar$/i.test(f) && !/installer/i.test(f)) ||
+            files.find((f) => /\.jar$/i.test(f) && !/installer/i.test(f));
     }
+    if (!jar) return { ok: false, error: '\u672a\u627e\u5230\u670d\u52a1\u7aef jar\uff0c\u8bf7\u5148\u521b\u5efa\u670d\u52a1\u5668' };
+    cmd = java;
+    args = serverJvmArgs(srvType, memory).concat(['-jar', jar, 'nogui']);
+    label = jar;
   }
 
-  const jar = path.join(dir, 'server.jar');
-  if (!fs.existsSync(jar)) {
-    // forge jar 名可能不同
-    const fj = files.find((f) => /^forge-.*-server\.jar$/i.test(f)) || files.find((f) => /^forge-.*\.jar$/i.test(f) && !/installer/.test(f)) || files.find((f) => /^neoforge-.*\.jar$/i.test(f) && !/installer/.test(f));
-    if (!fj) return { ok: false, error: '未找到服务端 jar，请先创建服务器' };
-    const args = serverJvmArgs('paper', memory).concat(['-jar', fj, 'nogui']);
-    onLog && onLog(`启动命令: ${java} ${args.join(' ')}`);
-    try { serverProc = spawn(java, args, { cwd: dir, stdio: ['pipe', 'pipe', 'pipe'] }); }
-    catch (e) { serverProc = null; return { ok: false, error: '启动失败：' + e.message }; }
-    hookProc(onData);
-    return { ok: true, args };
-  }
-
-  const args = serverJvmArgs(srvType, memory).concat(['-jar', 'server.jar', 'nogui']);
-  onLog && onLog(`启动命令: ${java} ${args.join(' ')}`);
+  LOG('\u542f\u52a8\u547d\u4ee4: ' + cmd + ' ' + args.join(' '));
 
   try {
-    serverProc = spawn(java, args, { cwd: dir, stdio: ['pipe', 'pipe', 'pipe'] });
+    serverProc = spawn(cmd, args, spawnOpts);
   } catch (e) {
     serverProc = null;
-    return { ok: false, error: '启动失败：' + e.message };
+    return { ok: false, error: '\u542f\u52a8\u5931\u8d25\uff1a' + e.message };
   }
-  hookProc(onData);
-  return { ok: true, args };
+
+  serverState = 'starting';
+  serverStartedAt = Date.now();
+  serverDir = dir;
+  resetOnline();
+  hookProc(DATA);
+
+  // 启动超时监控：90s 内未出现 "Done" 也未退出则提示
+  const startGuard = setTimeout(() => {
+    if (serverState === 'starting') {
+      DATA('\n[\u63d0\u793a] \u670d\u52a1\u5668\u542f\u52a8\u8f83\u6162\uff08\u9996\u6b21\u751f\u6210\u4e16\u754c\u53ef\u80fd\u9700\u8981 1-2 \u5206\u949f\uff09\u3002\u82e5\u957f\u65f6\u95f4\u65e0\u54cd\u5e94\uff0c\u8bf7\u68c0\u67e5\u5185\u5b58\u662f\u5426\u8db3\u591f\u3002\n');
+    }
+  }, 90000);
+  serverProc._startGuard = startGuard;
+
+  return { ok: true, args, label };
 }
 
 function hookProc(onData) {
   if (!serverProc) return;
-  serverProc.stdout.on('data', (d) => onData(d.toString()));
-  serverProc.stderr.on('data', (d) => onData(d.toString()));
+  const push = (d) => { try { onData(String(d)); } catch {} };
+
+  serverProc.stdout.on('data', push);
+  serverProc.stderr.on('data', push);
+
   serverProc.on('error', (err) => {
-    onData(`\n[启动失败] ${err.message}（请检查 Java 路径是否正确）\n`);
-    serverProc = null;
+    push(`\n[\u542f\u52a8\u5931\u8d25] ${err.message}${/ENOENT/.test(err.message) ? '\uff08\u627e\u4e0d\u5230 Java\uff0c\u8bf7\u68c0\u67e5 Java \u8def\u5f84\uff09' : ''}\n`);
+    finishProc(-1);
   });
-  serverProc.on('close', (code) => {
-    onData(`\n[服务器已退出，退出码 ${code}]\n`);
-    serverProc = null;
-  });
+
+  serverProc.on('close', (code) => finishProc(code));
+}
+
+function finishProc(code) {
+  if (serverProc && serverProc._startGuard) clearTimeout(serverProc._startGuard);
+  const wasRunning = serverState !== 'stopped';
+  if (serverProc && onDataSink && wasRunning) {
+    const seconds = serverStartedAt ? Math.round((Date.now() - serverStartedAt) / 1000) : 0;
+    onDataSink(`\n[\u670d\u52a1\u5668\u5df2\u9000\u51fa\uff0c\u9000\u51fa\u7801 ${code}${seconds ? '\uff08\u8fd0\u884c ' + seconds + 's\uff09' : ''}]\n`);
+  }
+  serverProc = null;
+  serverState = 'stopped';
+  serverStartedAt = 0;
+  onDataSink = null;
+  resetOnline();
 }
 
 function stopServer() {
-  if (!serverProc) return { ok: false, error: '没有运行中的服务器' };
+  if (!serverProc) return { ok: false, error: '\u6ca1\u6709\u8fd0\u884c\u4e2d\u7684\u670d\u52a1\u5668' };
+  serverState = 'stopping';
   try {
     serverProc.stdin.write('stop\n');
   } catch {
-    serverProc.kill();
+    try { serverProc.kill(); } catch {}
+    return { ok: true, forced: true };
   }
+  // 10s 内未退出则强制结束
+  const p = serverProc;
+  setTimeout(() => {
+    if (serverProc === p) { try { serverProc.kill(); } catch {} }
+  }, 10000);
   return { ok: true };
 }
 
 function sendCommand(cmd) {
-  if (!serverProc) return { ok: false };
-  try { serverProc.stdin.write(cmd + '\n'); return { ok: true }; } catch { return { ok: false }; }
+  if (!serverProc) return { ok: false, error: '\u670d\u52a1\u5668\u672a\u8fd0\u884c' };
+  try { serverProc.stdin.write(cmd + '\n'); return { ok: true }; } catch (e) { return { ok: false, error: e.message }; }
 }
 
 function isRunning() {
   return !!serverProc;
+}
+
+function getState() {
+  return {
+    state: serverState,
+    running: !!serverProc,
+    startedAt: serverStartedAt,
+    dir: serverDir,
+    uptime: serverStartedAt ? Math.round((Date.now() - serverStartedAt) / 1000) : 0
+  };
 }
 
 // 解析 server.properties 里的端口（读 servers 目录下的 server.properties）
@@ -684,4 +773,4 @@ function updateServerProperties(dir, updates = {}) {
   return { ok: true };
 }
 
-module.exports = { createServer, startServer, stopServer, sendCommand, listServerVersions, isRunning, serverJvmArgs, serverInfo, getLanIP, getPublicIP, readServerPort, updateServerProperties, parseServerLine, setOnlineFromListLine, getOnlinePlayers, resetOnline, quickServerDefaults };
+module.exports = { createServer, startServer, stopServer, sendCommand, listServerVersions, isRunning, getState, requestOnlineList, serverJvmArgs, serverInfo, getLanIP, getPublicIP, readServerPort, updateServerProperties, parseServerLine, setOnlineFromListLine, getOnlinePlayers, resetOnline, quickServerDefaults };

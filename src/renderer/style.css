@@ -652,6 +652,20 @@ body[data-skin="graphite"] { --text: #1c2130; }
 .chk-inline { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; margin: 0; }
 .chk-inline input { width: 16px; height: 16px; flex: none; }
 
+/* ---------- 服务器状态条 ---------- */
+.srv-status-card { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  background: linear-gradient(135deg, rgba(255,255,255,.72), rgba(240,245,255,.6)); }
+.srv-status-left { display: flex; align-items: center; gap: 12px; }
+.srv-dot { width: 12px; height: 12px; border-radius: 50%; background: #c7ccd8; flex: none; }
+.srv-dot.on { background: #3fae5a; box-shadow: 0 0 0 5px rgba(63,174,90,.16); animation: chatPulse 2s infinite; }
+.srv-dot.starting { background: #e0a63f; box-shadow: 0 0 0 5px rgba(224,166,63,.18); animation: chatPulse 1s infinite; }
+.srv-status-text { font-size: 16px; font-weight: 700; color: var(--text); }
+.srv-status-sub { font-size: 12.5px; color: var(--text-mute); margin-top: 2px; }
+.srv-status-right { display: flex; gap: 8px; flex-wrap: wrap; }
+.srv-chip { font-size: 12.5px; font-weight: 600; color: var(--text-soft); background: rgba(255,255,255,.7);
+  border: 1px solid rgba(120,150,220,.22); padding: 5px 12px; border-radius: 999px; }
+.srv-chip b { color: var(--accent); }
+
 /* ---------- 服务器聊天栏 ---------- */
 .chat-card { display: flex; flex-direction: column; gap: 10px; }
 .chat-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -710,6 +724,14 @@ body[data-skin="graphite"] { --text: #1c2130; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid rgba(120,150,220,.18); }
 .modal-head h2 { margin: 0; font-size: 17px; }
 .legal-body { flex: 1; overflow: auto; margin: 0; padding: 18px 22px; font-size: 12.5px; line-height: 1.75; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, Consolas, "Microsoft YaHei", monospace; color: var(--text-soft); background: #fafbff; }
+
+/* ---------- 更新进度弹窗 ---------- */
+.upd-modal-box { width: min(420px, 88vw); height: auto; }
+.upd-modal-box .modal-head { border-bottom: 1px solid rgba(120,150,220,.18); }
+.upd-modal-body { padding: 22px 24px 26px; }
+.upd-modal-body .upd-progress-wrap { margin-top: 0; }
+.upd-modal-body .progress-text { font-size: 12.5px; margin-top: 10px; }
+.upd-modal-body .progress-bar { height: 12px; }
 
 /* ---------- 多账号列表 ---------- */
 .acct-list-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }

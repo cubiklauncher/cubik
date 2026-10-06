@@ -213,6 +213,8 @@ async function init() {
   defer(() => loadServerVersions());
 
   window.api.onLog((d) => log(d.level, d.msg));
+  // 全局绑定服务器聊天监听（不依赖是否切到服务器页，避免错过早期日志）
+  try { ensureChatGlobals(); } catch {}
   window.api.onProgress((p) => {
     const wrap = $('progress-wrap');
     wrap.classList.add('show');
@@ -271,12 +273,19 @@ async function init() {
     box.scrollTop = box.scrollHeight;
   });
   window.api.onUpdateProgress((p) => {
+    const pct = p.total > 0 ? Math.min(100, Math.round((p.got / p.total) * 100)) : 0;
+    const mb = (p.got / 1048576).toFixed(1), tot = (p.total / 1048576).toFixed(1);
+    const line = `下载中 ${pct}%  (${mb}/${tot} MB)`;
+    // 更新进度弹窗
+    if ($('upd-modal') && $('upd-modal').style.display !== 'none') {
+      if ($('upd-modal-prog')) $('upd-modal-prog').style.width = pct + '%';
+      if ($('upd-modal-text')) $('upd-modal-text').textContent = line;
+    }
+    // 设置页内嵌进度条
     const wp = $('upd-prog-wrap');
     if (!wp || wp.style.display === 'none') return;
-    const pct = p.total > 0 ? Math.min(100, Math.round((p.got / p.total) * 100)) : 0;
     if ($('upd-prog')) $('upd-prog').style.width = pct + '%';
-    const mb = (p.got / 1048576).toFixed(1), tot = (p.total / 1048576).toFixed(1);
-    if ($('upd-prog-text')) $('upd-prog-text').textContent = `下载中 ${pct}%  (${mb}/${tot} MB)`;
+    if ($('upd-prog-text')) $('upd-prog-text').textContent = line;
   });
   window.api.onAuthStatus((m) => { const s = $('ms-status'); if (s) s.textContent = m; });
   window.api.onClose((code) => {
@@ -1543,19 +1552,41 @@ async function runCheckUpdate(silent, prefer) {
   }
 }
 
-// 一键更新：优先后台下载 + 静默安装并自动重启；免安装版则下载后打开文件夹提示手动替换
+// 一键更新：弹出进度弹窗 → 后台下载 → 静默安装/重启 → 自动重启新版本
 async function autoUpdate(asset) {
   if (!asset || !asset.url) return;
+  // 打开更新进度弹窗
+  const mask = $('upd-modal');
+  if (mask) mask.style.display = 'flex';
+  if ($('upd-modal-title')) $('upd-modal-title').textContent = '正在更新';
+  if ($('upd-modal-prog')) $('upd-modal-prog').style.width = '0%';
+  if ($('upd-modal-text')) $('upd-modal-text').textContent = '正在下载更新包…';
   const wrap = $('upd-prog-wrap');
   if (wrap) { wrap.style.display = ''; $('upd-prog').style.width = '0%'; $('upd-prog-text').textContent = '正在后台下载更新包…'; }
-  const r = await window.api.autoUpdateSilent({ url: asset.url, name: asset.name });
+  const setModal = (t, pct) => {
+    if (pct != null && $('upd-modal-prog')) $('upd-modal-prog').style.width = pct + '%';
+    if (t && $('upd-modal-text')) $('upd-modal-text').textContent = t;
+  };
+  let r;
+  try {
+    r = await window.api.autoUpdateSilent({ url: asset.url, name: asset.name });
+  } catch (e) {
+    r = { ok: false, error: String(e && e.message ? e.message : e) };
+  }
   if (r.ok) {
+    const doneMsg = r.relaunched
+      ? '下载完成，正在重启到新版本，请稍候…'
+      : '下载完成，正在静默安装并自动重启，请稍候…';
+    setModal(doneMsg, 100);
+    if ($('upd-modal-title')) $('upd-modal-title').textContent = '更新完成';
     if ($('upd-prog')) $('upd-prog').style.width = '100%';
-    if ($('upd-prog-text')) $('upd-prog-text').textContent = '下载完成，正在静默安装并自动重启，请稍候…';
+    if ($('upd-prog-text')) $('upd-prog-text').textContent = doneMsg;
     return;
   }
   // 免安装版：下载到文件夹，交给用户手动替换
   if (r.fallback) {
+    setModal('已下载完成，等待手动替换', 100);
+    if ($('upd-modal-title')) $('upd-modal-title').textContent = '已下载更新包';
     if ($('upd-prog')) $('upd-prog').style.width = '100%';
     if ($('upd-prog-text'))
       $('upd-prog-text').innerHTML =
@@ -1566,7 +1597,11 @@ async function autoUpdate(asset) {
     window.api.openUpdateFolder();
     return;
   }
+  setModal('更新失败：' + (r.error || '未知错误'));
+  if ($('upd-modal-title')) $('upd-modal-title').textContent = '更新失败';
   if ($('upd-prog-text')) $('upd-prog-text').textContent = '更新失败：' + (r.error || '未知错误');
+  // 失败时 3 秒后自动关闭弹窗，让用户能看到结果
+  setTimeout(() => { if ($('upd-modal')) $('upd-modal').style.display = 'none'; }, 3000);
 }
 
 // 下载更新包（带进度），完成后提供打开位置
@@ -2165,26 +2200,56 @@ $('btn-srv-create').onclick = async () => {
   if (!opts.dir || !opts.mcVersion) return alert('请填写服务器目录并选择 MC 版本');
   cfg.serverDir = opts.dir;
   await window.api.setConfig(cfg);
+  const btn = $('btn-srv-create');
+  btn.disabled = true;
   $('srv-log').textContent += `\n===== 创建服务器 (${opts.type} ${opts.mcVersion}) =====\n`;
-  const r = await window.api.serverCreate(opts);
-  if (!r.ok) $('srv-log').textContent += '创建失败：' + r.error + '\n';
+  try {
+    const r = await window.api.serverCreate(opts);
+    if (!r || !r.ok) {
+      $('srv-log').textContent += '\n✖ 创建失败：' + ((r && r.error) || '未知错误') + '\n';
+    } else {
+      $('srv-log').textContent += '\n✔ 创建完成！现在可以点「▶ 启动服务器」开服。\n';
+    }
+  } catch (e) {
+    $('srv-log').textContent += '\n✖ 创建异常：' + (e.message || e) + '\n';
+  } finally {
+    btn.disabled = false;
+    if ($('srv-progress')) $('srv-progress').style.width = '0%';
+  }
 };
 $('btn-srv-start').onclick = async () => {
   const dir = $('in-srv-dir').value.trim();
+  if (!dir) return alert('请先选择服务器目录');
   $('srv-log').textContent += '\n===== 启动服务器 =====\n';
   bindChat();
   // 记录主机名（用于聊天栏区分自己的消息）
   try { myHostName = ($('in-username') && $('in-username').value.trim()) || 'Host'; } catch {}
-  const r = await window.api.serverStart({
-    dir,
-    javaPath: $('in-java').value.trim(),
-    memory: $('in-srv-mem').value.trim(),
-    type: $('sel-srv-type').value
-  });
-  if (!r.ok) $('srv-log').textContent += '启动失败：' + r.error + '\n';
-  else setTimeout(refreshOnline, 1500);
+  const btn = $('btn-srv-start');
+  btn.disabled = true;
+  try {
+    const r = await window.api.serverStart({
+      dir,
+      javaPath: $('in-java').value.trim(),
+      memory: $('in-srv-mem').value.trim(),
+      type: $('sel-srv-type').value
+    });
+    if (!r || !r.ok) {
+      $('srv-log').textContent += '\n✖ 启动失败：' + ((r && r.error) || '未知错误') + '\n';
+    } else {
+      setTimeout(refreshOnline, 2000);
+      setTimeout(refreshServerStatus, 500);
+    }
+  } catch (e) {
+    $('srv-log').textContent += '\n✖ 启动异常：' + (e.message || e) + '\n';
+  } finally {
+    btn.disabled = false;
+  }
 };
-$('btn-srv-stop').onclick = async () => { await window.api.serverStop(); };
+$('btn-srv-stop').onclick = async () => {
+  const r = await window.api.serverStop();
+  if (r && !r.ok) $('srv-log').textContent += '\n停止失败：' + (r.error || '') + '\n';
+  setTimeout(refreshServerStatus, 500);
+};
 
 // ---------- 内网穿透 ----------
 if ($('btn-tun-dl')) $('btn-tun-dl').onclick = async () => {
@@ -2333,10 +2398,10 @@ function chatRenderOnline(o) {
     : '<span class="chat-empty">暂无玩家在线</span>';
 }
 
-function bindChat() {
-  if (chatBound) return;
-  chatBound = true;
-
+// 把聊天监听全局绑定（init 时调用），不依赖是否切到服务器页
+function ensureChatGlobals() {
+  if (ensureChatGlobals._done) return;
+  ensureChatGlobals._done = true;
   if (window.api.onServerChat) {
     window.api.onServerChat((ev) => {
       if (!ev) return;
@@ -2344,9 +2409,9 @@ function bindChat() {
         const mine = ev.name === myHostName;
         chatAppend(`<div class="chat-msg chat${mine ? ' mine' : ''}"><span class="cm-name">${esc(ev.name)}:</span><span class="cm-text">${esc(ev.text)}</span></div>`);
       } else if (ev.type === 'join') {
-        chatAppend(`<div class="chat-sys join">➜ ${esc(ev.name)} 加入了游戏</div>`);
+        chatAppend(`<div class="chat-sys join">✦ ${esc(ev.name)} 加入了游戏</div>`);
       } else if (ev.type === 'leave') {
-        chatAppend(`<div class="chat-sys leave">➜ ${esc(ev.name)} 离开了游戏</div>`);
+        chatAppend(`<div class="chat-sys leave">✦ ${esc(ev.name)} 离开了游戏</div>`);
       } else if (ev.type === 'death') {
         chatAppend(`<div class="chat-sys death">☠ ${esc(ev.text)}</div>`);
       } else if (ev.type === 'system' && ev.text) {
@@ -2357,7 +2422,12 @@ function bindChat() {
   if (window.api.onServerOnline) {
     window.api.onServerOnline((o) => chatRenderOnline(o));
   }
+}
 
+function bindChat() {
+  ensureChatGlobals();
+  if (chatBound) return;
+  chatBound = true;
   const send = async () => {
     const inp = $('in-chat-msg');
     const text = (inp.value || '').trim();
@@ -2380,6 +2450,40 @@ async function refreshOnline() {
     const r = await window.api.serverOnline();
     if (r && r.ok) chatRenderOnline({ count: r.online.count, players: r.online.players, running: r.running });
   } catch {}
+  refreshServerStatus();
+}
+
+// 刷新顶部状态条
+async function refreshServerStatus() {
+  const dot = $('srv-dot');
+  const txt = $('srv-status-text');
+  const sub = $('srv-status-sub');
+  const chipOnline = $('srv-status-online');
+  const chipAddr = $('srv-chip-addr');
+  if (!txt) return;
+  let st = { running: false, state: 'stopped', uptime: 0 };
+  try { st = await window.api.serverStatus(); } catch {}
+  let online = 0;
+  try { const o = await window.api.serverOnline(); if (o && o.ok) online = o.online.count; } catch {}
+  if (chipOnline) chipOnline.textContent = online;
+  const running = st && st.running;
+  if (dot) dot.className = 'srv-dot' + (running ? ' on' : '');
+  if (running) {
+    txt.textContent = '运行中';
+    const up = st.uptime ? '已运行 ' + Math.floor(st.uptime / 60) + ' 分 ' + (st.uptime % 60) + ' 秒' : '';
+    if (sub) sub.textContent = up + (st.dir ? '　' + st.dir : '');
+  } else {
+    txt.textContent = '已停止';
+    if (sub) sub.textContent = '点「▶ 启动服务器」开服；首次启动需生成世界，稍等片刻';
+  }
+  // 地址 chip
+  if (chipAddr) {
+    try {
+      const dir = ($('in-srv-dir') || {}).value ? $('in-srv-dir').value.trim() : '';
+      const info = await window.api.serverInfo({ dir });
+      chipAddr.textContent = info && info.lanAddr ? info.lanAddr : '—';
+    } catch { chipAddr.textContent = '—'; }
+  }
 }
 
 // ---------- 一键邀请 ----------
@@ -2416,10 +2520,20 @@ if ($('btn-copy-addr')) $('btn-copy-addr').onclick = async (e) => {
   await copyText(t, e.target);
 };
 
-// 切到服务器也：初始化聊天栏 + 刷新在线
-const _origNav = document.querySelectorAll('.nav-item');
+// 切到服务器页：刷新在线名单（聊天监听已在 init 全局绑定）
 document.querySelectorAll('.nav-item[data-page="server"]').forEach((b) => {
-  b.addEventListener('click', () => { bindChat(); setTimeout(refreshOnline, 300); });
+  b.addEventListener('click', () => {
+    bindChat();
+    refreshOnline();
+    // 若服务器在运行，顺便让服务端回吐一次 list（拿到准确人数/名单）
+    if (window.api.serverRefreshOnline) window.api.serverRefreshOnline().catch(() => {});
+  });
 });
+
+// 在线名单定时轮询（仅在服务器页可见时）
+setInterval(() => {
+  const page = document.getElementById('page-server');
+  if (page && page.classList.contains('active') && window.api.serverOnline) refreshOnline();
+}, 5000);
 
 init();

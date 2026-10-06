@@ -442,10 +442,30 @@ function createWindow() {
         finishGlobalProgress({ label: '测试下载', ok: true });
         await new Promise(r => setTimeout(r, 150));
         srv.gpDone = gpEl.classList.contains('gp-ok');
+        // 服务器页新增元素
+        srv.srvStatusBar = !!document.getElementById('srv-status-text');
+        srv.srvChatLog = !!document.getElementById('chat-log');
+        srv.srvStatusChip = !!document.getElementById('srv-status-online');
         // 新增：主页版本切换器 / 使用习惯设置 / 最近排序
         srv.homeVerSwitch = !!document.getElementById('home-ver-pop');
         srv.minOnLaunch = !!document.getElementById('in-min-on-launch');
         srv.notifyDone = !!document.getElementById('in-notify-done');
+        // 更新进度弹窗
+        srv.updModal = !!document.getElementById('upd-modal');
+        srv.updModalProg = !!document.getElementById('upd-modal-prog');
+        srv.updModalText = !!document.getElementById('upd-modal-text');
+        // 模拟打开弹窗并驱动进度
+        const um = document.getElementById('upd-modal');
+        if (um) {
+          um.style.display = 'flex';
+          const mp = document.getElementById('upd-modal-prog');
+          const mt = document.getElementById('upd-modal-text');
+          if (mp) mp.style.width = '55%';
+          if (mt) mt.textContent = '下载中 55% (42.0/76.0 MB)';
+          srv.updModalVisible = um.style.display !== 'none';
+          srv.updModalWidth = mp ? mp.style.width : '';
+          um.style.display = 'none';
+        }
         window.api.listVersions().then(list => { srv.localVers = list.length; });
         // 模拟最近使用排序
         if (!window.__cfg) window.__cfg = {};
@@ -453,11 +473,17 @@ function createWindow() {
       })()`);
       console.log('SELFTEST_STATE ' + state);
       try { require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), 'SELFTEST_STATE ' + state); } catch {}
-      // 截图（用于人工核对渲染）—— 此时应在 Mod 详情页
+      // 截图（用于人工核对渲染）—— 切到服务器页
       try {
-        await new Promise((r) => setTimeout(r, 500));
+        await win.webContents.executeJavaScript("document.querySelector('.nav-item[data-page=\"server\"]').click()");
+        await new Promise((r) => setTimeout(r, 800));
         const png = await win.webContents.capturePage();
         require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-srv-shot.png'), png.toPNG());
+        // 滚到聊天卡片再截一张
+        await win.webContents.executeJavaScript("document.querySelector('.chat-card').scrollIntoView({block:'start'})");
+        await new Promise((r) => setTimeout(r, 600));
+        const png2 = await win.webContents.capturePage();
+        require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-srv-chat-shot.png'), png2.toPNG());
       } catch (e) {}
     } catch (e) { console.log('SELFTEST_ERROR ' + e.message); try { require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), 'SELFTEST_ERROR ' + e.message); } catch {} }
     setTimeout(() => app.quit(), 400);
@@ -660,14 +686,39 @@ ipcMain.handle('app:auto-update', async (_e, { url, name }) => {
     // 安装包固定名，避免重复堆积；已存在且大小一致则跳过重复下载
     const dest = path.join(dir, 'Cubik-update-setup.exe');
     const send = (got, total) => { try { win.webContents.send('update:progress', { got, total }); } catch {} };
+
+    const mode = detectInstallMode();
+
+    if (mode === 'dev') {
+      // 开发模式：跑的是源码目录，更新靠 git 拉取而非替换 exe，无需下载安装包。
+      // 直接重启：重新拉起 electron 加载当前源码目录。
+      const electronBin = process.execPath;
+      const appDir = path.resolve(__dirname, '..');
+      try {
+        const child = spawn(electronBin, [appDir], { detached: true, stdio: 'ignore', cwd: appDir });
+        child.unref();
+      } catch (e) {
+        return { ok: false, mode, error: '重启失败：' + e.message };
+      }
+      setTimeout(() => { try { app.exit(0); } catch { app.quit(); } }, 1000);
+      return { ok: true, mode, file: '', relaunched: true };
+    }
+
     if (!(fs.existsSync(dest) && fs.statSync(dest).size > 1024)) {
       await modpack.downloadFile(url, dest, send, null, name || 'update');
     }
 
-    const mode = detectInstallMode();
-    if (mode === 'portable' || mode === 'dev') {
-      // 免安装版/开发模式无法静默覆盖自身，退化为：下载完成后打开所在文件夹让用户手动替换
-      return { ok: false, mode, file: dest, error: '免安装版不支持自动覆盖，请手动替换（已下载到 updates 文件夹）', fallback: true };
+    if (mode === 'portable') {
+      // 免安装版：无法覆盖正在运行的自身。改为启动新下载的便携包（它自解压后即为新版），
+      // 再退出当前进程 —— 对新版而言就是一次干净的重启。
+      // 注意：便携包不能从与自身相同的路径直接运行，先复制到一个独立临时文件再启动。
+      const launchTmp = path.join(dir, 'Cubik-relaunch-' + Date.now() + '.exe');
+      try { fs.copyFileSync(dest, launchTmp); } catch { /* 复制失败则退回原文件 */ }
+      const launchPath = fs.existsSync(launchTmp) ? launchTmp : dest;
+      const child = spawn(launchPath, [], { detached: true, stdio: 'ignore' });
+      child.unref();
+      setTimeout(() => { try { app.exit(0); } catch { app.quit(); } }, 1200);
+      return { ok: true, mode, file: dest, relaunched: true };
     }
 
     // 安装版：静默运行 NSIS 安装器（/S = silent），安装完成后安装器会拉起新版
@@ -2240,12 +2291,16 @@ ipcMain.handle('server:start', async (_e, { dir, javaPath, memory, type }) => {
             win.webContents.send('server:online', serverMgr.getOnlinePlayers());
           }
         }
+        // 状态机：检测 "Done (...)!" → 标记已就绪
+        if (/Done \(/.test(rawLine) || /For help, type/.test(rawLine)) {
+          win.webContents.send('server:ready');
+        }
       }
     } catch {}
   });
 });
 
-ipcMain.handle('server:status', () => ({ ok: true, running: serverMgr.isRunning() }));
+ipcMain.handle('server:status', () => ({ ok: true, running: serverMgr.isRunning(), ...serverMgr.getState() }));
 ipcMain.handle('server:quick-defaults', () => ({ ok: true, ...serverMgr.quickServerDefaults() }));
 
 ipcMain.handle('server:info', async (_e, { dir }) => serverMgr.serverInfo(dir || (cfg && cfg.serverDir) || ''));
@@ -2257,14 +2312,18 @@ ipcMain.handle('server:say', (_e, { text, name }) => {
   if (!serverMgr.isRunning()) return { ok: false, error: '服务器未运行' };
   const msg = String(text || '').trim().slice(0, 240);
   if (!msg) return { ok: false, error: '消息为空' };
-  // 用 tellraw 广播消息，带发送者名字（比 say 更灵活，可自定义格式）
-  const safe = msg.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-  const who = String(name || 'Host').replace(/["\\]/g, '').slice(0, 16);
-  const json = JSON.stringify([{ text: '[' + who + '] ', color: 'gold' }, { text: msg, color: 'white' }]);
-  serverMgr.sendCommand('tellraw @a ' + json);
-  return { ok: true };
+  const who = String(name || 'Host').replace(/[\x00-\x1f]/g, '').slice(0, 16) || 'Host';
+  // 用 tellraw 广播消息；JSON 组件必须作为行内 JSON 传递（Minecraft 要求合法 JSON）
+  // 注意：sendCommand 会直接写入 stdin，命令本身不能带换行（已过滤）
+  const component = JSON.stringify([
+    { text: '[' + who + '] ', color: 'gold' },
+    { text: msg, color: 'white' }
+  ]);
+  const r = serverMgr.sendCommand('tellraw @a ' + component);
+  return r.ok ? { ok: true } : { ok: false, error: r.error || '发送失败' };
 });
 ipcMain.handle('server:online', () => ({ ok: true, online: serverMgr.getOnlinePlayers(), running: serverMgr.isRunning() }));
+ipcMain.handle('server:refresh-online', () => ({ ok: serverMgr.requestOnlineList() }));
 ipcMain.handle('server:reset-online', () => { serverMgr.resetOnline(); return { ok: true }; });
 ipcMain.handle('server:update-props', (_e, { dir, updates }) => serverMgr.updateServerProperties(dir, updates));
 
