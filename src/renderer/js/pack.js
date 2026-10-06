@@ -164,15 +164,21 @@ async function openDetail(kind, pack) {
     `<span class="tg">${esc(pack.author || (source === 'curseforge' ? 'CurseForge' : 'Modrinth'))}</span>`;
   $('detail-desc').textContent = pack.description || '';
 
-  // Mod 需要指定“安装到版本”
+  // Mod 需要指定“安装到版本”；资源包同样可指定实例目录（不选则装到全局 .minecraft）
   const targetRow = $('detail-mod-target-row');
   if (isMod) {
     targetRow.style.display = 'flex';
+    $('detail-target-label').textContent = '安装到版本:';
     await fillDetailTargets(pack);
     $('btn-detail-install').textContent = '⬇ 下载此 Mod';
+  } else if (isRpack) {
+    targetRow.style.display = 'flex';
+    $('detail-target-label').textContent = '安装到实例（可选）:';
+    await fillDetailTargets(pack, true);
+    $('btn-detail-install').textContent = '⬇ 一键安装资源包';
   } else {
     targetRow.style.display = 'none';
-    $('btn-detail-install').textContent = kind === 'shader' ? '⬇ 一键安装光影包' : isRpack ? '⬇ 一键安装资源包' : '⬇ 一键安装整合包';
+    $('btn-detail-install').textContent = kind === 'shader' ? '⬇ 一键安装光影包' : '⬇ 一键安装整合包';
   }
   $('detail-progress-card').style.display = 'none';
   $('detail-steps').innerHTML = '';
@@ -212,14 +218,20 @@ async function openDetail(kind, pack) {
   }
 }
 
-// 填充 Mod 详情页的“安装到版本”下拉
-async function fillDetailTargets(pack) {
+// 填充 Mod 详情页的“安装到版本”下拉；opt 为 true 时首项为“全局 .minecraft（所有实例可用）”
+async function fillDetailTargets(pack, opt) {
   const sel = $('sel-detail-target');
   const list = await window.api.listVersions();
   sel.innerHTML = '';
+  if (opt) {
+    const g = document.createElement('option');
+    g.value = '';
+    g.textContent = '全局 .minecraft（所有实例可用）';
+    sel.appendChild(g);
+  }
   if (!list.length) {
     const o = document.createElement('option');
-    o.value = ''; o.textContent = '（没有本地版本，请先下载或安装整合包）';
+    o.value = ''; o.textContent = opt ? '（没有本地实例）' : '（没有本地版本，请先下载或安装整合包）';
     sel.appendChild(o);
     return;
   }
@@ -417,23 +429,24 @@ async function installVersion(v) {
     return;
   }
 
-  // 资源包：下载到 .minecraft/resourcepacks
+  // 资源包：全量安装到目标实例目录（含内置前置），不选实例则装到全局 .minecraft/resourcepacks
   if (kind === 'rpack') {
-    const f = (v.files || []).find((x) => x.primary) || (v.files || [])[0];
-    if (!f) return alert('该版本没有可下载文件');
+    const target = $('sel-detail-target') ? $('sel-detail-target').value : '';
     const card = $('detail-progress-card');
     card.style.display = 'block';
     $('detail-progress-title').textContent = '安装资源包：' + pack.title;
-    $('detail-progress').style.width = '30%';
-    $('detail-progress-text').textContent = '正在下载…';
+    $('detail-progress').style.width = '0%';
+    $('detail-progress-text').textContent = '准备中…';
     $('detail-steps').innerHTML = '';
-    addStep('下载到 resourcepacks');
-    log('data', `开始下载资源包：${pack.title} / ${f.filename}`);
-    const r = await window.api.rpackInstall({ url: f.url, filename: f.filename });
+    addStep(target ? '下载到「' + target + '」的 resourcepacks 文件夹' : '下载到全局 .minecraft/resourcepacks 文件夹');
+    log('data', `开始一键安装资源包：${pack.title} / ${v.name || v.id}` + (target ? ` → ${target}` : ''));
+    $('btn-detail-install').disabled = true;
+    const r = await window.api.rpackInstallFull({ id: pack.id, versionId: v.id, version: target, name: pack.title, source: detailCtx.source || 'modrinth' });
+    $('btn-detail-install').disabled = false;
     if (r && r.ok) {
-      addStep('下载完成', 'done');
+      addStep(`下载完成（${r.count} 个文件）`, 'done');
       $('detail-progress').style.width = '100%';
-      $('detail-progress-text').textContent = '下载完成，可在游戏“选项 → 资源包”中启用';
+      $('detail-progress-text').textContent = target ? '安装完成，可在该实例“选项 → 资源包”中启用' : '下载完成，可在游戏“选项 → 资源包”中启用';
     } else {
       addStep('下载失败：' + (r ? r.error : '未知错误'), 'err');
       $('detail-progress-text').textContent = '下载失败';

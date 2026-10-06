@@ -77,15 +77,46 @@ ipcMain.handle('rpack:versions', async (_e, { id, mc }) => {
   try { return { ok: true, list: await modpack.modrinthResourcepackVersions(id, mc || '') }; }
   catch (e) { return { ok: false, error: e.message }; }
 });
-ipcMain.handle('rpack:install', async (_e, { url, filename }) => {
+// 资源包目录：指定版本时用「版本目录/resourcepacks」，否则用全局 .minecraft/resourcepacks
+function rpackDir(version) {
+  const cfg = loadConfig();
+  if (version) {
+    const dir = path.join(cfg.mcDir, 'versions', version, 'resourcepacks');
+    return dir;
+  }
+  return path.join(cfg.mcDir, 'resourcepacks');
+}
+
+ipcMain.handle('rpack:install', async (_e, { url, filename, version }) => {
   try {
-    const cfg = loadConfig();
-    const dir = path.join(cfg.mcDir, 'resourcepacks');
+    const dir = rpackDir(version || '');
     fs.mkdirSync(dir, { recursive: true });
     const dest = path.join(dir, filename);
-    const send = (m) => __win().webContents.send('install:log', m + '\n');
-    await modpack.downloadFile(url, dest, null, send, filename);
+    const msg = (m) => { try { __win().webContents.send('install:log', m + '\n'); } catch {} };
+    await modpack.downloadFile(url, dest, null, msg, filename);
     return { ok: true, file: dest };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+// 资源包全量安装：把版本的所有文件（含前置）按序下载到目标版本目录
+ipcMain.handle('rpack:install-full', async (_e, { id, versionId, version, name, source }) => {
+  try {
+    const dir = rpackDir(version || '');
+    fs.mkdirSync(dir, { recursive: true });
+    const label = name || id;
+    const send = (payload) => { try { __win().webContents.send('install:progress', payload); } catch {} };
+    const files = await modpack.collectInstallFiles({ source, id, versionId });
+    if (!files || !files.length) return { ok: false, error: '该版本没有可下载文件' };
+    const total = files.length;
+    const done = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      send({ pct: Math.round((i / total) * 100), done: i, total, label: `下载 ${label}（${i + 1}/${total}）` });
+      const dest = path.join(dir, f.filename);
+      await modpack.downloadFile(f.url, dest, null, (m) => { try { __win().webContents.send('install:log', m + '\n'); } catch {} }, f.filename);
+      done.push(f.filename);
+    }
+    send({ pct: 100, done: total, total, label: '完成' });
+    return { ok: true, dir, count: total, files: done };
   } catch (e) { return { ok: false, error: e.message }; }
 });
 ipcMain.handle('rpack:list', () => {

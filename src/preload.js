@@ -88,6 +88,7 @@ contextBridge.exposeInMainWorld('api', {
   rpackSearch: (p) => ipcRenderer.invoke('rpack:search', p),
   rpackVersions: (p) => ipcRenderer.invoke('rpack:versions', p),
   rpackInstall: (p) => ipcRenderer.invoke('rpack:install', p),
+  rpackInstallFull: (p) => ipcRenderer.invoke('rpack:install-full', p),
   rpackList: () => ipcRenderer.invoke('rpack:list'),
   rpackOpen: () => ipcRenderer.invoke('rpack:open'),
 

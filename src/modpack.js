@@ -957,6 +957,19 @@ async function curseforgeModFiles(id, mcVersion, loader) {
   }));
 }
 
+// 收集某项目某版本的下载文件列表（供资源包等全量安装使用）
+// source: 'modrinth' | 'curseforge'；返回 [{ url, filename }]
+async function collectInstallFiles({ source, id, versionId }) {
+  let versions;
+  if (source === 'curseforge') versions = await curseforgeFiles(id);
+  else versions = await modrinthVersions(id);
+  const ver = (versions || []).find((v) => String(v.id) === String(versionId)) || (versions || [])[0];
+  if (!ver || !ver.files || !ver.files.length) return [];
+  // primary 优先，其后其余文件（通常为内置前置/附加包）
+  const files = ver.files.slice().sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0));
+  return files.map((f) => ({ url: f.url, filename: f.filename }));
+}
+
 // ---------- 综合搜索：同时查 Modrinth + CurseForge，合并去重 ----------
 // kind: 'modpack' | 'mod' | 'shader'
 async function searchAll(kind, query, opts = {}) {
@@ -1146,6 +1159,7 @@ module.exports = {
   // 资源包
   searchResourcepacks,
   modrinthResourcepackVersions,
+  collectInstallFiles,
   // mod 更新检查
   checkModUpdates,
   // 综合搜索
