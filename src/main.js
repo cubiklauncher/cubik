@@ -20,6 +20,7 @@ const lazyModule = (rel) => {
 };
 const authMgr = lazyModule('./auth');
 const modpack = lazyModule('./modpack');
+const mcmod = lazyModule('./mcmod');
 const serverMgr = lazyModule('./server');
 const tunnelMgr = lazyModule('./tunnel');
 const installer = lazyModule('./installer');
@@ -485,6 +486,20 @@ function createWindow() {
           srv.zhSearchFirst = (cr && cr.list && cr.list[0]) ? cr.list[0].title : '';
           srv.zhSearchN = cr && cr.list ? cr.list.length : 0;
         } catch (e) { srv.zhSearchOk = false; }
+        // MC百科搜索源验证
+        try {
+          const mr = await window.api.mcmodSearch({ query: '机械动力', kind: 'mod' });
+          srv.mcmodOk = !!(mr && mr.ok && mr.list && mr.list.length);
+          srv.mcmodFirst = mr && mr.list && mr.list[0] ? mr.list[0].title : '';
+          srv.mcmodN = mr && mr.list ? mr.list.length : 0;
+          if (mr && mr.list && mr.list[0]) {
+            const pr = await window.api.mcmodPrereqs({ id: mr.list[0].id, kind: mr.list[0].kind });
+            srv.mcmodPrereqN = pr && pr.prereqs ? pr.prereqs.length : -1;
+            srv.mcmodPrereqFirst = pr && pr.prereqs && pr.prereqs[0] ? pr.prereqs[0].name : '';
+          }
+        } catch (e) { srv.mcmodOk = false; srv.mcmodErr = String(e && e.message); }
+        // mcmod 源下拉选项
+        try { srv.mcmodOption = !!document.querySelector('#sel-modsrc option[value="mcmod"]') && !!document.querySelector('#sel-mod-source option[value="mcmod"]'); } catch {}
         // 服务器页卡片顺序（验证重排）
         srv.srvCardOrder = [...document.querySelectorAll('#page-server .card, #page-server details.card')].map(function(c){
           var h = c.querySelector('h2') || c.querySelector('.tut-summary') || c.querySelector('summary');
@@ -2239,6 +2254,24 @@ ipcMain.handle('search:all', async (_e, { kind, query, mcVersion, loader }) => {
     modpack.attachZhNames(list);
     backgroundEnrichZh(list);
     return { ok: true, list };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+// ---------- MC 百科（mcmod.cn）中文搜索源 ----------
+ipcMain.handle('mcmod:search', async (_e, { query, kind } = {}) => {
+  try {
+    const list = await mcmod.searchMcmod(query || '', kind || '');
+    return { ok: true, list };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+ipcMain.handle('mcmod:prereqs', async (_e, { id, kind } = {}) => {
+  try {
+    const r = await mcmod.fetchPrereqs(id, kind === 'modpack' ? 'modpack' : 'class');
+    return r;
   } catch (e) {
     return { ok: false, error: e.message };
   }
