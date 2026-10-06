@@ -37,12 +37,31 @@ const missDom = [...new Set(rendererIds)].filter((i) => !htmlIds.has(i) && !/^(u
 if (missDom.length) bad('DOM id: HTML 缺少', missDom.join(',')); else ok('DOM id: HTML ' + htmlIds.size + ' / renderer ' + new Set(rendererIds).size);
 
 // 4. 模块语法
-const files = ['src/main.js', 'src/preload.js', 'src/server.js', 'src/modpack.js', 'src/installer.js', 'src/constants.js'];
+const files = ['src/main.js', 'src/preload.js', 'src/server.js', 'src/modpack.js', 'src/installer.js', 'src/constants.js', 'src/auth.js', 'src/java.js', 'src/telemetry.js', 'src/tunnel.js', 'src/renderer/renderer.js'];
 console.log('=== 模块语法 ===');
 for (const f of files) {
   try { new Function(R(f)); console.log('  OK  ' + f); }
   catch (e) { fail++; console.log('  XX  ' + f + ' ' + e.message); }
 }
+
+// 5. require 依赖可解析性
+console.log('=== require 依赖 ===');
+const jsFiles = files.filter((f) => /^src\/[^/]+\.js$/.test(f));
+const missReq = [];
+for (const f of jsFiles) {
+  const src = R(f);
+  for (const m of src.matchAll(/require\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+    const mod = m[1];
+    if (mod.startsWith('.')) {
+      const base = path.resolve(path.dirname(path.join(__dirname, f)), mod);
+      if (!fs.existsSync(base) && !fs.existsSync(base + '.js') && !fs.existsSync(base + '.json')) missReq.push(f + ' -> ' + mod);
+    } else {
+      try { require.resolve(mod); } catch { missReq.push(f + ' -> ' + mod + ' (npm)'); }
+    }
+  }
+}
+if (missReq.length) { fail += missReq.length; missReq.forEach((x) => console.log('  XX  ' + x)); }
+else ok('require 依赖全部可解析');
 
 console.log(fail ? '\n有 ' + fail + ' 处问题 ❌' : '\n全部通过 ✅');
 process.exit(fail ? 1 : 0);
