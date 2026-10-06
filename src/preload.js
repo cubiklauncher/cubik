@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('api', {
   legal: (d) => ipcRenderer.invoke('app:legal', d),
   setConfig: (cfg) => ipcRenderer.invoke('cfg:set', cfg),
   pickDir: () => ipcRenderer.invoke('pick:dir'),
+  pickNewDir: (o) => ipcRenderer.invoke('pick:newDir', o),
   pickJava: () => ipcRenderer.invoke('pick:java'),
   pickFile: (o) => ipcRenderer.invoke('pick:file', o),
   listVersions: () => ipcRenderer.invoke('mc:versions'),

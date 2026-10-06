@@ -2178,7 +2178,13 @@ $('btn-detail-install').onclick = () => {
 // ---------- 服务器 ----------
 $('btn-srv-pick').onclick = async () => {
   const p = await window.api.pickDir();
-  if (p) $('in-srv-dir').value = p;
+  if (p) { $('in-srv-dir').value = p; }
+};
+// 新建（或选择）一个文件夹作为服务器目录
+if ($('btn-srv-newdir')) $('btn-srv-newdir').onclick = async () => {
+  const cur = $('in-srv-dir').value.trim();
+  const p = await window.api.pickNewDir(cur ? { defaultPath: cur } : {});
+  if (p) { $('in-srv-dir').value = p; log('data', '已选定服务器目录：' + p); }
 };
 $('btn-srv-quick').onclick = async () => {
   // 一键快速建服：自动应用推荐配置（Paper + 推荐内存），填好默认目录后直接创建
@@ -2453,12 +2459,19 @@ async function syncServerDirToUI() {
 }
 
 if ($('btn-srv-new')) $('btn-srv-new').onclick = async () => {
-  // 新建：清空目录，引导用户填一个新目录
-  $('in-srv-dir').value = '';
+  // 新建：推荐一个默认目录（D:\mc-server、 D:\mc-server2 … 自动避开已存在）并引导用户选择/新建文件夹
+  let base = 'D:\\mc-server';
+  try {
+    const lr = await window.api.serverList();
+    const used = new Set((lr && lr.ok ? lr.list : []).map((s) => (s.dir || '').toLowerCase()));
+    let n = 1, cand = base;
+    while (used.has(cand.toLowerCase())) { n += 1; cand = base + n; }
+    base = cand;
+  } catch {}
+  $('in-srv-dir').value = base;
   $('in-srv-dir').focus();
-  document.querySelector('#srv-options') && ($('srv-options').open = true);
-  log('data', '新建服务器：请填写服务器目录，选择类型与版本后点「创建服务器」');
-  // 滚到建服表单
+  if ($('srv-options')) $('srv-options').open = true;
+  log('data', '新建服务器：已填入建议目录 ' + base + '，可直接用或点「选择文件夹/新建文件夹」换成其它位置，然后选类型与版本点「创建服务器」');
   const form = $('in-srv-dir').closest('.card');
   if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
 };

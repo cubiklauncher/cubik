@@ -456,6 +456,8 @@ function createWindow() {
         srv.srvModListEl = !!document.getElementById('srvm-list');
         srv.srvListCard = !!document.getElementById('srv-list-box');
         srv.srvListNewBtn = !!document.getElementById('btn-srv-new');
+        srv.srvNewDirBtn = !!document.getElementById('btn-srv-newdir');
+        srv.srvPickBtn = !!document.getElementById('btn-srv-pick');
         try {
           const sl = await window.api.serverList();
           srv.srvListOk = !!(sl && sl.ok);
@@ -935,6 +937,20 @@ ipcMain.handle('cfg:set', (_e, cfg) => {
 ipcMain.handle('pick:dir', async () => {
   const r = await dialog.showOpenDialog(win, { properties: ['openDirectory'] });
   return r.canceled ? null : r.filePaths[0];
+});
+
+// 选择（或新建）一个文件夹作为服务器目录：默认定位到 .minecraft 同级，方便用户直接“新建文件夹”
+ipcMain.handle('pick:newDir', async (_e, { defaultPath } = {}) => {
+  const c = loadConfig();
+  const base = defaultPath || path.dirname(c.serverDir || path.join(DEFAULT_MC_DIR, 'server'));
+  const r = await dialog.showOpenDialog(win, {
+    title: '选择或新建一个文件夹作为服务器目录',
+    defaultPath: base,
+    buttonLabel: '用这个文件夹',
+    properties: ['openDirectory', 'createDirectory', 'promptToCreate'],
+  });
+  if (r.canceled || !r.filePaths[0]) return null;
+  return r.filePaths[0];
 });
 
 // ---------- IPC：选择 Java ----------
