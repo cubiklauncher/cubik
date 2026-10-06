@@ -288,6 +288,54 @@ function createWindow() {
       setTimeout(() => app.quit(), 300);
       return;
     }
+    if (process.env.CUBIK_SELFTEST === 'newserver') {
+      try {
+        const out = await win.webContents.executeJavaScript(`(async () => {
+          const r = {};
+          try {
+            const nav = document.querySelector('.nav-item[data-page="server"]');
+            if (nav) { nav.click(); await new Promise(x => setTimeout(x, 700)); }
+            r.listShown = document.getElementById('srv-list-card').style.display !== 'none';
+            const nb = document.getElementById('btn-srv-new');
+            r.btnExists = !!nb;
+            r.btnText = nb ? nb.textContent : '';
+            let clicked = false;
+            if (nb) {
+              nb.addEventListener('click', function onclk(){ clicked = true; }, true);
+              nb.click();
+              await new Promise(x => setTimeout(x, 1500));
+            }
+            r.handlerFired = clicked;
+            r.dirFilled = (document.getElementById('in-srv-dir') || {}).value || '';
+            r.listStayed = document.getElementById('srv-list-card').style.display !== 'none';
+            r.mvHidden = document.getElementById('srv-manage-view').style.display === 'none';
+            r.optsOpen = !!(document.getElementById('srv-options') || {}).open;
+            r.verOpts = document.querySelectorAll('#sel-srv-mcver option').length;
+            r.verVal = (document.getElementById('sel-srv-mcver') || {}).value || '';
+            r.verDisabled = !!(document.getElementById('sel-srv-mcver') || {}).disabled;
+            r.logTail = (document.getElementById('log-box') || {}).textContent ? document.getElementById('log-box').textContent.slice(-600) : '';
+            // 直接调 API 看是否报错
+            try {
+              const vr = await window.api.serverVersions({ type: 'vanilla' });
+              r.apiOk = !!(vr && vr.ok);
+              r.apiN = vr && vr.list ? vr.list.length : -1;
+              r.apiErr = (vr && vr.error) || '';
+            } catch (e) { r.apiThrow = String(e && e.message); }
+            // 再等 2.5s，看版本下拉是否从“加载中”变成真实列表
+            await new Promise(x => setTimeout(x, 2500));
+            r.verOpts2 = document.querySelectorAll('#sel-srv-mcver option').length;
+            r.verVal2 = (document.getElementById('sel-srv-mcver') || {}).value || '';
+            r.verDisabled2 = !!(document.getElementById('sel-srv-mcver') || {}).disabled;
+            r.logTail2 = (document.getElementById('log-box') || {}).textContent ? document.getElementById('log-box').textContent.slice(-400) : '';
+          } catch (e) { r.err = String(e && e.stack || e); }
+          return JSON.stringify(r);
+        })()`);
+        require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), out);
+        console.log('SELFTEST_NEWSRV ' + out);
+      } catch (e) { try { require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), 'ERR ' + e.message); } catch {} }
+      setTimeout(() => app.quit(), 400);
+      return;
+    }
     if (process.env.CUBIK_SELFTEST === 'launchcheck') {
       try {
         await new Promise((r) => setTimeout(r, 2500));
@@ -538,6 +586,23 @@ function createWindow() {
           if (bk) { bk.click(); await new Promise(r => setTimeout(r, 400)); }
           srv.mgrBackedToList = lv.style.display !== 'none' && mv.style.display === 'none';
         } catch (e) { srv.mgrErr = String(e && e.message); }
+        // 「新建服务器」按钮全流程（列表视图点击 → 回列表 → 建议目录 → 进管理视图 → 建服表单可见）
+        try {
+          const nv = document.querySelector('.nav-item[data-page="server"]');
+          if (nv) { nv.click(); await new Promise(r => setTimeout(r, 600)); }
+          const lv2 = document.getElementById('srv-list-card');
+          const mv2 = document.getElementById('srv-manage-view');
+          srv.newBeforeListShown = lv2.style.display !== 'none';
+          srv.newBtnExists = !!document.getElementById('btn-srv-new');
+          const nb = document.getElementById('btn-srv-new');
+          if (nb) { nb.click(); await new Promise(r => setTimeout(r, 1200)); }
+          const dirVal = (document.getElementById('in-srv-dir') || {}).value || '';
+          srv.newDirFilled = dirVal;
+          srv.newListStayed = lv2.style.display !== 'none';
+          srv.newManageStayedHidden = mv2.style.display === 'none';
+          srv.newOptsOpen = !!(document.getElementById('srv-options') && document.getElementById('srv-options').open);
+          srv.newVerSelOpts = document.querySelectorAll('#sel-srv-mcver option').length;
+        } catch (e) { srv.newErr = String(e && e.message); }
         // 服务器页卡片顺序（验证重排）
         srv.srvCardOrder = [...document.querySelectorAll('#page-server .card, #page-server details.card')].map(function(c){
           var h = c.querySelector('h2') || c.querySelector('.tut-summary') || c.querySelector('summary');
@@ -688,6 +753,8 @@ if (gotLock) {
     createWindow();
     // 启动服务器自动存档定时器（仅当启用且有服务器运行时会真正备份）
     try { restartAutoBackupTimer(); } catch {}
+    // 预热服务端版本列表（默认原版）：用户第一次打开服务器页时“MC 版本”能秒出，不再卡“加载中”
+    setTimeout(() => { try { serverMgr.listServerVersions('vanilla').catch(() => {}); } catch {} }, 1500);
   });
 }
 app.on('window-all-closed', () => {

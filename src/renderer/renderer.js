@@ -1298,7 +1298,7 @@ async function loadServerVersions() {
   const t0 = Date.now();
   const myReq = ++srvVerReqSeq;
   sel.disabled = true;
-  sel.innerHTML = '<option>加载中…</option>';
+  sel.innerHTML = '<option>加载中…（首次需要联网获取版本，约 1-3 秒）</option>';
   let r;
   try {
     r = await window.api.serverVersions({ type });
@@ -1310,7 +1310,8 @@ async function loadServerVersions() {
   sel.disabled = false;
   if (!r || !r.ok) {
     sel.innerHTML = '<option value="">加载失败，请重试</option>';
-    log('data', `获取 ${type} 可用版本失败：${(r && r.error) || '未知错误'}`);
+    log('error', `获取 ${type} 可用版本失败：${(r && r.error) || '未知错误'}（点击「服务器类型」重新选择可重试）`);
+    sel.title = '加载失败：' + ((r && r.error) || '未知错误') + '，切换类型可重试';
     return;
   }
   const ids = r.list.map((v) => (typeof v === 'string' ? v : v.id)).filter(Boolean);
@@ -2613,11 +2614,26 @@ if ($('btn-srv-new')) $('btn-srv-new').onclick = async () => {
     base = cand;
   } catch {}
   $('in-srv-dir').value = base;
-  $('in-srv-dir').focus();
   if ($('srv-options')) $('srv-options').open = true;
   log('data', '新建服务器：已填入建议目录 ' + base + '，可直接用或点「选择文件夹/新建文件夹」换成其它位置，然后选类型与版本点「创建服务器」');
   const form = $('in-srv-dir').closest('.card');
   if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // 关键：若 MC 版本列表还在“加载中”，帮用户等它加载完（否则看起来就像“新建不了”）
+  const verSel = $('sel-srv-mcver');
+  if (verSel && (verSel.disabled || !verSel.value || /加载中/.test(verSel.options[0] ? verSel.options[0].textContent : ''))) {
+    const t0 = Date.now();
+    const type = $('sel-srv-type').value;
+    while (verSel.disabled || !verSel.value || /加载中/.test(verSel.options[0] ? verSel.options[0].textContent : '')) {
+      if (Date.now() - t0 > 12000) break;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    if (!verSel.disabled && verSel.value) {
+      const secs = ((Date.now() - t0) / 1000).toFixed(1);
+      log('data', `版本列表已就绪（${type}，用时 ${secs}s），当前选 ${verSel.value}。可以直接点「创建服务器」了。`);
+    } else {
+      log('error', '版本列表加载较慢或失败：请检查网络，或在「服务器类型」下拉里重新选一次重试。');
+    }
+  }
 };
 if ($('btn-srv-add-existing')) $('btn-srv-add-existing').onclick = async () => {
   const dir = await window.api.pickDir();

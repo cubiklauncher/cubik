@@ -225,9 +225,28 @@ function getText(url, tries = 3) {
   });
 }
 
+// 竞速拉取多个 URL，谁先返回有效结果用谁（用于镜像回退：bmclapi 在国内明显更快）
+function getJSONRace(urls, timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    let pending = urls.length;
+    const errs = [];
+    urls.forEach((u) => {
+      getJSON(u, 1).then(resolve, (e) => {
+        errs.push(e);
+        if (--pending === 0) reject(errs[0] || new Error('全部源失败'));
+      });
+    });
+  });
+}
+
 async function vanillaManifest() {
   if (manifestCache) return manifestCache;
-  manifestCache = await getJSON('https://launchermeta.mojang.com/mc/game/version_manifest_v2.json');
+  // 优先 bmclapi（国内快），同时请求官方源，谁先回来用谁；失败自动回退
+  const urls = [
+    'https://bmclapi2.bangbang93.com/mc/game/version_manifest_v2.json',
+    'https://launchermeta.mojang.com/mc/game/version_manifest_v2.json'
+  ];
+  manifestCache = await getJSONRace(urls);
   return manifestCache;
 }
 
