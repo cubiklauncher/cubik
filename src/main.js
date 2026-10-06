@@ -414,6 +414,9 @@ function createWindow() {
         // 新增：服务器存档备份卡
         srv.srvwCard = !!document.getElementById('btn-srvw-backup');
         srv.srvwList = !!document.getElementById('srvw-list');
+        srv.srvAuto = !!document.getElementById('chk-auto-backup');
+        srv.srvUpdCard = !!document.getElementById('btn-srvu-check');
+        srv.srvUpdApply = !!document.getElementById('btn-srvu-apply');
         // 服务器页卡片顺序（验证重排）
         srv.srvCardOrder = [...document.querySelectorAll('#page-server .card, #page-server details.card')].map(function(c){
           var h = c.querySelector('h2') || c.querySelector('.tut-summary') || c.querySelector('summary');
@@ -541,10 +544,19 @@ function createWindow() {
           await new Promise((r) => setTimeout(r, 600));
           const png2 = await win.webContents.capturePage();
           require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-srvw-shot.png'), png2.toPNG());
+          // 再滚到服务端自动更新卡
+          await win.webContents.executeJavaScript(`(() => {
+            const c = document.getElementById('srv-update-card');
+            if (c) { c.scrollIntoView({ block: 'center' }); return true; }
+            return false;
+          })()`);
+          await new Promise((r) => setTimeout(r, 500));
+          const png3 = await win.webContents.capturePage();
+          require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-srvu-shot.png'), png3.toPNG());
         } catch (e) {}
       } catch (e) {}
     } catch (e) { console.log('SELFTEST_ERROR ' + e.message); try { require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), 'SELFTEST_ERROR ' + e.message); } catch {} }
-    setTimeout(() => app.quit(), 1500);
+    setTimeout(() => app.quit(), 2600);
   });
 }
 
@@ -553,6 +565,8 @@ if (gotLock) {
     // 匿名使用统计：启动后延迟上报一次（隐私友好，可在配置关闭，失败不影响启动）
     try { telemetry.init({ dataRoot: DATA_ROOT, version: APP_VERSION }); } catch {}
     createWindow();
+    // 启动服务器自动存档定时器（仅当启用且有服务器运行时会真正备份）
+    try { restartAutoBackupTimer(); } catch {}
   });
 }
 app.on('window-all-closed', () => {
@@ -1418,6 +1432,94 @@ ipcMain.handle('server-world:open', () => {
   const dir = srvDir();
   fs.mkdirSync(dir, { recursive: true });
   return shell.openPath(dir);
+});
+
+// ---------- 服务器自动存档（定时自动备份 + 保留最近 N 份）----------
+let autoBackupTimer = null;
+function autoBackupConfig() {
+  const c = loadConfig();
+  const ab = c.serverAutoBackup || {};
+  return {
+    enabled: ab.enabled !== false,
+    intervalMin: Math.max(1, Math.min(1440, parseInt(ab.intervalMin, 10) || 30)),
+    keep: Math.max(1, Math.min(100, parseInt(ab.keep, 10) || 10))
+  };
+}
+// 清理旧备份，仅保留最近 keep 份
+function pruneServerBackups(dir, keep) {
+  try {
+    const list = backup.listServerBackups(dir); // 已按时间倒序
+    for (let i = keep; i < list.length; i++) {
+      try { backup.deleteServerBackup(dir, list[i].file); } catch {}
+    }
+  } catch {}
+}
+async function runAutoBackup(reason) {
+  const dir = srvDir();
+  if (!dir || !fs.existsSync(dir)) return { ok: false, error: '服务器目录不存在' };
+  // 运行中的服务器先强制存盘，保证备份一致
+  if (serverMgr.isRunning()) {
+    try { serverMgr.sendCommand('save-all'); } catch {}
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  const cfgAB = autoBackupConfig();
+  const note = reason || '自动存档';
+  const r = backup.backupServerWorld(dir, note);
+  pruneServerBackups(dir, cfgAB.keep);
+  if (win && !win.isDestroyed()) {
+    try { win.webContents.send('server:autobackup', { ok: true, ...r, note, at: Date.now() }); } catch {}
+  }
+  return r;
+}
+function restartAutoBackupTimer() {
+  if (autoBackupTimer) { clearInterval(autoBackupTimer); autoBackupTimer = null; }
+  const ab = autoBackupConfig();
+  if (!ab.enabled) return;
+  const ms = ab.intervalMin * 60 * 1000;
+  autoBackupTimer = setInterval(() => {
+    // 仅在服务器运行中自动存档（避免空转）
+    try {
+      if (serverMgr.isRunning()) runAutoBackup('自动存档');
+    } catch {}
+  }, ms);
+  // 不阻塞进程退出
+  if (autoBackupTimer.unref) autoBackupTimer.unref();
+}
+ipcMain.handle('server-auto-backup:get', () => ({ ok: true, ...autoBackupConfig() }));
+ipcMain.handle('server-auto-backup:set', (_e, opts = {}) => {
+  try {
+    const c = loadConfig();
+    c.serverAutoBackup = {
+      enabled: opts.enabled !== false,
+      intervalMin: Math.max(1, Math.min(1440, parseInt(opts.intervalMin, 10) || 30)),
+      keep: Math.max(1, Math.min(100, parseInt(opts.keep, 10) || 10))
+    };
+    saveConfig(c);
+    restartAutoBackupTimer();
+    return { ok: true, ...autoBackupConfig() };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('server-auto-backup:run-now', async () => {
+  try { return { ok: true, ...(await runAutoBackup('手动自动存档')) }; }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+
+// ---------- 服务器自动更新 ----------
+ipcMain.handle('server-update:check', async () => {
+  try { return { ok: true, ...(await serverMgr.checkServerUpdate(srvDir())) }; }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('server-update:apply', async () => {
+  try {
+    if (serverMgr.isRunning()) return { ok: false, error: '请先停止服务器再更新' };
+    const r = await serverMgr.updateServerJar(
+      srvDir(),
+      (m) => { try { win.webContents.send('server:log', m + '\n'); } catch {} },
+      (got, total) => { try { win.webContents.send('server:progress', { task: got, total }); } catch {} }
+    );
+    if (r && r.ok) restartAutoBackupTimer();
+    return r;
+  } catch (e) { return { ok: false, error: e.message }; }
 });
 
 ipcMain.handle('instance:backup', (_e, { name }) => {

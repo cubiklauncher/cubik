@@ -631,7 +631,35 @@
           <button class="btn" id="btn-srvw-refresh">🔄 刷新</button>
           <button class="btn ghost" id="btn-srvw-open">📂 打开服务器目录</button>
         </div>
+        <div class="srvw-auto">
+          <label class="chk-inline"><input type="checkbox" id="chk-auto-backup"> <b>自动存档</b>（服务器运行中定时静默备份）</label>
+          <div class="row" style="gap:10px;flex-wrap:wrap;margin-top:6px;align-items:center">
+            <span class="hint" style="margin:0">每</span>
+            <input id="in-auto-backup-interval" type="number" min="1" max="1440" value="30" style="width:80px">
+            <span class="hint" style="margin:0">分钟备份一次，保留最近</span>
+            <input id="in-auto-backup-keep" type="number" min="1" max="100" value="10" style="width:70px">
+            <span class="hint" style="margin:0">份</span>
+            <button class="btn mini primary" id="btn-auto-backup-save">保存</button>
+            <button class="btn mini" id="btn-auto-backup-now">现在存一次</button>
+          </div>
+          <p class="hint" style="margin-top:4px" id="auto-backup-hint">开启后，只要服务器在运行，启动器会按设定间隔自动备份世界（备份前先 save-all 保证不丢进度），并自动清理旧备份。</p>
+        </div>
         <div id="srvw-list" class="srvw-list" style="margin-top:12px"></div>
+      </div>
+
+      <div class="card" id="srv-update-card">
+        <h2>⬆️ 服务端自动更新</h2>
+        <p class="hint">自动检测当前服务端类型与版本，并对比官方最新构建（目前支持 Paper）。<b>更新前请先停止服务器</b>；旧服务端 jar 会自动备份到 <code>.backups\server-jar</code>。</p>
+        <div class="srvw-summary">
+          <span class="srv-chip" id="srvu-type">类型：—</span>
+          <span class="srv-chip" id="srvu-current">当前：—</span>
+          <span class="srv-chip" id="srvu-latest">最新：—</span>
+        </div>
+        <p class="hint" id="srvu-note" style="margin-top:6px"></p>
+        <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">
+          <button class="btn" id="btn-srvu-check">🔍 检查更新</button>
+          <button class="btn primary" id="btn-srvu-apply" disabled>⬆️ 一键更新</button>
+        </div>
       </div>
 
       <details class="card adv-box" id="tunnel-card">

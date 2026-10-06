@@ -70,7 +70,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (btn.dataset.page === 'shader' && !shaderLoaded) loadShaderTop();
     if (btn.dataset.page === 'data') loadDataPage();
     if (btn.dataset.page === 'mod' && !modPageLoaded) loadModPage();
-    if (btn.dataset.page === 'server') { refreshNetInfo(); refreshServerBackup(); }
+    if (btn.dataset.page === 'server') { refreshNetInfo(); refreshServerBackup(); loadAutoBackup(); checkServerUpdateUI(true); }
     if (btn.dataset.page === 'vanilla' && !window.__vanLoaded) { window.__vanLoaded = true; loadVanillaVersions(); }
     if (btn.dataset.page === 'versions') refreshVersions();
   };
@@ -2389,6 +2389,75 @@ if ($('btn-srvw-backup')) $('btn-srvw-backup').onclick = async () => {
 };
 if ($('btn-srvw-refresh')) $('btn-srvw-refresh').onclick = refreshServerBackup;
 if ($('btn-srvw-open')) $('btn-srvw-open').onclick = () => window.api.serverWorldOpen();
+
+// ---------- 服务器：自动存档 ----------
+async function loadAutoBackup() {
+  if (!$('chk-auto-backup')) return;
+  const r = await window.api.serverAutoBackupGet();
+  if (r && r.ok) {
+    $('chk-auto-backup').checked = !!r.enabled;
+    $('in-auto-backup-interval').value = r.intervalMin;
+    $('in-auto-backup-keep').value = r.keep;
+  }
+}
+if ($('btn-auto-backup-save')) $('btn-auto-backup-save').onclick = async () => {
+  const r = await window.api.serverAutoBackupSet({
+    enabled: $('chk-auto-backup').checked,
+    intervalMin: parseInt($('in-auto-backup-interval').value, 10),
+    keep: parseInt($('in-auto-backup-keep').value, 10)
+  });
+  if (!r || !r.ok) return alert('保存失败：' + ((r && r.error) || '未知错误'));
+  const hint = $('auto-backup-hint');
+  if (hint) hint.textContent = r.enabled
+    ? `已开启：每 ${r.intervalMin} 分钟自动备份一次，保留最近 ${r.keep} 份。`
+    : '已关闭自动存档。';
+  alert(r.enabled ? `自动存档已开启（每 ${r.intervalMin} 分钟，保留 ${r.keep} 份）` : '自动存档已关闭');
+};
+if ($('btn-auto-backup-now')) $('btn-auto-backup-now').onclick = async () => {
+  const btn = $('btn-auto-backup-now');
+  const o = btn.textContent; btn.textContent = '备份中…'; btn.disabled = true;
+  const r = await window.api.serverAutoBackupRunNow();
+  btn.textContent = o; btn.disabled = false;
+  if (!r || !r.ok) return alert('备份失败：' + ((r && r.error) || '未知错误'));
+  alert('已备份：' + (r.sizeText || ''));
+  refreshServerBackup();
+};
+
+// ---------- 服务器：自动更新 ----------
+async function checkServerUpdateUI(auto) {
+  if (!$('btn-srvu-check')) return;
+  const btn = $('btn-srvu-check');
+  const o = btn.textContent; btn.textContent = '检查中…'; btn.disabled = true;
+  const r = await window.api.serverUpdateCheck();
+  btn.textContent = o; btn.disabled = false;
+  if (!r || !r.ok) {
+    if (!auto) alert('检查失败：' + ((r && r.error) || '未知错误'));
+    return;
+  }
+  $('srvu-type').textContent = '类型：' + (r.type || '未知');
+  $('srvu-current').textContent = '当前：' + (r.current || '—');
+  $('srvu-latest').textContent = '最新：' + (r.latest || '—');
+  const note = $('srvu-note');
+  if (note) note.textContent = r.note || '';
+  const apply = $('btn-srvu-apply');
+  if (apply) { apply.disabled = !(r.canUpdate && r.hasUpdate); }
+  if (auto && r.canUpdate && r.hasUpdate) {
+    try { window.__srvUpdNotified || (window.__srvUpdNotified = false); } catch {}
+  }
+}
+if ($('btn-srvu-check')) $('btn-srvu-check').onclick = () => checkServerUpdateUI(false);
+if ($('btn-srvu-apply')) $('btn-srvu-apply').onclick = async () => {
+  const st = await window.api.serverStatus();
+  if (st && st.running) return alert('请先停止服务器，再执行更新。');
+  if (!confirm('即将下载最新服务端并替换当前 server.jar（旧文件会自动备份）。\n更新后需重新启动服务器。确定继续？')) return;
+  const btn = $('btn-srvu-apply');
+  const o = btn.textContent; btn.textContent = '更新中…'; btn.disabled = true;
+  const r = await window.api.serverUpdateApply();
+  btn.textContent = o; btn.disabled = false;
+  if (!r || !r.ok) return alert('更新失败：' + ((r && r.error) || '未知错误'));
+  alert('已更新到最新版！重启服务器后生效。');
+  checkServerUpdateUI(false);
+};
 $('btn-srv-open').onclick = () => window.api.openPath($('in-srv-dir').value.trim());
 $('btn-srv-cmd').onclick = async () => {
   const c = $('in-srv-cmd').value.trim();
@@ -2545,6 +2614,14 @@ function ensureChatGlobals() {
   }
   if (window.api.onServerOnline) {
     window.api.onServerOnline((o) => chatRenderOnline(o));
+  }
+  if (window.api.onServerAutoBackup) {
+    window.api.onServerAutoBackup((d) => {
+      if (!d || !d.ok) return;
+      try { refreshServerBackup(); } catch {}
+      const hint = document.getElementById('auto-backup-hint');
+      if (hint) hint.textContent = '上次自动存档：' + new Date(d.at || Date.now()).toLocaleTimeString() + ' · ' + (d.sizeText || '');
+    });
   }
 }
 

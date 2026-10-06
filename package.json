@@ -1,6 +1,6 @@
 {
   "name": "cubik",
-  "version": "1.0.27",
+  "version": "1.0.28",
   "description": "Cubik - 简洁易用的 Minecraft 启动器（整合包一键安装、原版下载、服务器管理）",
   "main": "src/main.js",
   "scripts": {

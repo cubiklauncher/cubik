@@ -63,6 +63,11 @@ contextBridge.exposeInMainWorld('api', {
   serverWorldRestore: (p) => ipcRenderer.invoke('server-world:restore', p),
   serverWorldBackupDelete: (p) => ipcRenderer.invoke('server-world:backup-delete', p),
   serverWorldOpen: () => ipcRenderer.invoke('server-world:open'),
+  serverAutoBackupGet: () => ipcRenderer.invoke('server-auto-backup:get'),
+  serverAutoBackupSet: (p) => ipcRenderer.invoke('server-auto-backup:set', p),
+  serverAutoBackupRunNow: () => ipcRenderer.invoke('server-auto-backup:run-now'),
+  serverUpdateCheck: () => ipcRenderer.invoke('server-update:check'),
+  serverUpdateApply: () => ipcRenderer.invoke('server-update:apply'),
   instanceBackup: (p) => ipcRenderer.invoke('instance:backup', p),
   instanceBackups: (p) => ipcRenderer.invoke('instance:backups', p),
   instanceRestore: (p) => ipcRenderer.invoke('instance:restore', p),
@@ -130,6 +135,7 @@ contextBridge.exposeInMainWorld('api', {
   serverRefreshOnline: () => ipcRenderer.invoke('server:refresh-online'),
   onServerChat: (cb) => ipcRenderer.on('server:chat', (_e, d) => cb(d)),
   onServerOnline: (cb) => ipcRenderer.on('server:online', (_e, d) => cb(d)),
+  onServerAutoBackup: (cb) => ipcRenderer.on('server:autobackup', (_e, d) => cb(d)),
 
   // 内网穿透
   tunnelDownload: () => ipcRenderer.invoke('tunnel:download'),

@@ -265,6 +265,18 @@ async function paperUrl(mcVersion) {
   return dl.url;
 }
 
+// Paper 最新构建信息（含 build 号与下载地址），用于自动更新
+async function paperLatestBuild(mcVersion) {
+  const builds = await getJSON(`https://fill.papermc.io/v3/projects/paper/versions/${mcVersion}/builds`);
+  if (!Array.isArray(builds) || !builds.length) throw new Error(`Paper 暂无 ${mcVersion} 构建`);
+  const stable = builds.filter((b) => b.channel === 'STABLE');
+  const list = stable.length ? stable : builds;
+  const last = list[list.length - 1];
+  const dl = last.downloads['server:default'] || last.downloads['server:mojang'];
+  if (!dl) throw new Error('Paper 下载信息缺失');
+  return { build: last.id, channel: last.channel, url: dl.url, mcVersion };
+}
+
 // Fabric 服务端
 async function fabricUrl(mcVersion) {
   const installer = await getJSON('https://meta.fabricmc.net/v2/versions/installer');
@@ -790,4 +802,116 @@ function updateServerProperties(dir, updates = {}) {
   return { ok: true };
 }
 
-module.exports = { createServer, startServer, stopServer, sendCommand, listServerVersions, isRunning, getState, requestOnlineList, serverJvmArgs, serverInfo, getLanIP, getPublicIP, readServerPort, updateServerProperties, parseServerLine, setOnlineFromListLine, getOnlinePlayers, resetOnline, quickServerDefaults };
+// ---------- 服务端类型/版本检测 + 自动更新 ----------
+// 从服务器目录推断当前服务端类型与版本。
+function detectServer(dir) {
+  const res = { type: 'unknown', mcVersion: '', build: '', current: '', raw: '' };
+  if (!dir || !fs.existsSync(dir)) return res;
+
+  // 1) version_history.json（Paper/Spigot/Bukkit 会写）：{"currentVersion":"git-Paper-18 (MC: 1.20.1)"}
+  try {
+    const vh = path.join(dir, 'version_history.json');
+    if (fs.existsSync(vh)) {
+      const j = JSON.parse(fs.readFileSync(vh, 'utf8'));
+      const cur = j.currentVersion || '';
+      res.raw = cur;
+      const m = cur.match(/git-(\w+)-(\d+)\s*\(MC:\s*([^)]+)\)/i);
+      if (m) {
+        const name = m[1].toLowerCase();
+        res.type = name === 'paper' ? 'paper' : name === 'spigot' ? 'spigot' : name;
+        res.build = m[2];
+        res.mcVersion = m[3].trim();
+        res.current = cur;
+        return res;
+      }
+    }
+  } catch {}
+
+  // 2) Fabric：fabric-server-launch.properties 或 .fabric 目录 + launch jar
+  try {
+    const hasFabric = fs.existsSync(path.join(dir, '.fabric')) ||
+      fs.existsSync(path.join(dir, 'fabric-server-launch.jar')) ||
+      fs.existsSync(path.join(dir, 'fabric-server-launcher.properties'));
+    if (hasFabric) {
+      res.type = 'fabric';
+      // 尝试从 .fabric/remappedJars 或 log 取 mc 版本
+      const lf = path.join(dir, 'logs', 'latest.log');
+      if (fs.existsSync(lf)) {
+        const txt = fs.readFileSync(lf, 'utf8').slice(-20000);
+        const mm = txt.match(/Loading Minecraft ([\d.]+)/i) || txt.match(/minecraft server version ([\d.]+)/i);
+        if (mm) res.mcVersion = mm[1];
+      }
+      res.current = 'Fabric';
+      return res;
+    }
+  } catch {}
+
+  // 3) Forge/NeoForge：libraries 下 net/minecraftforge 或 neoforged
+  try {
+    const libs = path.join(dir, 'libraries');
+    if (fs.existsSync(path.join(libs, 'net', 'neoforged'))) {
+      res.type = 'neoforge'; res.current = 'NeoForge'; return res;
+    }
+    if (fs.existsSync(path.join(libs, 'net', 'minecraftforge'))) {
+      res.type = 'forge'; res.current = 'Forge'; return res;
+    }
+  } catch {}
+
+  // 4) 兜底：有 server.jar 且无特征 → 视为原版；尝试从 start.bat 里解析 mc 版本（不可得则空）
+  if (fs.existsSync(path.join(dir, 'server.jar'))) {
+    res.type = 'vanilla';
+    res.current = '原版/未知';
+  }
+  return res;
+}
+
+// 检查服务端是否有可用更新（不需要运行中）
+async function checkServerUpdate(dir) {
+  const det = detectServer(dir);
+  const info = { ...det, latest: '', latestBuild: '', hasUpdate: false, note: '', canUpdate: false };
+  try {
+    if (det.type === 'paper' && det.mcVersion) {
+      const lb = await paperLatestBuild(det.mcVersion);
+      info.latestBuild = String(lb.build);
+      info.latest = `Paper #${lb.build} (MC: ${det.mcVersion})`;
+      info.hasUpdate = String(lb.build) !== String(det.build);
+      info.canUpdate = true;
+      info.downloadUrl = lb.url;
+      if (!info.hasUpdate) info.note = '已是最新版';
+      else info.note = `有新版：#${lb.build}（当前 #${det.build}）`;
+    } else if (det.type === 'vanilla' && det.mcVersion) {
+      info.note = '原版服务端需按 MC 版本下载，请到「建服」重装对应版本';
+    } else {
+      info.note = det.type === 'unknown' ? '未能识别服务端类型，无法自动更新' : `${det.type} 暂不支持自动更新`;
+    }
+  } catch (e) {
+    info.note = '检查更新失败：' + e.message;
+  }
+  return info;
+}
+
+// 执行更新（仅支持 Paper）：先备份旧 jar，再下载新 jar 覆盖
+async function updateServerJar(dir, onLog, onProgress) {
+  const det = detectServer(dir);
+  if (det.type !== 'paper' || !det.mcVersion) {
+    return { ok: false, error: '暂仅支持 Paper 服务端自动更新（当前识别为：' + det.type + '）' };
+  }
+  if (serverProc) return { ok: false, error: '请先停止服务器再更新' };
+  const lb = await paperLatestBuild(det.mcVersion);
+  const jar = path.join(dir, 'server.jar');
+  // 备份旧 jar
+  if (fs.existsSync(jar)) {
+    const bakDir = path.join(dir, '.backups', 'server-jar');
+    fs.mkdirSync(bakDir, { recursive: true });
+    const bak = path.join(bakDir, `server__${det.build || 'old'}__${Date.now()}.jar`);
+    try { fs.copyFileSync(jar, bak); onLog && onLog('已备份旧服务端：' + path.basename(bak)); } catch {}
+  }
+  onLog && onLog(`下载 Paper #${lb.build} …`);
+  const tmp = jar + '.download';
+  await get(lb.url, tmp, onProgress);
+  fs.renameSync(tmp, jar);
+  onLog && onLog(`已更新到 Paper #${lb.build}`);
+  return { ok: true, build: lb.build, mcVersion: det.mcVersion };
+}
+
+module.exports = { createServer, startServer, stopServer, sendCommand, listServerVersions, isRunning, getState, requestOnlineList, serverJvmArgs, serverInfo, getLanIP, getPublicIP, readServerPort, updateServerProperties, parseServerLine, setOnlineFromListLine, getOnlinePlayers, resetOnline, quickServerDefaults, detectServer, checkServerUpdate, updateServerJar, paperLatestBuild };
