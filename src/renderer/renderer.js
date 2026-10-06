@@ -427,13 +427,19 @@ async function refreshVersions() {
 // ---------- 原版下载版本列表（自定义下拉，带图标） ----------
 let vanillaVerList = [];
 
-async function loadVanillaVersions() {
+async function loadVanillaVersions(opts = {}) {
+  const force = !!opts.force;
   const type = $('sel-van-type').value;
   $('vp-label').textContent = '加载中…';
   $('vp-ico').innerHTML = '';
-  const r = await window.api.versionManifest({ type });
-  if (!r.ok) { $('vp-label').textContent = '加载失败'; return; }
+  const t0 = performance.now();
+  const r = await window.api.versionManifest({ type, force });
+  if (!r.ok) { $('vp-label').textContent = '加载失败'; const h = $('van-cache-hint'); if (h) h.textContent = r.error || ''; return; }
+  const ms = Math.round(performance.now() - t0);
   vanillaVerList = r.list;
+  // 缓存提示
+  const hint = $('van-cache-hint');
+  if (hint) hint.textContent = `共 ${r.list.length} 个版本 · ${ms}ms${force ? '（已刷新）' : ''}`;
   // 默认选第一个
   if (r.list.length) selectVanillaVersion(r.list[0].id, type);
   else { $('vp-label').textContent = '无可用版本'; $('sel-van-ver').value = ''; }
@@ -477,7 +483,11 @@ if ($('ver-picker-btn')) {
   });
 }
 
-$('sel-van-type').onchange = loadVanillaVersions;
+$('sel-van-type').onchange = () => loadVanillaVersions();
+if ($('btn-refresh-manifest')) $('btn-refresh-manifest').onclick = async () => {
+  $('btn-refresh-manifest').disabled = true;
+  try { await loadVanillaVersions({ force: true }); } finally { $('btn-refresh-manifest').disabled = false; }
+};
 $('sel-van-loader').onchange = loadLoaderVersions;
 
 // 加载加载器版本列表（无加载器时禁用）

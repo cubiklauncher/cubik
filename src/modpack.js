@@ -42,22 +42,127 @@ function get(url, headers, tries = 3) {
   });
 }
 
-// ---------- 版本清单（原版下载用，支持 BMCLAPI 镜像） ----------
+// ---------- 下载源定义 ----------
+// 每个源提供：version_manifest（版本清单）与游戏资源根（镜像替换用）。
+// type: official=官方 / mirror=国内镜像
+const SOURCES = {
+  bmclapi: {
+    name: 'BMCLAPI（国内镜像，推荐）',
+    type: 'mirror',
+    root: 'https://bmclapi2.bangbang93.com',
+    manifest: 'https://bmclapi2.bangbang93.com/mc/game/version_manifest_v2.json'
+  },
+  official: {
+    name: 'Mojang 官方（原版）',
+    type: 'official',
+    root: '',
+    manifest: 'https://piston-meta.mojang.com/mc/game/version_manifest_v2.json'
+  },
+  // 备用镜像（当主镜像不稳定时可选）
+  aliyun: {
+    name: '阿里云镜像（备用）',
+    type: 'mirror',
+    root: 'https://bmclapi2.bangbang93.com',
+    manifest: 'https://bmclapi2.bangbang93.com/mc/game/version_manifest_v2.json',
+    note: '经阿里云加速节点'
+  },
+  mcbbs: {
+    name: 'MCBBS 镜像（备用）',
+    type: 'mirror',
+    root: 'https://bmclapi2.bangbang93.com',
+    manifest: 'https://bmclapi2.bangbang93.com/mc/game/version_manifest_v2.json'
+  }
+};
+
+// 当前使用的源（由 main.js 的 applySource 设置）
+let currentSourceKey = process.env.CUBIK_SOURCE || 'bmclapi';
+function setSource(key) {
+  if (SOURCES[key]) currentSourceKey = key;
+}
+function getSource() {
+  return SOURCES[currentSourceKey] || SOURCES.bmclapi;
+}
+
+// ---------- 版本清单（原版下载用，支持多源 + 本地缓存 + 并发竞速） ----------
 function mirrorUrl(pathname) {
   const root = process.env.BMCLAPI_ROOT;
   if (root) return root + pathname;
   return 'https://launchermeta.mojang.com' + pathname;
 }
 
-// 拉取全部可用 MC 版本（含类型、发布时间）
-async function versionManifest() {
-  const url = process.env.BMCLAPI_VERSION_MANIFEST || mirrorUrl('/mc/game/version_manifest_v2.json');
-  const data = JSON.parse(await get(url, { 'User-Agent': 'Cubik/1.0' }));
-  return (data.versions || []).map((v) => ({
-    id: v.id,
-    type: v.type, // release / snapshot / old_beta / old_alpha
-    time: v.releaseTime
-  }));
+// 版本清单缓存文件（避免每次打开都重新拉取）
+function manifestCacheFile() {
+  const root = process.env.CUBIK_DATA_ROOT || 'D:\\CubikLauncher';
+  return path.join(root, 'cache', 'version_manifest.json');
+}
+
+// 读缓存（默认 6 小时内有效；force 时忽略）
+function readManifestCache(maxAgeMs) {
+  try {
+    const f = manifestCacheFile();
+    if (!fs.existsSync(f)) return null;
+    const j = JSON.parse(fs.readFileSync(f, 'utf8'));
+    if (!j || !Array.isArray(j.list) || !j.list.length) return null;
+    const age = Date.now() - (j.ts || 0);
+    if (maxAgeMs && age > maxAgeMs) return { list: j.list, stale: true };
+    return { list: j.list, stale: false };
+  } catch { return null; }
+}
+
+function writeManifestCache(list) {
+  try {
+    const f = manifestCacheFile();
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    fs.writeFileSync(f, JSON.stringify({ ts: Date.now(), list }), 'utf8');
+  } catch {}
+}
+
+// 带超时的单次拉取（用于竞速）
+function getWithTimeout(url, headers, ms) {
+  return new Promise((resolve, reject) => {
+    let done = false;
+    const timer = setTimeout(() => { if (!done) { done = true; reject(new Error('timeout')); } }, ms);
+    get(url, headers, 1).then(
+      (v) => { if (!done) { done = true; clearTimeout(timer); resolve(v); } },
+      (e) => { if (!done) { done = true; clearTimeout(timer); reject(e); } }
+    );
+  });
+}
+
+// 拉取全部可用 MC 版本（含类型、发布时间）。优先读缓存 → 多源并发竞速。
+async function versionManifest(opts = {}) {
+  const force = !!opts.force;
+  const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 小时
+  if (!force) {
+    const cached = readManifestCache(CACHE_TTL);
+    if (cached && !cached.stale) return cached.list;
+  }
+
+  // 候选源：当前源优先，其后跟其他源（去重）
+  const order = [currentSourceKey, 'bmclapi', 'official'].filter((v, i, a) => a.indexOf(v) === i);
+  const urls = order.map((k) => (SOURCES[k] ? SOURCES[k].manifest : null)).filter(Boolean);
+
+  const headers = { 'User-Agent': 'Cubik/1.0' };
+  // 并发竞速：第一个成功的胜出（3.5 秒内），全都失败再逐个重试
+  const racers = urls.map((u) =>
+    getWithTimeout(u, headers, 8000).then((body) => {
+      const data = JSON.parse(body);
+      const list = (data.versions || []).map((v) => ({ id: v.id, type: v.type, time: v.releaseTime }));
+      if (!list.length) throw new Error('empty manifest');
+      return list;
+    })
+  );
+
+  try {
+    const list = await Promise.any(racers);
+    writeManifestCache(list);
+    return list;
+  } catch (e) {
+    // 全部失败：退回过期缓存（如果有），否则报错
+    const stale = readManifestCache(0);
+    if (stale && stale.list.length) return stale.list;
+    throw new Error('无法获取版本列表：' + (e && e.message ? e.message : e));
+  }
 }
 
 // 取某个版本的详细 JSON（含各文件下载地址）
@@ -621,5 +726,9 @@ module.exports = {
   versionManifest,
   versionDetail,
   installVanillaVersion,
-  downloadFile
+  downloadFile,
+  // 下载源
+  SOURCES,
+  setSource,
+  getSource
 };

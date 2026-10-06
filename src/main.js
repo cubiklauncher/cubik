@@ -24,6 +24,8 @@ const serverMgr = lazyModule('./server');
 const tunnelMgr = lazyModule('./tunnel');
 const installer = lazyModule('./installer');
 const { APP_NAME, APP_VERSION, DATA_ROOT } = require('./constants');
+// 供 modpack 等模块解析缓存路径
+process.env.CUBIK_DATA_ROOT = DATA_ROOT;
 
 // ---------- 启动开关（必须在 app ready 前设置）----------
 // 1) 证书兼容：部分企业网络/安全软件替换 TLS 证书，Node 默认不读系统库。
@@ -133,14 +135,22 @@ function loadConfig() {
 }
 
 // ---------- 下载源切换 ----------
+// 支持多源：bmclapi（国内镜像，默认）、official（Mojang 官方）等。
 function applySource(src) {
-  if (src === 'bmclapi') {
-    process.env.BMCLAPI_ROOT = 'https://bmclapi2.bangbang93.com';
-    process.env.BMCLAPI_VERSION_MANIFEST = 'https://bmclapi2.bangbang93.com/mc/game/version_manifest.json';
+  // 兼容旧配置：mojang → official
+  let key = src || 'bmclapi';
+  if (key === 'mojang') key = 'official';
+  try { modpack.setSource(key); } catch {}
+  const S = (modpack.SOURCES && modpack.SOURCES[key]) || null;
+  const root = S && S.root ? S.root : '';
+  if (root) {
+    process.env.BMCLAPI_ROOT = root;
+    if (S.manifest) process.env.BMCLAPI_VERSION_MANIFEST = S.manifest;
   } else {
     delete process.env.BMCLAPI_ROOT;
     delete process.env.BMCLAPI_VERSION_MANIFEST;
   }
+  process.env.CUBIK_SOURCE = key;
 }
 
 function saveConfig(cfg) {
@@ -222,7 +232,25 @@ function createWindow() {
 
   // 自动化自测钩子：设置 CUBIK_SELFTEST=1 时自测；=launch 时测试启动游戏
   win.once('ready-to-show', async () => {
-    if (!process.env.CUBIK_SELFTEST) return;    if (process.env.CUBIK_SELFTEST === 'launch') {
+    if (!process.env.CUBIK_SELFTEST) return;
+    if (process.env.CUBIK_SELFTEST === 'manifest') {
+      try {
+        const out = await win.webContents.executeJavaScript(`(async () => {
+          const r1t = performance.now();
+          const r1 = await window.api.versionManifest({ type: 'release' });
+          const ms1 = Math.round(performance.now() - r1t);
+          const r2t = performance.now();
+          const r2 = await window.api.versionManifest({ type: 'release' });
+          const ms2 = Math.round(performance.now() - r2t);
+          const srcs = await window.api.sourceList();
+          return JSON.stringify({ first:{ok:r1.ok,n:r1.list?r1.list.length:0,ms:ms1}, cached:{ok:r2.ok,n:r2.list?r2.list.length:0,ms:ms2}, sources:srcs.map(s=>s.key) });
+        })()`);
+        require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), out);
+      } catch (e) { try { require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), 'ERR ' + e.message); } catch {} }
+      setTimeout(() => app.quit(), 300);
+      return;
+    }
+    if (process.env.CUBIK_SELFTEST === 'launch') {
       // 测试启动游戏，捕获错误
       try {
         await new Promise((r) => setTimeout(r, 2000));
@@ -1402,9 +1430,9 @@ ipcMain.handle('pack:install', async (_e, { source, id, versionId }) => {
 });
 
 // ---------- 安装原版 ----------
-ipcMain.handle('mc:manifest', async (_e, { type }) => {
+ipcMain.handle('mc:manifest', async (_e, { type, force }) => {
   try {
-    const list = await modpack.versionManifest();
+    const list = await modpack.versionManifest({ force: !!force });
     let filtered = list;
     if (type === 'release') filtered = list.filter((v) => v.type === 'release');
     else if (type === 'snapshot') filtered = list.filter((v) => v.type === 'snapshot');
@@ -1413,6 +1441,12 @@ ipcMain.handle('mc:manifest', async (_e, { type }) => {
   } catch (e) {
     return { ok: false, error: e.message };
   }
+});
+
+// 下载源列表（供设置页下拉框）
+ipcMain.handle('source:list', () => {
+  const S = modpack.SOURCES || {};
+  return Object.keys(S).map((k) => ({ key: k, name: S[k].name, type: S[k].type, note: S[k].note || '' }));
 });
 
 ipcMain.handle('mc:install-vanilla', async (_e, { version }) => {

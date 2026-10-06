@@ -92,6 +92,10 @@
           </div>
           <input type="hidden" id="sel-van-ver">
         </div>
+        <div class="row end" style="margin-top:6px">
+          <span class="hint" id="van-cache-hint" style="flex:1"></span>
+          <button id="btn-refresh-manifest" class="btn ghost">↻ 刷新版本列表</button>
+        </div>
         <div class="row">
           <select id="sel-van-loader" style="flex:1">
             <option value="vanilla">无加载器（原版）</option>
@@ -540,11 +544,14 @@
           <input id="in-gameargs" type="text" placeholder="如 --width 1280 --height 720 --fullscreen">
         </details>
 
-        <label>下载源（国内强烈建议用 BMCLAPI）</label>
+        <label>下载源（国内强烈建议用 BMCLAPI 或其镜像）</label>
         <select id="sel-source">
-          <option value="bmclapi">BMCLAPI 国内镜像（推荐）</option>
-          <option value="mojang">Mojang 官方源</option>
+          <option value="bmclapi">BMCLAPI 国内镜像（推荐，速度快）</option>
+          <option value="aliyun">阿里云加速节点（备用镜像）</option>
+          <option value="mcbbs">MCBBS 镜像（备用）</option>
+          <option value="official">Mojang 官方源（原版，国内可能较慢）</option>
         </select>
+        <p class="hint">镜像源会同时替换游戏本体、库文件、资源文件的下载地址；官方源适合在海外或镜像不可用时使用。</p>
 
         <label>自动下载 Java（按版本自动装对应 Java）</label>
         <div class="row">
