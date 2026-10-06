@@ -31,6 +31,7 @@
     <nav class="nav-links" aria-label="主导航">
       <a href="#features">功能</a>
       <a href="#download">下载</a>
+      <a href="#stats">统计</a>
       <a href="#faq">常见问题</a>
       <a href="#about">关于</a>
     </nav>
@@ -180,7 +181,32 @@
   </section>
 </main>
 
-<footer class="footer">
+  <!-- 使用统计（数据来自匿名上报，公开可见） -->
+  <section class="section" id="stats">
+    <div class="container">
+      <div class="section-head reveal">
+        <h2 class="section-title">使用统计</h2>
+        <p class="section-sub">数据来自启动器的匿名上报，仅统计总量与设备数，不涉及任何个人隐私。</p>
+      </div>
+      <div class="stats-grid reveal" id="statsGrid">
+        <div class="stat-card">
+          <div class="stat-num" id="statLaunches">—</div>
+          <div class="stat-label">累计启动次数</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="statDevices">—</div>
+          <div class="stat-label">服务玩家设备数</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="statToday">—</div>
+          <div class="stat-label">今日活跃设备</div>
+        </div>
+      </div>
+      <p class="stat-note" id="statNote">统计功能随 v1.0.11 起启用。</p>
+    </div>
+  </section>
+
+  <footer class="footer">
   <div class="footer-inner">
     <div class="foot-brand"><img src="assets/images/logo-256.png" alt="Cubik" class="foot-logo"><span>Cubik</span></div>
     <p class="foot-copy">Copyright &copy; 2026 Cubik · MIT License · Made for the Minecraft community</p>

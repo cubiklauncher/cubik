@@ -8,6 +8,7 @@ const modpack = require('./modpack');
 const serverMgr = require('./server');
 const tunnelMgr = require('./tunnel');
 const installer = require('./installer');
+const telemetry = require('./telemetry');
 const { APP_NAME, APP_VERSION, DATA_ROOT } = require('./constants');
 
 // ---------- 证书兼容：让 Electron/Node 网络栈信任 Windows 系统证书库 ----------
@@ -255,7 +256,11 @@ function createWindow() {
 }
 
 if (gotLock) {
-  app.whenReady().then(createWindow);
+  app.whenReady().then(() => {
+    // 匿名使用统计：启动后延迟上报一次（隐私友好，可在配置关闭，失败不影响启动）
+    try { telemetry.init({ dataRoot: DATA_ROOT, version: APP_VERSION }); } catch {}
+    createWindow();
+  });
 }
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

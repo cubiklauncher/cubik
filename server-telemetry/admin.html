@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Cubik 使用统计 · 后台</title>
+<style>
+  :root{
+    --bg:#05070f; --panel:rgba(255,255,255,.045); --line:rgba(255,255,255,.10);
+    --txt:#e8eefc; --dim:#8b98b8; --cyan:#4fd1ff; --grn:#41e0a3; --vio:#8b7bff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:
+      radial-gradient(1200px 600px at 20% -10%, rgba(79,209,255,.14), transparent 60%),
+      radial-gradient(900px 500px at 90% 10%, rgba(139,123,255,.12), transparent 60%),
+      var(--bg);
+    color:var(--txt);font:14px/1.6 -apple-system,"Segoe UI",system-ui,"Microsoft YaHei",sans-serif;min-height:100vh}
+  .wrap{max-width:1080px;margin:0 auto;padding:32px 20px 80px}
+  h1{font-size:22px;margin:0 0 4px;letter-spacing:.5px}
+  .sub{color:var(--dim);font-size:13px;margin-bottom:24px}
+  .login{max-width:380px;margin:12vh auto 0;background:var(--panel);border:1px solid var(--line);
+    border-radius:18px;padding:28px;backdrop-filter:blur(14px)}
+  .login h1{text-align:center}
+  input{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);
+    background:rgba(0,0,0,.35);color:var(--txt);font-size:14px;outline:none}
+  input:focus{border-color:var(--cyan)}
+  button{cursor:pointer;border:none;font-weight:600;font-size:14px}
+  .btn{width:100%;margin-top:14px;padding:12px;border-radius:12px;
+    background:linear-gradient(135deg,var(--cyan),var(--vio));color:#02121a}
+  .btn:hover{filter:brightness(1.1)}
+  .ghost{background:transparent;color:var(--dim);border:1px solid var(--line);
+    padding:6px 12px;border-radius:10px;font-size:12px}
+  .ghost:hover{color:var(--txt);border-color:var(--cyan)}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;
+    backdrop-filter:blur(10px)}
+  .card .n{font-size:28px;font-weight:700;letter-spacing:.5px;
+    background:linear-gradient(135deg,var(--cyan),var(--grn));-webkit-background-clip:text;
+    background-clip:text;color:transparent}
+  .card .l{color:var(--dim);font-size:12px;margin-top:6px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px;
+    backdrop-filter:blur(10px)}
+  .box h2{font-size:14px;margin:0 0 14px;color:var(--dim);font-weight:600;letter-spacing:.4px}
+  .row{display:flex;align-items:center;gap:10px;margin:9px 0;font-size:13px}
+  .row .k{flex:1;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row .b{height:8px;border-radius:4px;background:linear-gradient(90deg,var(--cyan),var(--vio));min-width:3px}
+  .row .v{color:var(--dim);min-width:52px;text-align:right;font-variant-numeric:tabular-nums}
+  .bar{height:9px;background:rgba(255,255,255,.07);border-radius:5px;overflow:hidden;flex:1}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--grn));border-radius:5px}
+  .err{color:#ff8a8a;font-size:12px;margin-top:10px;min-height:16px}
+  .muted{color:var(--dim);font-size:12px}
+  @media(max-width:860px){.cards{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}
+  @media(max-width:520px){.cards{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 登录 -->
+  <div class="login" id="loginView">
+    <h1>Cubik 统计后台</h1>
+    <div class="sub" style="text-align:center">输入管理令牌查看使用数据</div>
+    <input type="password" id="token" placeholder="ADMIN_TOKEN" autocomplete="current-password">
+    <button class="btn" id="loginBtn">进入</button>
+    <div class="err" id="loginErr"></div>
+    <div class="muted" style="margin-top:16px;text-align:center">
+      令牌在部署时通过 <code>wrangler secret put ADMIN_TOKEN</code> 设置
+    </div>
+  </div>
+
+  <!-- 面板 -->
+  <div id="dashView" style="display:none">
+    <header>
+      <div>
+        <h1>Cubik 使用统计</h1>
+        <div class="sub" id="updated">—</div>
+      </div>
+      <div>
+        <button class="ghost" id="refreshBtn">刷新</button>
+        <button class="ghost" id="logoutBtn">退出</button>
+      </div>
+    </header>
+
+    <div class="cards">
+      <div class="card"><div class="n" id="mTotal">–</div><div class="l">累计启动次数</div></div>
+      <div class="card"><div class="n" id="mDevices">–</div><div class="l">独立设备数</div></div>
+      <div class="card"><div class="n" id="mNew">–</div><div class="l">新增设备（首次启动）</div></div>
+      <div class="card"><div class="n" id="mActive">–</div><div class="l">今日活跃设备</div></div>
+    </div>
+
+    <div class="box">
+      <h2>近 14 天活跃（去重设备）</h2>
+      <div id="daily"></div>
+    </div>
+
+    <div class="grid2">
+      <div class="box"><h2>版本分布</h2><div id="byVer"></div></div>
+      <div class="box"><h2>平台分布</h2><div id="byPlat"></div></div>
+    </div>
+
+    <div class="box"><h2>地区分布（粗粒度）</h2><div id="byCountry" class="muted">—</div></div>
+  </div>
+
+</div>
+
+<script>
+// 部署 Worker 后改成你的地址
+const API = localStorage.getItem('cubik_api') || 'https://cubik-telemetry.example.workers.dev';
+const $ = (id) => document.getElementById(id);
+let TOKEN = sessionStorage.getItem('cubik_token') || '';
+
+function fmt(n){ return (n==null? '–' : Number(n).toLocaleString('zh-CN')); }
+
+function rows(container, arr, keyField, valField, total){
+  const el = $(container);
+  if(!arr || !arr.length){ el.innerHTML = '<div class="muted">暂无数据</div>'; return; }
+  const max = Math.max(...arr.map(x=>x[valField])) || 1;
+  el.innerHTML = arr.map(x=>{
+    const pct = Math.max(2, Math.round(x[valField]/max*100));
+    return '<div class="row"><span class="k">'+ (x[keyField]||'未知') +'</span>'+
+      '<span class="bar"><i style="width:'+pct+'%"></i></span>'+
+      '<span class="v">'+ fmt(x[valField]) +'</span></div>';
+  }).join('');
+}
+
+async function load(){
+  const r = await fetch(API.replace(/\/$/,'') + '/admin', {
+    headers: { 'Authorization': 'Bearer ' + TOKEN }
+  });
+  if(r.status === 401){ throw new Error('令牌无效'); }
+  if(!r.ok){ throw new Error('请求失败 ' + r.status); }
+  const d = await r.json();
+
+  $('mTotal').textContent = fmt(d.total_launches);
+  $('mDevices').textContent = fmt(d.total_devices);
+  $('mNew').textContent = fmt(d.new_devices);
+  const today = new Date().toISOString().slice(0,10);
+  const t = (d.daily||[]).find(x=>x.day===today);
+  $('mActive').textContent = fmt(t ? t.active : 0);
+  $('updated').textContent = '更新于 ' + new Date(d.updated_at).toLocaleString('zh-CN');
+
+  // 近 14 天
+  const daily = (d.daily||[]).slice().reverse();
+  if(daily.length){
+    const max = Math.max(...daily.map(x=>x.active)) || 1;
+    $('daily').innerHTML = daily.map(x=>{
+      const pct = Math.max(2, Math.round(x.active/max*100));
+      return '<div class="row"><span class="k" style="max-width:110px">'+ x.day +'</span>'+
+        '<span class="bar"><i style="width:'+pct+'%"></i></span>'+
+        '<span class="v">'+ fmt(x.active) +' 台</span></div>';
+    }).join('');
+  } else { $('daily').innerHTML = '<div class="muted">暂无数据</div>'; }
+
+  rows('byVer', d.by_version, 'version', 'c');
+  rows('byPlat', d.by_platform, 'platform', 'c');
+  rows('byCountry', d.by_country, 'country', 'c');
+}
+
+$('loginBtn').onclick = async () => {
+  TOKEN = $('token').value.trim();
+  $('loginErr').textContent = '';
+  if(!TOKEN){ $('loginErr').textContent = '请输入令牌'; return; }
+  try{
+    await load();
+    sessionStorage.setItem('cubik_token', TOKEN);
+    $('loginView').style.display='none';
+    $('dashView').style.display='block';
+  }catch(e){ $('loginErr').textContent = e.message; }
+};
+$('refreshBtn').onclick = () => load().catch(e=>alert(e.message));
+$('logoutBtn').onclick = () => { sessionStorage.removeItem('cubik_token'); location.reload(); };
+$('token').addEventListener('keydown', e=>{ if(e.key==='Enter') $('loginBtn').click(); });
+
+// 自动登录（会话内）
+if(TOKEN){
+  load().then(()=>{ $('loginView').style.display='none'; $('dashView').style.display='block'; })
+        .catch(()=> sessionStorage.removeItem('cubik_token'));
+}
+</script>
+</body>
+</html>

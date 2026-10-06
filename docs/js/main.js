@@ -50,6 +50,26 @@
     });
   });
 
+  // ---------- 使用统计（匿名上报聚合，公开展示） ----------
+  // 部署统计后端后，把下面地址改成你的 Worker 地址
+  var STATS_API = 'https://cubik-telemetry.example.workers.dev';
+  (function loadStats() {
+    var elL = document.getElementById('statLaunches');
+    var elD = document.getElementById('statDevices');
+    var elT = document.getElementById('statToday');
+    if (!elL || STATS_API.indexOf('example.com') !== -1) return; // 未配置则不显示
+    fetch(STATS_API.replace(/\/$/, '') + '/stats')
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (d) {
+        elL.textContent = Number(d.total_launches || 0).toLocaleString('zh-CN');
+        elD.textContent = Number(d.total_devices || 0).toLocaleString('zh-CN');
+        elT.textContent = Number(d.today_active || 0).toLocaleString('zh-CN');
+        var note = document.getElementById('statNote');
+        if (note) note.textContent = '数据实时更新 · 仅统计匿名总量，不涉及个人隐私';
+      })
+      .catch(function () { /* 静默失败，保留占位 */ });
+  })();
+
   // ---------- 背景粒子（轻量 canvas） ----------
   var canvas = document.getElementById('bg-canvas');
   if (!canvas || reduceMotion) return;
