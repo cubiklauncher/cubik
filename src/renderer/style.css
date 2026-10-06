@@ -711,6 +711,7 @@ body[data-skin="graphite"] { --text: #1c2130; }
 .srv-item .srv-item-badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
   background: var(--accent); color: #fff; flex: none; }
 .srv-item .srv-item-actions { display: flex; gap: 6px; flex: none; }
+.srv-manage-title { font-size: 15px; font-weight: 700; color: var(--text); }
 
 /* ---------- 服务器存档备份 ---------- */
 .srvw-summary { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }

@@ -457,6 +457,10 @@ function createWindow() {
         srv.srvModListEl = !!document.getElementById('srvm-list');
         srv.srvListCard = !!document.getElementById('srv-list-box');
         srv.srvListNewBtn = !!document.getElementById('btn-srv-new');
+        srv.srvManageView = !!document.getElementById('srv-manage-view');
+        srv.srvManageBack = !!document.getElementById('btn-srv-manage-back');
+        srv.srvManageBtn = !!document.querySelector('.srv-manage');
+        srv.srvManageHiddenByDefault = document.getElementById('srv-manage-view').style.display === 'none';
         srv.srvNewDirBtn = !!document.getElementById('btn-srv-newdir');
         srv.srvPickBtn = !!document.getElementById('btn-srv-pick');
         try {
@@ -518,6 +522,22 @@ function createWindow() {
           srv.srvTypeForge = await snap('forge');
           srv.srvTypeFabric = await snap('fabric');
         } catch (e) { srv.srvTypeErr = String(e && e.message); }
+        // 列表→管理视图切换
+        try {
+          const rp = document.querySelector('.nav-item[data-page="server"]');
+          if (rp) { rp.click(); await new Promise(r => setTimeout(r, 500)); }
+          const lv = document.getElementById('srv-list-card');
+          const mv = document.getElementById('srv-manage-view');
+          srv.mgrBeforeListShown = lv.style.display !== 'none';
+          const mb = document.querySelector('.srv-manage');
+          if (mb) { mb.click(); await new Promise(r => setTimeout(r, 800)); }
+          srv.mgrEnteredListHidden = lv.style.display === 'none';
+          srv.mgrEnteredViewShown = mv.style.display !== 'none';
+          srv.mgrTitle = (document.getElementById('srv-manage-title') || {}).textContent || '';
+          const bk = document.getElementById('btn-srv-manage-back');
+          if (bk) { bk.click(); await new Promise(r => setTimeout(r, 400)); }
+          srv.mgrBackedToList = lv.style.display !== 'none' && mv.style.display === 'none';
+        } catch (e) { srv.mgrErr = String(e && e.message); }
         // 服务器页卡片顺序（验证重排）
         srv.srvCardOrder = [...document.querySelectorAll('#page-server .card, #page-server details.card')].map(function(c){
           var h = c.querySelector('h2') || c.querySelector('.tut-summary') || c.querySelector('summary');
