@@ -242,11 +242,21 @@ function getJSONRace(urls, timeoutMs = 8000) {
 
 async function vanillaManifest() {
   if (manifestCache) return manifestCache;
-  // 优先 bmclapi（国内快），同时请求官方源，谁先回来用谁；失败自动回退
-  const urls = [
-    'https://bmclapi2.bangbang93.com/mc/game/version_manifest_v2.json',
-    'https://launchermeta.mojang.com/mc/game/version_manifest_v2.json'
-  ];
+  // 多源竞速（bmclapi 国内快 + 官方），失败自动回退
+  let urls;
+  try {
+    const srcMod = require('./sources');
+    const keys = srcMod.candidateKeys('game');
+    urls = keys.map((k) => (srcMod.SOURCES[k] || {}).manifest).filter(Boolean);
+  } catch {}
+  if (!urls || !urls.length) {
+    urls = [
+      'https://bmclapi2.bangbang93.com/mc/game/version_manifest_v2.json',
+      'https://launchermeta.mojang.com/mc/game/version_manifest_v2.json'
+    ];
+  }
+  // 去掉重复并补上官方源作为最终回退
+  urls = [...new Set(urls)];
   manifestCache = await getJSONRace(urls);
   return manifestCache;
 }

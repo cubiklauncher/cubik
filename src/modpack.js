@@ -42,45 +42,13 @@ function get(url, headers, tries = 3) {
   });
 }
 
-// ---------- 下载源定义 ----------
-// 每个源提供：version_manifest（版本清单）与游戏资源根（镜像替换用）。
-// type: official=官方 / mirror=国内镜像
-const SOURCES = {
-  bmclapi: {
-    name: 'BMCLAPI（国内镜像，推荐）',
-    type: 'mirror',
-    root: 'https://bmclapi2.bangbang93.com',
-    manifest: 'https://bmclapi2.bangbang93.com/mc/game/version_manifest_v2.json'
-  },
-  official: {
-    name: 'Mojang 官方（原版）',
-    type: 'official',
-    root: '',
-    manifest: 'https://piston-meta.mojang.com/mc/game/version_manifest_v2.json'
-  },
-  // 备用镜像（当主镜像不稳定时可选）
-  aliyun: {
-    name: '阿里云镜像（备用）',
-    type: 'mirror',
-    root: 'https://bmclapi2.bangbang93.com',
-    manifest: 'https://bmclapi2.bangbang93.com/mc/game/version_manifest_v2.json',
-    note: '经阿里云加速节点'
-  },
-  mcbbs: {
-    name: 'MCBBS 镜像（备用）',
-    type: 'mirror',
-    root: 'https://bmclapi2.bangbang93.com',
-    manifest: 'https://bmclapi2.bangbang93.com/mc/game/version_manifest_v2.json'
-  }
-};
-
-// 当前使用的源（由 main.js 的 applySource 设置）
-let currentSourceKey = process.env.CUBIK_SOURCE || 'bmclapi';
-function setSource(key) {
-  if (SOURCES[key]) currentSourceKey = key;
-}
+// ---------- 下载源（统一来自 sources.js） ----------
+const sources = require('./sources');
+const SOURCES = sources.SOURCES;
+function setSource(key) { sources.setMode(key); sources.applyEnv(); }
 function getSource() {
-  return SOURCES[currentSourceKey] || SOURCES.bmclapi;
+  const k = sources.preferredKey('game');
+  return SOURCES[k] || SOURCES.bmclapi;
 }
 
 // ---------- 版本清单（原版下载用，支持多源 + 本地缓存 + 并发竞速） ----------
@@ -138,9 +106,11 @@ async function versionManifest(opts = {}) {
     if (cached && !cached.stale) return cached.list;
   }
 
-  // 候选源：当前源优先，其后跟其他源（去重）
-  const order = [currentSourceKey, 'bmclapi', 'official'].filter((v, i, a) => a.indexOf(v) === i);
-  const urls = order.map((k) => (SOURCES[k] ? SOURCES[k].manifest : null)).filter(Boolean);
+  // 候选源：按统一下载源配置排序（首选在前，失败竞速回退）
+  const order = sources.candidateKeys('game');
+  const urls = order.map((k) => (SOURCES[sources.resolveKey(k)] ? SOURCES[sources.resolveKey(k)].manifest : null)).filter(Boolean);
+  // 保证至少包含官方源作为最终回退
+  if (SOURCES.official && SOURCES.official.manifest && !urls.includes(SOURCES.official.manifest)) urls.push(SOURCES.official.manifest);
 
   const headers = { 'User-Agent': 'Cubik/1.0' };
   // 并发竞速：第一个成功的胜出（3.5 秒内），全都失败再逐个重试
@@ -286,10 +256,19 @@ const MOD_MIRRORS = {
 function modDownloadCandidates(url) {
   const list = [url];
   try {
-    if (/cdn\.modrinth\.com/i.test(url) && process.env.CUBIK_MOD_MIRROR !== 'off') {
-      // 保留原地址（已在列表中）
+    if (process.env.CUBIK_MOD_MIRROR === 'off') return list;
+    // 若启用国内加速，且该 URL 是 Modrinth/CurseForge CDN，可在此追加国内反代镜像
+    // （目前直接走官方 CDN，国内普遍可达；保留结构以便后续接入第三方反代）
+    const cfg = sources.candidates('content');
+    for (const s of cfg) {
+      if (s && s.cdn && s.cdn.length) {
+        for (const c of s.cdn) {
+          if (url.startsWith(c)) {
+            // 该源已知 CDN，原址即可
+          }
+        }
+      }
     }
-    // 国内镜像：可在此追加（如需）
   } catch {}
   return list;
 }
@@ -1027,6 +1006,7 @@ async function searchAllTerms(kind, query, opts = {}) {
 }
 
 module.exports = {
+  sources,
   attachZhNames,
   enrichZhNames,
   searchModrinth,

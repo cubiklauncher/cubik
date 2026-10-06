@@ -177,7 +177,8 @@ async function init() {
   $('in-mcdir').value = cfg.mcDir || '';
   $('in-java').value = cfg.javaPath || '';
   $('in-username').value = cfg.username || 'Steve';
-  $('sel-source').value = cfg.downloadSource || 'bmclapi';
+  $('sel-source').value = normalizeSourceVal(cfg.downloadSource);
+  try { refreshSourceDetail(); } catch {}
   $('in-autojava').checked = cfg.autoJava !== false;
   $('in-cfkey').value = cfg.cfApiKey || '';
   // 建服目录：给一个全新的建议目录（D:\mc-server、D:\mc-server2…避开已有服务器）
@@ -332,6 +333,37 @@ if (window.api.onPackZhName) {
       } catch {}
     });
   }
+}
+
+// ---------- 下载源（统一）----------
+// 旧值（bmclapi/aliyun/mcbbs/mojang）归一为新模式
+function normalizeSourceVal(v) {
+  const k = String(v || 'domestic').toLowerCase();
+  if (['bmclapi', 'aliyun', 'mcbbs', 'mirror', 'cn', 'domestic'].includes(k)) return 'domestic';
+  if (['mojang', 'official', 'origin'].includes(k)) return 'official';
+  if (k === 'auto') return 'auto';
+  return 'domestic';
+}
+async function refreshSourceDetail() {
+  const el = $('source-detail');
+  if (!el) return;
+  try {
+    const r = await window.api.sourcesInfo({});
+    if (!r || !r.ok) { el.textContent = ''; return; }
+    const label = { game: '🎮 游戏本体', content: '🧩 Mod/整合包/光影', api: '🔍 搜索 API', java: '☕ Java 运行时', server: '🖥️ 服务端' };
+    el.innerHTML = Object.keys(label).map((c) => {
+      const names = (r.detail[c] || []).join(' → ') || '—';
+      return `<div>${label[c]}：${esc(names)}</div>`;
+    }).join('');
+  } catch { el.textContent = ''; }
+}
+if ($('sel-source')) {
+  $('sel-source').onchange = () => {
+    if (cfg) cfg.downloadSource = $('sel-source').value;
+    try { window.api.setConfig(Object.assign({}, cfg, { downloadSource: $('sel-source').value })); } catch {}
+    refreshSourceDetail();
+    log('data', '下载源已切换为：' + $('sel-source').selectedOptions[0].textContent);
+  };
 }
 
 function updateHomeVersion() {

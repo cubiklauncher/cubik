@@ -938,14 +938,14 @@
           <input id="in-gameargs" type="text" placeholder="如 --width 1280 --height 720 --fullscreen">
         </details>
 
-        <label>下载源（国内强烈建议用 BMCLAPI 或其镜像）</label>
+        <label>下载源（统一管理游戏本体 / Mod / Java / 服务端）</label>
         <select id="sel-source">
-          <option value="bmclapi">BMCLAPI 国内镜像（推荐，速度快）</option>
-          <option value="aliyun">阿里云加速节点（备用镜像）</option>
-          <option value="mcbbs">MCBBS 镜像（备用）</option>
-          <option value="official">Mojang 官方源（原版，国内可能较慢）</option>
+          <option value="domestic">国内加速（推荐，BMCLAPI + 国内可达 CDN）</option>
+          <option value="auto">自动（多源竞速，谁快用谁）</option>
+          <option value="official">官方源（Mojang/官方 CDN，适合海外）</option>
         </select>
-        <p class="hint">镜像源会同时替换游戏本体、库文件、资源文件的下载地址；官方源适合在海外或镜像不可用时使用。</p>
+        <p class="hint">选一个总源，启动器会为各类型下载自动选择首选源，失败时自动回退备用源。</p>
+        <div class="hint" id="source-detail" style="margin:4px 0 0;font-size:12px;line-height:1.7;opacity:.9"></div>
 
         <label>自动下载 Java（按版本自动装对应 Java）</label>
         <div class="row">

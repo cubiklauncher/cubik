@@ -149,6 +149,7 @@ contextBridge.exposeInMainWorld('api', {
   localPacksList: (o) => ipcRenderer.invoke('localpacks:list', o),
   localPacksMods: (o) => ipcRenderer.invoke('localpacks:mods', o),
   localPacksCarry: (o) => ipcRenderer.invoke('localpacks:carry', o),
+  sourcesInfo: (o) => ipcRenderer.invoke('sources:info', o),
   onSrvModProgress: (cb) => ipcRenderer.on('srvmod:progress', (_e, d) => cb(d)),
   onServerChat: (cb) => ipcRenderer.on('server:chat', (_e, d) => cb(d)),
   onServerOnline: (cb) => ipcRenderer.on('server:online', (_e, d) => cb(d)),

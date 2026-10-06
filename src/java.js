@@ -48,8 +48,7 @@ function requiredJava(mcVersion) {
 // 从 Adoptium API 取下载链接（含文件名）
 function adoptiumUrl(javaVer, onLog) {
   return new Promise((resolve, reject) => {
-    const api = `https://api.adoptium.net/v3/assets/latest/${javaVer}/hotspot?architecture=x64&image_type=jre&os=windows`;
-    onLog && onLog(`查询 Java ${javaVer} 下载地址…`);
+    const api = `https://api.adoptium.net/v3/assets/latest/${javaVer}/hotspot?architecture=x64&image_type=jre&os=windows`;    onLog && onLog(`查询 Java ${javaVer} 下载地址…`);
     const req = https.get(api, { headers: { 'User-Agent': 'Cubik/1.0' } }, (res) => {
       if (res.statusCode !== 200) {
         reject(new Error(`Adoptium API 返回 ${res.statusCode}`));
@@ -151,23 +150,30 @@ async function ensureJava(mcVersion, mcDir, onProgress, onLog) {
   fs.mkdirSync(TMP_DIR, { recursive: true });
   const tmpZip = path.join(TMP_DIR, `temurin-jre-${need}.zip`);
 
-  // 优先国内镜像（清华 Adoptium），失败则回退官方链接
+  // 按统一下载源配置决定首选：国内加速时优先清华镜像，失败回退官方；官方模式反之
+  let srcMod = null;
+  try { srcMod = require('./sources'); } catch {}
+  const javaKeys = srcMod ? srcMod.candidateKeys('java') : ['tuna-adoptium', 'adoptium'];
   const mirror = name ? mirrorJavaUrl(need, name) : null;
-  try {
-    if (mirror) {
-      onLog && onLog('使用国内镜像下载 Java（更快）');
-      await download(mirror, tmpZip, onProgress, onLog);
-    } else {
-      await download(url, tmpZip, onProgress, onLog);
-    }
-  } catch (e) {
-    if (mirror) {
-      onLog && onLog(`镜像下载失败（${e.message}），尝试官方源…`);
-      await download(url, tmpZip, onProgress, onLog);
-    } else {
-      throw e;
+  const preferMirror = javaKeys[0] === 'tuna-adoptium';
+  const attempts = [];
+  if (preferMirror && mirror) attempts.push({ label: '清华 Adoptium 镜像', url: mirror });
+  if (url) attempts.push({ label: 'Adoptium 官方', url });
+  if (!preferMirror && mirror) attempts.push({ label: '清华 Adoptium 镜像', url: mirror });
+
+  let lastErr = null;
+  for (const a of attempts) {
+    try {
+      onLog && onLog(`使用 ${a.label} 下载 Java…`);
+      await download(a.url, tmpZip, onProgress, onLog);
+      lastErr = null;
+      break;
+    } catch (e) {
+      lastErr = e;
+      onLog && onLog(`${a.label} 下载失败（${e.message}），尝试下一个源…`);
     }
   }
+  if (lastErr) throw lastErr;
 
   onLog && onLog('解压 Java 运行时…');
   fs.mkdirSync(runtimeDir, { recursive: true });

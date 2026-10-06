@@ -139,7 +139,8 @@ function loadConfig() {
     if (!c.mcDir || /^C:/i.test(c.mcDir) || !c.mcDir.startsWith(DRIVE)) c.mcDir = DEFAULT_MC_DIR;
     if (!c.serverDir || /^C:/i.test(c.serverDir) || !c.serverDir.startsWith(DRIVE))
       c.serverDir = path.join(DEFAULT_MC_DIR, 'server');
-    if (c.downloadSource === 'bmclapi') applySource('bmclapi');
+    if (c.downloadSource) applySource(c.downloadSource);
+    else applySource('domestic');
     if (c.cfApiKey) modpack.setCfKey(c.cfApiKey);
     // 多服务器列表：保证结构完整、并与 serverDir 同步
     if (!Array.isArray(c.servers)) c.servers = [];
@@ -172,23 +173,21 @@ function loadConfig() {
   }
 }
 
-// ---------- 下载源切换 ----------
-// 支持多源：bmclapi（国内镜像，默认）、official（Mojang 官方）等。
+// ---------- 下载源切换（统一由 sources.js 管理） ----------
+// 支持三种总源模式：domestic（国内加速，默认）、official（官方源）、auto（自动）。
+// 兼容旧配置：bmclapi/aliyun/mcbbs → domestic，mojang → official。
+const sources = require('./sources');
 function applySource(src) {
-  // 兼容旧配置：mojang → official
-  let key = src || 'bmclapi';
-  if (key === 'mojang') key = 'official';
+  let key = String(src || 'domestic').toLowerCase();
+  if (['bmclapi', 'aliyun', 'mcbbs', 'mirror', 'cn'].includes(key)) key = 'domestic';
+  else if (['mojang', 'official', 'origin'].includes(key)) key = 'official';
+  else if (key === 'auto') key = 'auto';
+  else key = 'domestic';
+  sources.setMode(key);
+  // 兼容 modpack.js 的 setSource + 环境变量
   try { modpack.setSource(key); } catch {}
-  const S = (modpack.SOURCES && modpack.SOURCES[key]) || null;
-  const root = S && S.root ? S.root : '';
-  if (root) {
-    process.env.BMCLAPI_ROOT = root;
-    if (S.manifest) process.env.BMCLAPI_VERSION_MANIFEST = S.manifest;
-  } else {
-    delete process.env.BMCLAPI_ROOT;
-    delete process.env.BMCLAPI_VERSION_MANIFEST;
-  }
-  process.env.CUBIK_SOURCE = key;
+  try { sources.applyEnv(); } catch {}
+  return key;
 }
 
 function saveConfig(cfg) {
@@ -1055,6 +1054,16 @@ function cmpVersion(a, b) {
   return 0;
 }
 ipcMain.handle('sys:ram', () => ({ total: require('os').totalmem() }));
+ipcMain.handle('sources:info', () => {
+  try {
+    const cats = ['game', 'content', 'api', 'java', 'server'];
+    const detail = {};
+    for (const c of cats) {
+      detail[c] = sources.candidates(c).map((s) => s.name);
+    }
+    return { ok: true, mode: sources.getMode(), modes: sources.listModes(), detail };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
 ipcMain.handle('cfg:set', (_e, cfg) => {
   saveConfig(cfg);
   if (cfg.downloadSource) applySource(cfg.downloadSource);
