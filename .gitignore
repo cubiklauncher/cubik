@@ -18,3 +18,8 @@ tmp-*.py
 perf-out.txt
 server-telemetry/.admin_token
 .wrangler/
+
+t1-top.png
+t2-panel-open.png
+shot*.png
+boot.log
