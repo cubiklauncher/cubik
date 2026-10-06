@@ -250,6 +250,33 @@ function createWindow() {
       setTimeout(() => app.quit(), 300);
       return;
     }
+    if (process.env.CUBIK_SELFTEST === 'launchcheck') {
+      try {
+        await new Promise((r) => setTimeout(r, 2500));
+        const out = await win.webContents.executeJavaScript(`(async () => {
+          const list = await window.api.listVersions();
+          const results = [];
+          for (const v of list) {
+            const r = { version: v };
+            try {
+              const info = await window.api.versionInfo({ name: v });
+              r.info = info.ok ? { loader: info.info.loader, mc: info.info.mcVersion, mods: info.info.mods, libs: info.info.libraries, hasJar: info.info.hasJar } : { err: info.error };
+              const libs = await window.api.libraries({ name: v });
+              if (libs.ok) {
+                const missing = libs.list.filter(x => !x.present);
+                r.libsTotal = libs.list.length;
+                r.libsMissing = missing.length;
+              }
+            } catch (e) { r.err = e.message; }
+            results.push(r);
+          }
+          return JSON.stringify(results);
+        })()`);
+        require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), out);
+      } catch (e) { try { require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), 'ERR ' + e.message); } catch {} }
+      setTimeout(() => app.quit(), 300);
+      return;
+    }
     if (process.env.CUBIK_SELFTEST === 'trash') {
       try {
         await new Promise((r) => setTimeout(r, 2500));
@@ -769,7 +796,29 @@ function resolveBaseMcVersion(mcDir, name) {
   }
   // last 现在是最底层的版本 id（如 '1.20.1'）；提取出标准 MC 版本号
   const m = String(last).match(/1\.\d{1,2}(?:\.\d{1,2})?/);
-  return m ? m[0] : last;
+  if (m) return m[0];
+  // 形如 '1.20.1-forge-47.4.26' 或纯版本名：先从 libraries 里找 minecraft 依赖
+  try {
+    const cj = path.join(mcDir, 'versions', name, name + '.json');
+    if (fs.existsSync(cj)) {
+      const p = JSON.parse(fs.readFileSync(cj, 'utf8'));
+      // Forge/NeoForge 整合包：从库声明中提取 MC 版本
+      // 常见形式：net.minecraftforge:fmlloader:1.20.1-47.4.10 / net.neoforged:neoforge:20.4.237
+      // 以及最新优先：先试 --fml.mcVersion 参数，再试库名
+      const argStr = JSON.stringify(p.arguments || '');
+      const am = argStr.match(/--fml\.mcVersion[",\s]+([0-9]+\.[0-9]+(?:\.[0-9]+)?)/);
+      if (am) return am[1];
+      for (const lib of (p.libraries || [])) {
+        const nm = lib.name || '';
+        // 版本号部分（如 1.20.1-47.4.10）开头就是 MC 版本
+        const mm = nm.match(/:(\d+\.\d+(?:\.\d+)?)-\d/);
+        if (mm && /forge/i.test(nm)) return mm[1];
+        const mm2 = nm.match(/:([0-9]+\.[0-9]+(?:\.[0-9]+)?)$/);
+        if (mm2 && /neoforge/i.test(nm)) return mm2[1];
+      }
+    }
+  } catch {}
+  return last;
 }
 
 // 将实例 JSON 与其 inheritsFrom 链上的基座版本合并成一个完整 JSON
@@ -837,15 +886,8 @@ function readVersionMeta(mcDir, name) {
   const json = path.join(vdir, name + '.json');
   let j = {};
   try { j = JSON.parse(fs.readFileSync(json, 'utf8')); } catch {}
-  // 沿 inheritsFrom 链找基础 MC 版本
-  let base = name; const seen = new Set();
-  while (base && !seen.has(base)) {
-    seen.add(base);
-    const bj = path.join(mcDir, 'versions', base, base + '.json');
-    if (!fs.existsSync(bj)) break;
-    try { const p = JSON.parse(fs.readFileSync(bj, 'utf8')); if (p.inheritsFrom) base = p.inheritsFrom; else break; }
-    catch { break; }
-  }
+  // 沿 inheritsFrom 链找基础 MC 版本（Forge/NeoForge 整合包无 inheritsFrom，从库/参数提取）
+  const base = resolveBaseMcVersion(mcDir, name) || name;
   const idLower = name.toLowerCase();
   let loader = '原版';
   if (/forge/.test(idLower) && !/neoforge/.test(idLower)) loader = 'Forge';
