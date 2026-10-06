@@ -23,6 +23,7 @@ const modpack = lazyModule('./modpack');
 const serverMgr = lazyModule('./server');
 const tunnelMgr = lazyModule('./tunnel');
 const installer = lazyModule('./installer');
+const backup = require('./backup');
 const { APP_NAME, APP_VERSION, DATA_ROOT } = require('./constants');
 // 供 modpack 等模块解析缓存路径
 process.env.CUBIK_DATA_ROOT = DATA_ROOT;
@@ -232,6 +233,7 @@ function createWindow() {
 
   // 自动化自测钩子：设置 CUBIK_SELFTEST=1 时自测；=launch 时测试启动游戏
   win.once('ready-to-show', async () => {
+    try { require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), 'HOOK env=' + process.env.CUBIK_SELFTEST); } catch {}
     if (!process.env.CUBIK_SELFTEST) return;
     if (process.env.CUBIK_SELFTEST === 'manifest') {
       try {
@@ -410,6 +412,24 @@ function createWindow() {
         srv.srvTypeForge = !!document.querySelector('#sel-srv-type option[value="forge"]');
         srv.tunnelCard = !!document.getElementById('btn-tun-start');
         srv.autoUpdBtn = true;
+        // 新增：存档与备份页 / 资源包 / 实例设置
+        srv.dataNav = !!document.querySelector('.nav-item[data-page="data"]');
+        document.querySelector('.nav-item[data-page="data"]').click();
+        await new Promise(r => setTimeout(r, 1500));
+        srv.dataPageActive = document.getElementById('page-data').classList.contains('active');
+        srv.dataTabs = document.querySelectorAll('.data-tab').length;
+        srv.worldItems = document.querySelectorAll('#world-list .data-item').length;
+        // 切到实例备份 tab
+        const instTab = document.querySelector('[data-dtab="instances"]');
+        if (instTab) { instTab.click(); await new Promise(r => setTimeout(r, 1200)); }
+        srv.instItems = document.querySelectorAll('#inst-list .data-item').length;
+        // 资源包 tab
+        srv.rpackNav = !!document.querySelector('.nav-item[data-page="shader"]');
+        document.querySelector('.nav-item[data-page="shader"]').click();
+        await new Promise(r => setTimeout(r, 300));
+        const rpTab = document.querySelector('[data-stab="rpack"]');
+        if (rpTab) { rpTab.click(); await new Promise(r => setTimeout(r, 3000)); }
+        srv.rpackCards = document.querySelectorAll('#rpack-list .pack-card').length;
         return JSON.stringify(srv);
       })()`);
       console.log('SELFTEST_STATE ' + state);
@@ -992,6 +1012,25 @@ ipcMain.handle('mc:version-info', (_e, { name }) => {
   catch (e) { return { ok: false, error: e.message }; }
 });
 
+// 实例独立启动设置（内存/Java/参数），未设置则为空
+ipcMain.handle('instance:settings-get', (_e, { name }) => {
+  try {
+    const cfg = loadConfig();
+    const ov = (cfg.instanceOverrides && cfg.instanceOverrides[name]) || {};
+    return { ok: true, settings: ov };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('instance:settings-set', (_e, { name, settings }) => {
+  try {
+    const cfg = loadConfig();
+    cfg.instanceOverrides = cfg.instanceOverrides || {};
+    if (settings && Object.keys(settings).length) cfg.instanceOverrides[name] = settings;
+    else delete cfg.instanceOverrides[name];
+    saveConfig(cfg);
+    return { ok: true };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
 // 列出回收站中已删除的版本
 ipcMain.handle('mc:trash-list', () => {
   try {
@@ -1194,6 +1233,143 @@ ipcMain.handle('mod:install', async (_e, { version, url, filename }) => {
   } catch (e) { return { ok: false, error: e.message }; }
 });
 
+// ---------- 存档 / 实例备份 / 截图 / 导入（backup.js） ----------
+ipcMain.handle('world:list', () => {
+  try { return { ok: true, list: backup.listWorlds(loadConfig().mcDir) }; }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('world:backup', (_e, { name, note }) => {
+  try { const r = backup.backupWorld(loadConfig().mcDir, name, note); return { ...r, sizeText: backup.fmtSize(r.size) }; }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('world:backups', (_e, { name }) => {
+  try { return { ok: true, list: backup.listWorldBackups(loadConfig().mcDir, name || '') }; }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('world:restore', (_e, { file }) => {
+  try { return backup.restoreWorld(loadConfig().mcDir, file); }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('world:delete', (_e, { name }) => {
+  try { return backup.deleteWorld(loadConfig().mcDir, name); }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('world:backup-delete', (_e, { file }) => {
+  try { return backup.deleteWorldBackup(loadConfig().mcDir, file); }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('world:open', () => {
+  const dir = path.join(loadConfig().mcDir, 'saves');
+  fs.mkdirSync(dir, { recursive: true });
+  return shell.openPath(dir);
+});
+
+ipcMain.handle('instance:backup', (_e, { name }) => {
+  try { return backup.backupInstance(loadConfig().mcDir, name); }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('instance:backups', (_e, { name }) => {
+  try { return { ok: true, list: backup.listInstanceBackups(loadConfig().mcDir, name || '') }; }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('instance:restore', (_e, { file }) => {
+  try { return backup.restoreInstance(loadConfig().mcDir, file); }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('instance:backup-delete', (_e, { file }) => {
+  try { return backup.deleteInstanceBackup(loadConfig().mcDir, file); }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+
+ipcMain.handle('shot:list', () => {
+  try { return { ok: true, list: backup.listScreenshots(loadConfig().mcDir) }; }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('shot:open', () => {
+  const dir = path.join(loadConfig().mcDir, 'screenshots');
+  fs.mkdirSync(dir, { recursive: true });
+  return shell.openPath(dir);
+});
+ipcMain.handle('shot:show', (_e, { file }) => {
+  try {
+    const full = path.join(loadConfig().mcDir, 'screenshots', file);
+    if (!fs.existsSync(full)) return { ok: false, error: '截图不存在' };
+    shell.showItemInFolder(full);
+    return { ok: true };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
+ipcMain.handle('import:list', () => {
+  try { return { ok: true, ...backup.listImportableVersions(loadConfig().mcDir) }; }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('import:version', (_e, { name }) => {
+  try { return backup.importVersion(loadConfig().mcDir, name); }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+
+// ---------- 资源包 ----------
+ipcMain.handle('rpack:search', async (_e, { query }) => {
+  try {
+    const list = await modpack.searchResourcepacks(query || '');
+    await modpack.attachZhNames(list);
+    return { ok: true, list };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('rpack:versions', async (_e, { id, mc }) => {
+  try { return { ok: true, list: await modpack.modrinthResourcepackVersions(id, mc || '') }; }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('rpack:install', async (_e, { url, filename }) => {
+  try {
+    const cfg = loadConfig();
+    const dir = path.join(cfg.mcDir, 'resourcepacks');
+    fs.mkdirSync(dir, { recursive: true });
+    const dest = path.join(dir, filename);
+    const send = (m) => win.webContents.send('install:log', m + '\n');
+    await modpack.downloadFile(url, dest, null, send, filename);
+    return { ok: true, file: dest };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('rpack:list', () => {
+  try {
+    const dir = path.join(loadConfig().mcDir, 'resourcepacks');
+    if (!fs.existsSync(dir)) return { ok: true, list: [] };
+    const list = fs.readdirSync(dir).filter((f) => /\.zip$/i.test(f)).map((f) => {
+      let size = 0; try { size = fs.statSync(path.join(dir, f)).size; } catch {}
+      return { file: f, size, sizeText: backup.fmtSize(size) };
+    });
+    return { ok: true, list };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('rpack:open', () => {
+  const dir = path.join(loadConfig().mcDir, 'resourcepacks');
+  fs.mkdirSync(dir, { recursive: true });
+  return shell.openPath(dir);
+});
+
+// ---------- Mod 更新检查 ----------
+function sha1File(p) {
+  const crypto = require('crypto');
+  const h = crypto.createHash('sha1');
+  h.update(fs.readFileSync(p));
+  return h.digest('hex');
+}
+ipcMain.handle('mod:check-updates', async (_e, { version }) => {
+  try {
+    const cfg = loadConfig();
+    const dir = path.join(cfg.mcDir, 'versions', version, 'mods');
+    if (!fs.existsSync(dir)) return { ok: true, list: [] };
+    const files = fs.readdirSync(dir).filter((f) => /\.jar$/i.test(f));
+    const hashes = {};
+    for (const f of files) { try { hashes[f] = sha1File(path.join(dir, f)); } catch {} }
+    if (!Object.keys(hashes).length) return { ok: true, list: [] };
+    const info = readVersionMeta(cfg.mcDir, version);
+    const updates = await modpack.checkModUpdates(hashes, info.mcVersion, '');
+    return { ok: true, list: updates, total: files.length };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
 // ---------- 检测 Java ----------
 // 优先：配置指定 -> JAVA_HOME -> .minecraft/runtime -> PATH 常见位置
 ipcMain.handle('java:detect', () => {
@@ -1379,6 +1555,82 @@ ipcMain.handle('auth:accounts', () => {
   return { ok: true, accounts: publicAccounts(cfg), active: getActiveIndex(cfg) };
 });
 
+// ---------- 皮肤 / 披风（正版账号） ----------
+// 确保当前账号 accessToken 有效（过期/即将过期则自动静默续期）
+async function ensureFreshToken(cfg, index) {
+  const accs = getAccounts(cfg);
+  const idx = typeof index === 'number' ? index : getActiveIndex(cfg);
+  const acc = accs[idx];
+  if (!acc || acc.offline) throw new Error('请先登录微软正版账号');
+  // 令牌 24h 过期，剩余不足 1h 时续期
+  const age = Date.now() - (acc.obtainedAt || 0);
+  if (!acc.accessToken || age > 23 * 3600 * 1000) {
+    if (!acc.refreshToken) throw new Error('登录已失效，请重新登录');
+    const info = await authMgr.refreshFlow(acc.refreshToken);
+    accs[idx] = Object.assign({}, acc, {
+      accessToken: info.accessToken,
+      refreshToken: info.refreshToken,
+      uuid: info.uuid,
+      name: info.name,
+      owns: info.owns,
+      obtainedAt: info.obtainedAt,
+      offline: false
+    });
+    saveConfig(cfg);
+  }
+  return { token: accs[idx].accessToken, idx, uuid: accs[idx].uuid, name: accs[idx].name };
+}
+
+// 当前账号的皮肤/披风信息
+ipcMain.handle('skin:info', async (_e, opts) => {
+  try {
+    const cfg = loadConfig();
+    const acc = activeAccount(cfg);
+    if (!acc || acc.offline || !acc.uuid) return { ok: false, error: '请先登录微软正版账号' };
+    const { token } = await ensureFreshToken(cfg, typeof (opts && opts.index) === 'number' ? opts.index : undefined);
+    const p = await authMgr.refreshProfile(token);
+    return {
+      ok: true,
+      name: p.name,
+      uuid: p.id,
+      skins: (p.skins || []).map((s) => ({ id: s.id, state: s.state, url: s.url, variant: s.variant })),
+      capes: (p.capes || []).map((c) => ({ id: c.id, state: c.state, url: c.url, alias: c.alias }))
+    };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
+// 上传皮肤（本地 png）+ 可选 variant（classic/slim）
+ipcMain.handle('skin:upload', async (_e, opts) => {
+  try {
+    const cfg = loadConfig();
+    const { token } = await ensureFreshToken(cfg, typeof (opts && opts.index) === 'number' ? opts.index : undefined);
+    let file = opts && opts.file;
+    if (!file) {
+      const r = await dialog.showOpenDialog(win, {
+        title: '选择皮肤文件（PNG，64x64 或 64x32）',
+        properties: ['openFile'],
+        filters: [{ name: 'PNG 图片', extensions: ['png'] }]
+      });
+      if (r.canceled || !r.filePaths.length) return { ok: false, canceled: true };
+      file = r.filePaths[0];
+    }
+    if (!fs.existsSync(file)) return { ok: false, error: '文件不存在' };
+    await authMgr.uploadSkin(token, file, opts && opts.variant === 'slim' ? 'slim' : 'classic');
+    const p = await authMgr.refreshProfile(token);
+    return { ok: true, name: p.name, uuid: p.id, skins: p.skins || [], capes: p.capes || [] };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
+// 设置/取消活动披风（capeId 为空则隐藏）
+ipcMain.handle('skin:set-cape', async (_e, opts) => {
+  try {
+    const cfg = loadConfig();
+    const { token } = await ensureFreshToken(cfg, typeof (opts && opts.index) === 'number' ? opts.index : undefined);
+    await authMgr.setActiveCape(token, (opts && opts.capeId) || '');
+    return { ok: true };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
 function publicAccounts(cfg) {
   return getAccounts(cfg).map((a, i) => Object.assign(publicAccount(a), { index: i, active: i === getActiveIndex(cfg) }));
 }
@@ -1402,8 +1654,15 @@ ipcMain.handle('mc:launch', async (_e, opts) => {
   const version = opts.version || cfg.version;
   const send = (level, msg) => win.webContents.send('mc:log', { level, msg: String(msg) });
 
+  // 实例独立启动设置：覆盖全局（仅对独立实例生效）
+  const ov = (cfg.instanceOverrides && version && cfg.instanceOverrides[version]) || {};
+  if (ov.maxMemory) cfg.maxMemory = ov.maxMemory;
+  if (ov.autoJava !== undefined) cfg.autoJava = ov.autoJava;
+  if (ov.jvmArgs !== undefined && opts.jvmArgs === undefined) opts = Object.assign({}, opts, { jvmArgs: ov.jvmArgs });
+  if (ov.gameArgs !== undefined) cfg.gameArgs = ov.gameArgs;
+
   // 自动准备 Java
-  let javaPath = opts.javaPath || cfg.javaPath;
+  let javaPath = opts.javaPath || ov.javaPath || cfg.javaPath;
   if (cfg.autoJava && !javaPath && version) {
     try {
       // 解析实例的真实基础 MC 版本（读取 inheritsFrom 链），避免从实例名误判 Java 版本

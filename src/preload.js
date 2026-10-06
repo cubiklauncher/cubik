@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('api', {
   pickFile: (o) => ipcRenderer.invoke('pick:file', o),
   listVersions: () => ipcRenderer.invoke('mc:versions'),
   versionInfo: (p) => ipcRenderer.invoke('mc:version-info', p),
+  instanceSettingsGet: (p) => ipcRenderer.invoke('instance:settings-get', p),
+  instanceSettingsSet: (p) => ipcRenderer.invoke('instance:settings-set', p),
   versionDelete: (p) => ipcRenderer.invoke('mc:version-delete', p),
   trashList: () => ipcRenderer.invoke('mc:trash-list'),
   trashRestore: (p) => ipcRenderer.invoke('mc:trash-restore', p),
@@ -43,6 +45,39 @@ contextBridge.exposeInMainWorld('api', {
   requiredJava: (v) => ipcRenderer.invoke('java:required', v),
   launch: (opts) => ipcRenderer.invoke('mc:launch', opts),
   openPath: (p) => ipcRenderer.invoke('shell:open', p),
+
+  // 存档 / 实例备份 / 截图 / 导入
+  worldList: () => ipcRenderer.invoke('world:list'),
+  worldBackup: (p) => ipcRenderer.invoke('world:backup', p),
+  worldBackups: (p) => ipcRenderer.invoke('world:backups', p),
+  worldRestore: (p) => ipcRenderer.invoke('world:restore', p),
+  worldDelete: (p) => ipcRenderer.invoke('world:delete', p),
+  worldBackupDelete: (p) => ipcRenderer.invoke('world:backup-delete', p),
+  worldOpen: () => ipcRenderer.invoke('world:open'),
+  instanceBackup: (p) => ipcRenderer.invoke('instance:backup', p),
+  instanceBackups: (p) => ipcRenderer.invoke('instance:backups', p),
+  instanceRestore: (p) => ipcRenderer.invoke('instance:restore', p),
+  instanceBackupDelete: (p) => ipcRenderer.invoke('instance:backup-delete', p),
+  shotList: () => ipcRenderer.invoke('shot:list'),
+  shotOpen: () => ipcRenderer.invoke('shot:open'),
+  shotShow: (p) => ipcRenderer.invoke('shot:show', p),
+  importList: () => ipcRenderer.invoke('import:list'),
+  importVersion: (p) => ipcRenderer.invoke('import:version', p),
+
+  // 资源包
+  rpackSearch: (p) => ipcRenderer.invoke('rpack:search', p),
+  rpackVersions: (p) => ipcRenderer.invoke('rpack:versions', p),
+  rpackInstall: (p) => ipcRenderer.invoke('rpack:install', p),
+  rpackList: () => ipcRenderer.invoke('rpack:list'),
+  rpackOpen: () => ipcRenderer.invoke('rpack:open'),
+
+  // mod 更新检查
+  modCheckUpdates: (p) => ipcRenderer.invoke('mod:check-updates', p),
+
+  // 皮肤 / 披风
+  skinInfo: (p) => ipcRenderer.invoke('skin:info', p),
+  skinUpload: (p) => ipcRenderer.invoke('skin:upload', p),
+  skinSetCape: (p) => ipcRenderer.invoke('skin:set-cape', p),
 
   // 微软正版登录
   msStart: () => ipcRenderer.invoke('auth:ms-start'),

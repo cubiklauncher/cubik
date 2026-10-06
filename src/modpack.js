@@ -597,6 +597,101 @@ async function searchShaders(query) {
   return searchModrinth(query, 30, 'shader');
 }
 
+// 资源包搜索（Modrinth project_type:resourcepack）
+async function searchResourcepacks(query, limit = 30) {
+  const facet = JSON.stringify([['project_type:resourcepack']]);
+  const q = (query || '').trim();
+  const url = `${MODRINTH}/search?query=${encodeURIComponent(q)}&facets=${encodeURIComponent(facet)}&${q ? 'index=relevance' : 'index=downloads'}&limit=${limit}`;
+  const data = JSON.parse(await get(url, { 'User-Agent': 'Cubik/1.0' }));
+  return data.hits.map((h) => ({
+    source: 'modrinth',
+    id: h.project_id,
+    slug: h.slug,
+    title: h.title,
+    description: h.description,
+    icon: h.icon_url,
+    downloads: h.downloads,
+    author: h.author
+  }));
+}
+
+// 资源包可用版本（可按 MC 版本筛选）
+async function modrinthResourcepackVersions(id, mcVersion) {
+  let url = `${MODRINTH}/project/${id}/version`;
+  const params = [];
+  if (mcVersion) params.push(`game_versions=${encodeURIComponent(JSON.stringify([mcVersion]))}`);
+  if (params.length) url += '?' + params.join('&');
+  const data = JSON.parse(await get(url, { 'User-Agent': 'Cubik/1.0' }));
+  return data.map((v) => ({
+    id: v.id,
+    name: v.name,
+    version: v.version_number,
+    type: v.version_type,
+    mc: v.game_versions,
+    loaders: v.loaders,
+    downloads: v.downloads,
+    date: v.date_published,
+    files: v.files.map((f) => ({ url: f.url, filename: f.filename, primary: f.primary }))
+  }));
+}
+
+// Mod 更新检查：用已安装 jar 的 sha1 向 Modrinth 批量查最新版本
+// hashes: { '<filename>': '<sha1>' }
+async function checkModUpdates(hashes, mcVersion, loader) {
+  const body = JSON.stringify({ hashes: Object.values(hashes), algorithm: 'sha1' });
+  const url = `${MODRINTH}/version_files/update`;
+  const data = JSON.parse(await postJson(url, body, { 'User-Agent': 'Cubik/1.0' }));
+  // data: { '<sha1>': { id, project_id, name, version_number, game_versions, loaders, files } }
+  const byHash = new Map();
+  for (const [sha, v] of Object.entries(data || {})) byHash.set(sha.toLowerCase(), v);
+  const out = [];
+  for (const [file, sha] of Object.entries(hashes)) {
+    const v = byHash.get(String(sha).toLowerCase());
+    if (!v) continue;
+    const f = (v.files || []).find((x) => x.primary) || (v.files || [])[0];
+    // 兼容性判断：若指定了 MC 版本且新版本不支持，则标记 incompatible（仍展示，由用户决定）
+    let compatible = true;
+    if (mcVersion && Array.isArray(v.game_versions) && v.game_versions.length) {
+      compatible = v.game_versions.includes(mcVersion);
+    }
+    out.push({
+      file,
+      projectId: v.project_id,
+      versionId: v.id,
+      version: v.version_number,
+      name: v.name,
+      mc: v.game_versions || [],
+      loaders: v.loaders || [],
+      compatible,
+      download: f ? f.url : '',
+      filename: f ? f.filename : ''
+    });
+  }
+  return out;
+}
+
+async function postJson(url, body, headers) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const https = require('https');
+    const req = https.request(
+      { method: 'POST', hostname: u.hostname, path: u.pathname + u.search, headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), ...(headers || {}) } },
+      (res) => {
+        let b = '';
+        res.on('data', (d) => (b += d));
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) resolve(b);
+          else reject(new Error('HTTP ' + res.statusCode));
+        });
+      }
+    );
+    req.on('error', reject);
+    req.setTimeout(30000, () => { req.destroy(new Error('timeout')); });
+    req.write(body);
+    req.end();
+  });
+}
+
 // 热门榜单
 async function topProjects(type = 'modpack', limit = 20, offset = 0) {
   const facet = JSON.stringify([[`project_type:${type}`]]);
@@ -845,6 +940,11 @@ module.exports = {
   modrinthModVersions,
   searchModsCurseforge,
   curseforgeModFiles,
+  // 资源包
+  searchResourcepacks,
+  modrinthResourcepackVersions,
+  // mod 更新检查
+  checkModUpdates,
   // 综合搜索
   searchAll,
   // 原版下载

@@ -37,7 +37,7 @@ const missDom = [...new Set(rendererIds)].filter((i) => !htmlIds.has(i) && !/^(u
 if (missDom.length) bad('DOM id: HTML 缺少', missDom.join(',')); else ok('DOM id: HTML ' + htmlIds.size + ' / renderer ' + new Set(rendererIds).size);
 
 // 4. 模块语法
-const files = ['src/main.js', 'src/preload.js', 'src/server.js', 'src/modpack.js', 'src/installer.js', 'src/constants.js', 'src/auth.js', 'src/java.js', 'src/telemetry.js', 'src/tunnel.js', 'src/renderer/renderer.js'];
+const files = ['src/main.js', 'src/preload.js', 'src/server.js', 'src/modpack.js', 'src/installer.js', 'src/constants.js', 'src/auth.js', 'src/java.js', 'src/telemetry.js', 'src/tunnel.js', 'src/backup.js', 'src/renderer/renderer.js'];
 console.log('=== 模块语法 ===');
 for (const f of files) {
   try { new Function(R(f)); console.log('  OK  ' + f); }

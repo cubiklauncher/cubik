@@ -17,17 +17,29 @@
       </div>
     </div>
     <nav id="nav">
-      <button class="nav-item active" data-page="home">🏠 主页</button>
-      <button class="nav-item" data-page="versions">📦 版本管理</button>
-      <button class="nav-item" data-page="vanilla">⬇ 原版下载</button>
-      <button class="nav-item" data-page="modpack">🧩 整合包</button>
-      <button class="nav-item" data-page="mod">🔧 Mod 下载</button>
-      <button class="nav-item" data-page="shader">✨ 光影包</button>
-      <button class="nav-item" data-page="server">🖥️ 服务器</button>
-      <button class="nav-item" data-page="account">👤 账号</button>
-      <button class="nav-item" data-page="settings">⚙️ 设置</button>
-      <button class="nav-item" data-page="about">ℹ️ 关于</button>
-      <button class="nav-item" data-page="log">📜 运行日志</button>
+      <div class="nav-group">
+        <button class="nav-item active" data-page="home"><span class="ni-ico">🏠</span><span class="ni-label">主页</span></button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">游戏</div>
+        <button class="nav-item" data-page="versions"><span class="ni-ico">📦</span><span class="ni-label">版本管理</span></button>
+        <button class="nav-item" data-page="vanilla"><span class="ni-ico">⬇️</span><span class="ni-label">原版下载</span></button>
+        <button class="nav-item" data-page="modpack"><span class="ni-ico">🧩</span><span class="ni-label">整合包</span></button>
+        <button class="nav-item" data-page="mod"><span class="ni-ico">🔧</span><span class="ni-label">Mod 下载</span></button>
+        <button class="nav-item" data-page="shader"><span class="ni-ico">✨</span><span class="ni-label">光影包</span></button>
+        <button class="nav-item" data-page="data"><span class="ni-ico">🗄️</span><span class="ni-label">存档与备份</span></button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">联机与账号</div>
+        <button class="nav-item" data-page="server"><span class="ni-ico">🖥️</span><span class="ni-label">服务器</span></button>
+        <button class="nav-item" data-page="account"><span class="ni-ico">👤</span><span class="ni-label">账号</span></button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">其他</div>
+        <button class="nav-item" data-page="settings"><span class="ni-ico">⚙️</span><span class="ni-label">设置</span></button>
+        <button class="nav-item" data-page="about"><span class="ni-ico">ℹ️</span><span class="ni-label">关于</span></button>
+        <button class="nav-item" data-page="log"><span class="ni-ico">📜</span><span class="ni-label">运行日志</span></button>
+      </div>
     </nav>
     <div class="sidebar-foot">
       <button id="btn-open-mc" class="btn ghost">打开 .minecraft</button>
@@ -166,11 +178,13 @@
         <div class="vd-tabs">
           <button class="vd-tab active" data-tab="mods">🧩 模组 Mods</button>
           <button class="vd-tab" data-tab="libs">📚 支持库 Libraries</button>
+          <button class="vd-tab" data-tab="settings">⚙️ 启动设置</button>
         </div>
         <div class="vd-panel" id="vd-panel-mods">
           <div class="row">
             <button class="btn primary" id="btn-mod-add">📥 导入 Mod</button>
             <button class="btn primary" id="btn-mod-download">🌐 下载 Mod</button>
+            <button class="btn ghost" id="btn-mod-check-updates">🔄 检查更新</button>
             <button class="btn ghost" id="btn-mod-open">📂 打开 mods 文件夹</button>
             <span class="hint" id="mod-count" style="margin-left:auto"></span>
           </div>
@@ -197,6 +211,26 @@
         </div>
         <div class="vd-panel" id="vd-panel-libs" style="display:none">
           <ul class="lib-list" id="lib-list"></ul>
+        </div>
+        <div class="vd-panel" id="vd-panel-settings" style="display:none">
+          <p class="hint">为这个实例单独指定内存/Java，覆盖「设置」里的全局值。留空则不覆盖。</p>
+          <label class="vd-label">最大内存（MB，留空用全局）</label>
+          <div class="row" style="align-items:center;gap:12px">
+            <input id="in-inst-mem" type="number" min="512" step="512" placeholder="如 4096" style="flex:1">
+            <button class="btn ghost mini" id="btn-inst-mem-clear">清空</button>
+          </div>
+          <label class="vd-label">Java 路径（留空用全局）</label>
+          <div class="row">
+            <input id="in-inst-java" type="text" placeholder="自动 / 全局">
+            <button class="btn mini" id="btn-inst-java-pick">浏览</button>
+          </div>
+          <label class="vd-label">JVM 参数（留空用全局）</label>
+          <input id="in-inst-jvm" type="text" placeholder="如 -XX:+UseG1GC">
+          <label class="vd-label">游戏参数（留空用全局）</label>
+          <input id="in-inst-game" type="text" placeholder="如 --width 1280 --height 720">
+          <div class="row end" style="margin-top:12px">
+            <button class="btn primary" id="btn-inst-save">💾 保存该实例设置</button>
+          </div>
         </div>
       </div>
     </section>
@@ -248,18 +282,101 @@
       </div>
     </section>
 
-    <!-- 光影包 -->
+    <!-- 光影包 / 资源包 -->
     <section class="page" id="page-shader">
-      <h1>光影包下载</h1>
-      <div class="card">
-        <div class="row">
-          <input id="in-shader-query" type="text" placeholder="搜索光影包，如 BSL / 光影（支持中文）">
-          <button id="btn-shader-search" class="btn primary">搜索</button>
-        </div>
-        <p class="hint">下方默认展示下载量最高的光影包，点击卡片进入详情页下载/安装。支持中文关键词搜索；卡片右侧会附上网上常用中文名（无则留空）。</p>
+      <h1>光影包 / 资源包</h1>
+      <div class="data-tabs">
+        <button class="data-tab active" data-stab="shader">✨ 光影包</button>
+        <button class="data-tab" data-stab="rpack">🎨 资源包</button>
       </div>
-      <h2 id="shader-list-title">🔥 热门光影包（按下载量）</h2>
-      <div class="pack-grid" id="shader-list"><div class="empty">加载中…</div></div>
+      <div class="data-panel" id="spanel-shader">
+        <div class="card">
+          <div class="row">
+            <input id="in-shader-query" type="text" placeholder="搜索光影包，如 BSL / 光影（支持中文）">
+            <button id="btn-shader-search" class="btn primary">搜索</button>
+          </div>
+          <p class="hint">下方默认展示下载量最高的光影包，点击卡片进入详情页下载/安装。支持中文关键词搜索；卡片右侧会附上网上常用中文名（无则留空）。</p>
+        </div>
+        <h2 id="shader-list-title">🔥 热门光影包（按下载量）</h2>
+        <div class="pack-grid" id="shader-list"><div class="empty">加载中…</div></div>
+      </div>
+      <div class="data-panel" id="spanel-rpack" style="display:none">
+        <div class="card">
+          <div class="row">
+            <input id="in-rpack-query" type="text" placeholder="搜索资源包，如 Faithful / 材质包">
+            <button id="btn-rpack-search" class="btn primary">搜索</button>
+            <button class="btn ghost" id="btn-rpack-open">📂 打开资源包文件夹</button>
+          </div>
+          <p class="hint">资源包会下载到 .minecraft/resourcepacks，可在游戏“选项 → 资源包”中启用。</p>
+        </div>
+        <h2 id="rpack-list-title">🔥 热门资源包（按下载量）</h2>
+        <div class="pack-grid" id="rpack-list"><div class="empty">加载中…</div></div>
+      </div>
+    </section>
+
+    <!-- 存档与备份 -->
+    <section class="page" id="page-data">
+      <h1>存档与备份</h1>
+      <div class="data-tabs">
+        <button class="data-tab active" data-dtab="worlds">🌍 存档（世界）</button>
+        <button class="data-tab" data-dtab="instances">📦 实例备份</button>
+        <button class="data-tab" data-dtab="shots">🖼️ 截图</button>
+        <button class="data-tab" data-dtab="import">📥 导入官方版本</button>
+      </div>
+
+      <!-- 存档 -->
+      <div class="data-panel" id="dpanel-worlds">
+        <div class="row">
+          <button class="btn primary" id="btn-world-open">📂 打开存档文件夹</button>
+          <button class="btn ghost" id="btn-world-refresh" style="margin-left:auto">🔄 刷新</button>
+        </div>
+        <p class="hint">定时备份你的世界，升级版本或装错 Mod 造成损坏时可一键还原。删除会移入回收站（.trash），可恢复。</p>
+        <ul class="data-list" id="world-list"><li class="empty">加载中…</li></ul>
+        <div id="world-bk-panel" style="display:none">
+          <div class="row" style="margin-top:14px">
+            <h2 id="wbk-title" style="margin:0">备份列表</h2>
+            <button class="btn ghost" id="btn-wbk-close" style="margin-left:auto">✕ 关闭</button>
+          </div>
+          <ul class="data-list" id="world-bk-list"><li class="empty">加载中…</li></ul>
+        </div>
+      </div>
+
+      <!-- 实例备份 -->
+      <div class="data-panel" id="dpanel-instances" style="display:none">
+        <div class="row">
+          <h2 style="margin:0">本地实例</h2>
+          <button class="btn ghost" id="btn-inst-refresh" style="margin-left:auto">🔄 刷新</button>
+        </div>
+        <p class="hint">把整个实例（含全部 Mod、配置）打包成一个 zip。升级整合包或搞坏环境后可一键回滚。</p>
+        <ul class="data-list" id="inst-list"><li class="empty">加载中…</li></ul>
+        <div id="inst-bk-panel" style="display:none">
+          <div class="row" style="margin-top:14px">
+            <h2 id="ibk-title" style="margin:0">实例备份</h2>
+            <button class="btn ghost" id="btn-ibk-close" style="margin-left:auto">✕ 关闭</button>
+          </div>
+          <ul class="data-list" id="inst-bk-list"><li class="empty">加载中…</li></ul>
+        </div>
+      </div>
+
+      <!-- 截图 -->
+      <div class="data-panel" id="dpanel-shots" style="display:none">
+        <div class="row">
+          <button class="btn primary" id="btn-shot-open">📂 打开截图文件夹</button>
+          <button class="btn ghost" id="btn-shot-refresh" style="margin-left:auto">🔄 刷新</button>
+        </div>
+        <p class="hint">游戏中按 F2 截的图会出现在这里。点击图片在文件夹中定位。</p>
+        <div class="shot-grid" id="shot-list"><div class="empty">加载中…</div></div>
+      </div>
+
+      <!-- 导入官方版本 -->
+      <div class="data-panel" id="dpanel-import" style="display:none">
+        <div class="row">
+          <h2 style="margin:0">从官方启动器导入</h2>
+          <button class="btn ghost" id="btn-import-refresh" style="margin-left:auto">🔄 刷新</button>
+        </div>
+        <p class="hint" id="import-dir-hint">扫描官方启动器（%APPDATA%\.minecraft）中已有的版本，一键复制到本启动器的游戏目录。缺失的库/resources 会在首次启动时自动补齐。</p>
+        <ul class="data-list" id="import-list"><li class="empty">加载中…</li></ul>
+      </div>
     </section>
 
     <!-- 项目详情页（整合包 / 光影共用） -->
@@ -520,6 +637,31 @@
         <label>离线用户名（未登录正版时使用）</label>
         <input id="in-username" type="text" placeholder="Steve">
         <p class="hint">离线模式：使用任意用户名即可启动，无法进入正版验证服务器。登录微软正版账号后可进入所有正版服务器。</p>
+      </div>
+
+      <div class="card" id="skin-card">
+        <div class="acct-list-head">
+          <span class="acct-list-title">🎨 皮肤与披风</span>
+          <button class="btn ghost mini" id="btn-skin-refresh" style="margin-left:auto">🔄 刷新</button>
+        </div>
+        <p class="hint" id="skin-hint">登录微软正版账号后可在此更换皮肤/披风。</p>
+        <div id="skin-body" style="display:none">
+          <div class="skin-row">
+            <img id="skin-preview" class="skin-preview" alt="皮肤预览">
+            <div class="skin-info">
+              <div class="skin-name" id="skin-name-acc"></div>
+              <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+                <button class="btn primary mini" id="btn-skin-upload">⬆ 上传新皮肤</button>
+                <select id="sel-skin-variant" class="mini-sel">
+                  <option value="classic">经典（广臂）</option>
+                  <option value="slim">细臂 Slim</option>
+                </select>
+              </div>
+              <p class="hint" style="margin:8px 0 0">皮肤需为 PNG，尺寸 64x64（推荐）或 64x32。可直接用 Minecraft 官网下载的皮肤文件。</p>
+            </div>
+          </div>
+          <div class="skin-capes" id="skin-capes"></div>
+        </div>
       </div>
     </section>
 

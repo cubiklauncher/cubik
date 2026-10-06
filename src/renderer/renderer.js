@@ -68,6 +68,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     $('page-' + btn.dataset.page).classList.add('active');
     if (btn.dataset.page === 'modpack' && !packLoaded) loadPackTop();
     if (btn.dataset.page === 'shader' && !shaderLoaded) loadShaderTop();
+    if (btn.dataset.page === 'data') loadDataPage();
     if (btn.dataset.page === 'mod' && !modPageLoaded) loadModPage();
     if (btn.dataset.page === 'server') refreshNetInfo();
     if (btn.dataset.page === 'vanilla' && !window.__vanLoaded) { window.__vanLoaded = true; loadVanillaVersions(); }
@@ -303,7 +304,61 @@ async function refreshAccountUI() {
     if (homeBadge) { homeBadge.textContent = ''; homeBadge.className = 'home-acct-badge'; }
     if ($('offline-card')) $('offline-card').style.opacity = '';
   }
+  refreshSkinUI();
 }
+
+// ---------- 皮肤 / 披风管理 ----------
+async function refreshSkinUI() {
+  const body = $('skin-body');
+  const hint = $('skin-hint');
+  if (!body || !hint) return;
+  const acc = $('acct-list') ? true : false;
+  const r = await window.api.skinInfo({}).catch(() => ({ ok: false }));
+  if (!r || !r.ok) {
+    body.style.display = 'none';
+    hint.style.display = '';
+    hint.textContent = '登录微软正版账号后可在此更换皮肤/披风。' + (r && r.error ? '（' + r.error + '）' : '');
+    return;
+  }
+  body.style.display = '';
+  hint.style.display = 'none';
+  $('skin-name-acc').textContent = r.name + '（' + String(r.uuid || '').slice(0, 8) + '…）';
+  // 预览：用 crafatar 的 body 渲染（带皮肤）
+  const prev = $('skin-preview');
+  if (prev) { prev.src = `https://crafatar.com/renders/body/${String(r.uuid || '').replace(/-/g, '')}?size=192&overlay`; prev.onerror = () => { prev.style.opacity = '.25'; }; prev.style.opacity = ''; }
+  // 披风列表
+  const capes = $('skin-capes');
+  capes.innerHTML = '';
+  const activeCape = (r.capes || []).find((c) => c.state === 'ACTIVE');
+  const mkBtn = (label, capeId, active) => {
+    const b = document.createElement('button');
+    b.className = 'cape-btn' + (active ? ' active' : '');
+    b.textContent = label;
+    b.onclick = async () => {
+      const rr = await window.api.skinSetCape({ capeId });
+      if (rr.ok) refreshSkinUI(); else alert('设置失败：' + rr.error);
+    };
+    return b;
+  };
+  capes.appendChild(mkBtn('无披风', '', !activeCape));
+  (r.capes || []).forEach((c) => capes.appendChild(mkBtn(c.alias || '披风', c.id, c.state === 'ACTIVE')));
+  if (!(r.capes || []).length) {
+    const p = document.createElement('span');
+    p.className = 'hint'; p.style.margin = '0';
+    p.textContent = '该账号没有可用披风（需在官网活动获得）。';
+    capes.appendChild(p);
+  }
+}
+
+if ($('btn-skin-refresh')) $('btn-skin-refresh').onclick = () => refreshSkinUI();
+if ($('btn-skin-upload')) $('btn-skin-upload').onclick = async () => {
+  const btn = $('btn-skin-upload');
+  btn.disabled = true; btn.textContent = '上传中…';
+  const r = await window.api.skinUpload({ variant: ($('sel-skin-variant') || {}).value || 'classic' });
+  btn.disabled = false; btn.textContent = '⬆ 上传新皮肤';
+  if (r.ok) { log('data', '皮肤已更新'); refreshSkinUI(); }
+  else if (!r.canceled) alert('上传失败：' + (r.error || '未知错误'));
+};
 
 let msPolling = false;
 if ($('btn-ms-login')) $('btn-ms-login').onclick = async () => {
@@ -684,8 +739,38 @@ function setVdTab(tab) {
   document.querySelectorAll('.vd-tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   $('vd-panel-mods').style.display = tab === 'mods' ? 'block' : 'none';
   $('vd-panel-libs').style.display = tab === 'libs' ? 'block' : 'none';
-  if (tab === 'mods') loadMods(); else loadLibs();
+  const sp = $('vd-panel-settings');
+  if (sp) sp.style.display = tab === 'settings' ? 'block' : 'none';
+  if (tab === 'mods') loadMods();
+  else if (tab === 'libs') loadLibs();
+  else if (tab === 'settings') loadInstanceSettings();
 }
+
+// 实例独立启动设置
+async function loadInstanceSettings() {
+  const r = await window.api.instanceSettingsGet({ name: vdCurrent });
+  const s = (r && r.ok && r.settings) || {};
+  $('in-inst-mem').value = s.maxMemory || '';
+  $('in-inst-java').value = s.javaPath || '';
+  $('in-inst-jvm').value = s.jvmArgs || '';
+  $('in-inst-game').value = s.gameArgs || '';
+}
+if ($('btn-inst-save')) $('btn-inst-save').onclick = async () => {
+  const mem = $('in-inst-mem').value.trim();
+  const settings = {};
+  if (mem) settings.maxMemory = Number(mem);
+  if ($('in-inst-java').value.trim()) settings.javaPath = $('in-inst-java').value.trim();
+  if ($('in-inst-jvm').value.trim()) settings.jvmArgs = $('in-inst-jvm').value.trim();
+  if ($('in-inst-game').value.trim()) settings.gameArgs = $('in-inst-game').value.trim();
+  const r = await window.api.instanceSettingsSet({ name: vdCurrent, settings });
+  if (r && r.ok) { alert('已保存该实例的启动设置' + (Object.keys(settings).length ? '' : '（已清空，将使用全局设置）')); }
+  else alert('保存失败：' + ((r && r.error) || '未知错误'));
+};
+if ($('btn-inst-mem-clear')) $('btn-inst-mem-clear').onclick = () => { $('in-inst-mem').value = ''; };
+if ($('btn-inst-java-pick')) $('btn-inst-java-pick').onclick = async () => {
+  const p = await window.api.pickJava();
+  if (p) $('in-inst-java').value = p;
+};
 
 document.querySelectorAll('.vd-tab').forEach((b) => { b.onclick = () => setVdTab(b.dataset.tab); });
 
@@ -746,6 +831,48 @@ if ($('btn-mod-add')) $('btn-mod-add').onclick = async () => {
   if (r.ok && r.added) { log('data', `已导入 ${r.added} 个模组`); loadMods(); }
 };
 if ($('btn-mod-open')) $('btn-mod-open').onclick = () => window.api.modsOpen({ version: vdCurrent });
+
+// 检查已装 Mod 的更新
+if ($('btn-mod-check-updates')) $('btn-mod-check-updates').onclick = async () => {
+  const btn = $('btn-mod-check-updates');
+  const list = $('mod-list');
+  btn.disabled = true; btn.textContent = '检查中…';
+  const r = await window.api.modCheckUpdates({ version: vdCurrent });
+  btn.disabled = false; btn.textContent = '🔄 检查更新';
+  if (!r || !r.ok) { alert('检查失败：' + ((r && r.error) || '未知错误')); return; }
+  if (!r.list.length) { alert(`已扫描 ${r.total || 0} 个 Mod，均无 Modrinth 可查的新版本。`); return; }
+  // 在 mod 列表上方插入更新提示
+  let panel = $('dyn-mod-update-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'dyn-mod-update-panel';
+    panel.className = 'dyn-mod-update-panel';
+    list.parentNode.insertBefore(panel, list);
+  }
+  panel.innerHTML = `<div class="mup-head">🔄 发现 ${r.list.length} 个可更新 Mod：</div>` +
+    r.list.map((u, i) => {
+      const tag = u.compatible ? '<span class="tg mc">兼容</span>' : '<span class="tg loader" style="background:rgba(224,128,63,.16);color:#b5621f">需核实</span>';
+      return `<div class="mup-item" data-i="${i}">
+        <div class="mup-body"><div class="mup-name">${esc(u.file)}</div><div class="mup-sub">新版：${esc(u.version)} ${tag}</div></div>
+        <button class="btn primary mini" data-act="up">⬆ 更新</button>
+      </div>`;
+    }).join('') +
+    `<div class="row end"><button class="btn ghost mini" id="mup-close">关闭</button></div>`;
+  panel.querySelectorAll('[data-act="up"]').forEach((b) => {
+    b.onclick = async () => {
+      const u = r.list[+b.closest('.mup-item').dataset.i];
+      if (!u.download) return alert('该更新无直接下载地址');
+      b.disabled = true; b.textContent = '更新中…';
+      // 先删旧文件，再下新文件
+      try { await window.api.modsDelete({ version: vdCurrent, file: u.file }); } catch {}
+      const rr = await window.api.modInstall({ version: vdCurrent, url: u.download, filename: u.filename });
+      if (rr && rr.ok) { b.textContent = '✔ 完成'; log('data', `已更新 Mod ${u.file} -> ${u.version}`); loadMods(); }
+      else { b.disabled = false; b.textContent = '⬆ 更新'; alert('更新失败：' + ((rr && rr.error) || '未知')); }
+    };
+  });
+  const cl = panel.querySelector('#mup-close');
+  if (cl) cl.onclick = () => panel.remove();
+};
 
 // ---------- 下载 Mod（Modrinth / CurseForge，自动筛选兼容版本） ----------
 let modStoreLoaded = false;
@@ -989,6 +1116,243 @@ document.querySelectorAll('.legal-link').forEach((b) => {
 });
 if ($('legal-close')) $('legal-close').onclick = () => { $('legal-modal').style.display = 'none'; };
 if ($('legal-modal')) $('legal-modal').onclick = (e) => { if (e.target.id === 'legal-modal') $('legal-modal').style.display = 'none'; };
+
+// ---------- 存档与备份页 ----------
+let dataLoaded = false;
+let currentWorld = '';
+let currentInstance = '';
+let dataTab = 'worlds';
+
+function loadDataPage() {
+  dataLoaded = true;
+  switchDataTab(dataTab);
+}
+
+function switchDataTab(tab) {
+  dataTab = tab;
+  document.querySelectorAll('.data-tab').forEach((b) => b.classList.toggle('active', b.dataset.dtab === tab));
+  document.querySelectorAll('.data-panel').forEach((p) => (p.style.display = 'none'));
+  const panel = $('dpanel-' + tab);
+  if (panel) panel.style.display = '';
+  if (tab === 'worlds') loadWorlds();
+  else if (tab === 'instances') loadInstances();
+  else if (tab === 'shots') loadShots();
+  else if (tab === 'import') loadImportables();
+}
+document.querySelectorAll('.data-tab').forEach((b) => { b.onclick = () => switchDataTab(b.dataset.dtab); });
+
+async function loadWorlds() {
+  const ul = $('world-list');
+  if (!ul) return;
+  ul.innerHTML = '<li class="empty">加载中…</li>';
+  const r = await window.api.worldList();
+  if (!r.ok) { ul.innerHTML = `<li class="empty">加载失败：${esc(r.error)}</li>`; return; }
+  if (!r.list.length) { ul.innerHTML = '<li class="empty">还没有存档。进游戏创建一个世界后会出现在这里。</li>'; return; }
+  ul.innerHTML = '';
+  r.list.forEach((w) => {
+    const li = document.createElement('li');
+    li.className = 'data-item';
+    const iconHtml = w.hasIcon
+      ? `<img class="w-ico" src="file://${encodeURI(w.iconPath.replace(/\\/g, '/'))}" onerror="this.style.display='none'">`
+      : '<div class="w-ico w-ico-fallback">🌍</div>';
+    const date = w.lastPlayed ? new Date(w.lastPlayed).toLocaleString() : '—';
+    li.innerHTML = `${iconHtml}
+      <div class="data-body">
+        <div class="data-name">${esc(w.name)}</div>
+        <div class="data-sub">大小 ${esc(w.sizeText)} · 最后修改 ${esc(date)} · 备份 ${w.backups} 份</div>
+      </div>
+      <div class="data-actions">
+        <button class="btn primary mini" data-act="backup">💾 备份</button>
+        <button class="btn ghost mini" data-act="restore">♻️ 备份列表</button>
+        <button class="btn ghost mini" data-act="del">🗑 删除</button>
+      </div>`;
+    li.querySelector('[data-act="backup"]').onclick = async () => {
+      const b = li.querySelector('[data-act="backup"]');
+      b.disabled = true; b.textContent = '备份中…';
+      const rr = await window.api.worldBackup({ name: w.name });
+      b.disabled = false; b.textContent = '💾 备份';
+      if (rr.ok) { log('data', `已备份世界 ${w.name}（${rr.sizeText}）`); loadWorlds(); }
+      else alert('备份失败：' + rr.error);
+    };
+    li.querySelector('[data-act="restore"]').onclick = () => openWorldBackups(w.name);
+    li.querySelector('[data-act="del"]').onclick = async () => {
+      if (!confirm(`确定删除存档「${w.name}」？\n会移入回收站（.trash），可手动恢复。`)) return;
+      const rr = await window.api.worldDelete({ name: w.name });
+      if (rr.ok) { log('data', `已删除世界 ${w.name}（移入回收站）`); loadWorlds(); }
+      else alert('删除失败：' + rr.error);
+    };
+    ul.appendChild(li);
+  });
+}
+
+async function openWorldBackups(name) {
+  currentWorld = name;
+  const panel = $('world-bk-panel');
+  const ul = $('world-bk-list');
+  if (!panel || !ul) return;
+  panel.style.display = '';
+  $('wbk-title').textContent = `💾 「${name}」的备份`;
+  ul.innerHTML = '<li class="empty">加载中…</li>';
+  const r = await window.api.worldBackups({ name });
+  if (!r.ok) { ul.innerHTML = `<li class="empty">加载失败：${esc(r.error)}</li>`; return; }
+  if (!r.list.length) { ul.innerHTML = '<li class="empty">该世界还没有备份。</li>'; return; }
+  ul.innerHTML = '';
+  r.list.forEach((b) => {
+    const li = document.createElement('li');
+    li.className = 'data-item';
+    const date = b.ts ? new Date(b.ts).toLocaleString() : '—';
+    li.innerHTML = `<div class="w-ico w-ico-fallback">🗜️</div>
+      <div class="data-body">
+        <div class="data-name">${esc(date)}</div>
+        <div class="data-sub">大小 ${esc(b.sizeText)}</div>
+      </div>
+      <div class="data-actions">
+        <button class="btn primary mini" data-act="restore">♻️ 还原</button>
+        <button class="btn ghost mini" data-act="del">🗑 删除</button>
+      </div>`;
+    li.querySelector('[data-act="restore"]').onclick = async () => {
+      if (!confirm('还原会用该备份覆盖当前世界（覆盖前会自动再备份一份）。继续？')) return;
+      const rr = await window.api.worldRestore({ file: b.file });
+      if (rr.ok) { log('data', `已还原世界 ${rr.world}`); loadWorlds(); openWorldBackups(currentWorld); }
+      else alert('还原失败：' + rr.error);
+    };
+    li.querySelector('[data-act="del"]').onclick = async () => {
+      if (!confirm('删除这个备份？')) return;
+      const rr = await window.api.worldBackupDelete({ file: b.file });
+      if (rr.ok) openWorldBackups(currentWorld); else alert('删除失败：' + rr.error);
+    };
+    ul.appendChild(li);
+  });
+}
+
+async function loadInstances() {
+  const ul = $('inst-list');
+  if (!ul) return;
+  ul.innerHTML = '<li class="empty">加载中…</li>';
+  const r = await window.api.listVersions();
+  if (!r || !r.ok) { ul.innerHTML = `<li class="empty">加载失败：${esc((r && r.error) || '')}</li>`; return; }
+  const list = r.list || r.versions || [];
+  if (!list.length) { ul.innerHTML = '<li class="empty">还没有本地实例。</li>'; return; }
+  ul.innerHTML = '';
+  list.forEach((v) => {
+    const name = typeof v === 'string' ? v : v.name;
+    const li = document.createElement('li');
+    li.className = 'data-item';
+    li.innerHTML = `<div class="w-ico w-ico-fallback">📦</div>
+      <div class="data-body"><div class="data-name">${esc(name)}</div><div class="data-sub">点击“备份”打包整个实例</div></div>
+      <div class="data-actions">
+        <button class="btn primary mini" data-act="backup">💾 备份</button>
+        <button class="btn ghost mini" data-act="list">♻️ 备份列表</button>
+      </div>`;
+    li.querySelector('[data-act="backup"]').onclick = async () => {
+      const b = li.querySelector('[data-act="backup"]');
+      b.disabled = true; b.textContent = '打包中…';
+      const rr = await window.api.instanceBackup({ name });
+      b.disabled = false; b.textContent = '💾 备份';
+      if (rr.ok) { log('data', `已备份实例 ${name}（${rr.sizeText}）`); alert('备份完成：' + rr.sizeText); }
+      else alert('备份失败：' + rr.error);
+    };
+    li.querySelector('[data-act="list"]').onclick = () => openInstanceBackups(name);
+    ul.appendChild(li);
+  });
+}
+
+async function openInstanceBackups(name) {
+  currentInstance = name;
+  const panel = $('inst-bk-panel');
+  const ul = $('inst-bk-list');
+  if (!panel || !ul) return;
+  panel.style.display = '';
+  $('ibk-title').textContent = `📦 「${name}」的实例备份`;
+  ul.innerHTML = '<li class="empty">加载中…</li>';
+  const r = await window.api.instanceBackups({ name });
+  if (!r.ok) { ul.innerHTML = `<li class="empty">加载失败：${esc(r.error)}</li>`; return; }
+  if (!r.list.length) { ul.innerHTML = '<li class="empty">该实例还没有备份。</li>'; return; }
+  ul.innerHTML = '';
+  r.list.forEach((b) => {
+    const li = document.createElement('li');
+    li.className = 'data-item';
+    const date = b.ts ? new Date(b.ts).toLocaleString() : '—';
+    li.innerHTML = `<div class="w-ico w-ico-fallback">🗜️</div>
+      <div class="data-body"><div class="data-name">${esc(date)}</div><div class="data-sub">大小 ${esc(b.sizeText)}</div></div>
+      <div class="data-actions">
+        <button class="btn primary mini" data-act="restore">♻️ 还原</button>
+        <button class="btn ghost mini" data-act="del">🗑 删除</button>
+      </div>`;
+    li.querySelector('[data-act="restore"]').onclick = async () => {
+      if (!confirm('还原会用该备份覆盖当前实例（覆盖前会自动再备份一份）。继续？')) return;
+      const rr = await window.api.instanceRestore({ file: b.file });
+      if (rr.ok) { log('data', `已还原实例 ${rr.instance}`); await refreshVersions(); openInstanceBackups(currentInstance); }
+      else alert('还原失败：' + rr.error);
+    };
+    li.querySelector('[data-act="del"]').onclick = async () => {
+      if (!confirm('删除这个备份？')) return;
+      const rr = await window.api.instanceBackupDelete({ file: b.file });
+      if (rr.ok) openInstanceBackups(currentInstance); else alert('删除失败：' + rr.error);
+    };
+    ul.appendChild(li);
+  });
+}
+
+async function loadShots() {
+  const grid = $('shot-list');
+  if (!grid) return;
+  grid.innerHTML = '<div class="empty">加载中…</div>';
+  const r = await window.api.shotList();
+  if (!r.ok) { grid.innerHTML = `<div class="empty">加载失败：${esc(r.error)}</div>`; return; }
+  if (!r.list.length) { grid.innerHTML = '<div class="empty">还没有截图。游戏中按 F2 截图后会出现在这里。</div>'; return; }
+  grid.innerHTML = '';
+  r.list.forEach((s) => {
+    const d = document.createElement('div');
+    d.className = 'shot-card';
+    const url = 'file://' + encodeURI(s.path.replace(/\\/g, '/'));
+    d.innerHTML = `<img src="${url}" loading="lazy" onerror="this.parentNode.classList.add('shot-broken')">
+      <div class="shot-meta">${esc(new Date(s.mtime).toLocaleString())} · ${esc(s.sizeText)}</div>`;
+    d.onclick = () => window.api.shotShow({ file: s.file });
+    grid.appendChild(d);
+  });
+}
+
+async function loadImportables() {
+  const ul = $('import-list');
+  if (!ul) return;
+  ul.innerHTML = '<li class="empty">扫描中…</li>';
+  const r = await window.api.importList();
+  if (!r.ok) { ul.innerHTML = `<li class="empty">扫描失败：${esc(r.error)}</li>`; return; }
+  if ($('import-dir-hint')) $('import-dir-hint').textContent = `扫描目录：${r.dir}（缺失的库/resources 会在首次启动时自动补齐）`;
+  if (!r.list.length) { ul.innerHTML = '<li class="empty">未发现官方启动器里的版本（或官方启动器未安装）。</li>'; return; }
+  ul.innerHTML = '';
+  r.list.forEach((v) => {
+    const li = document.createElement('li');
+    li.className = 'data-item';
+    li.innerHTML = `<div class="w-ico w-ico-fallback">${v.hasJar ? '🎮' : '📄'}</div>
+      <div class="data-body"><div class="data-name">${esc(v.name)}</div><div class="data-sub">大小 ${esc(v.sizeText)}${v.extras && v.extras.length ? ' · 含 ' + esc(v.extras.join('/')) : ''}${v.hasJar ? '' : ' · 无 jar，需重新下载'}</div></div>
+      <div class="data-actions"></div>`;
+    const act = li.querySelector('.data-actions');
+    if (v.already) {
+      act.innerHTML = '<span class="hint" style="margin:0">已存在</span>';
+    } else {
+      act.innerHTML = '<button class="btn primary mini">📥 导入</button>';
+      act.querySelector('button').onclick = async () => {
+        const b = act.querySelector('button'); b.disabled = true; b.textContent = '导入中…';
+        const rr = await window.api.importVersion({ name: v.name });
+        if (rr.ok) { log('data', `已导入版本 ${v.name}`); await refreshVersions(); loadImportables(); }
+        else { alert('导入失败：' + rr.error); b.disabled = false; b.textContent = '📥 导入'; }
+      };
+    }
+    ul.appendChild(li);
+  });
+}
+
+// 绑定存档页按钮
+if ($('btn-world-open')) $('btn-world-open').onclick = () => window.api.worldOpen();
+if ($('btn-world-refresh')) $('btn-world-refresh').onclick = () => loadWorlds();
+if ($('btn-wbk-close')) $('btn-wbk-close').onclick = () => { $('world-bk-panel').style.display = 'none'; };
+if ($('btn-inst-refresh')) $('btn-inst-refresh').onclick = () => loadInstances();
+if ($('btn-ibk-close')) $('btn-ibk-close').onclick = () => { $('inst-bk-panel').style.display = 'none'; };
+if ($('btn-shot-open')) $('btn-shot-open').onclick = () => window.api.shotOpen();
+if ($('btn-shot-refresh')) $('btn-shot-refresh').onclick = () => loadShots();
+if ($('btn-import-refresh')) $('btn-import-refresh').onclick = () => loadImportables();
 
 // 检查更新（优化版：显示发布说明/大小/时间；区分错误；可选安装版/免安装版；带下载进度）
 async function runCheckUpdate(silent, prefer) {
@@ -1359,6 +1723,40 @@ async function loadShaderTop() {
   renderCards(list, res.list, (p) => openDetail('shader', p));
 }
 
+// ---------- 资源包 ----------
+let rpackLoaded = false;
+function switchShaderTab(tab) {
+  document.querySelectorAll('[data-stab]').forEach((b) => b.classList.toggle('active', b.dataset.stab === tab));
+  const sp = $('spanel-shader'), rp = $('spanel-rpack');
+  if (sp) sp.style.display = tab === 'shader' ? '' : 'none';
+  if (rp) rp.style.display = tab === 'rpack' ? '' : 'none';
+  if (tab === 'rpack' && !rpackLoaded) loadRpackTop();
+}
+document.querySelectorAll('[data-stab]').forEach((b) => { b.onclick = () => switchShaderTab(b.dataset.stab); });
+
+async function loadRpackTop() {
+  rpackLoaded = true;
+  const list = $('rpack-list');
+  if (!list) return;
+  $('rpack-list-title').textContent = '🔥 热门资源包（按下载量）';
+  list.innerHTML = '<div class="empty">加载中…</div>';
+  const res = await window.api.rpackSearch({ query: '' });
+  if (!res.ok) { list.innerHTML = `<div class="empty">加载失败：${res.error}</div>`; return; }
+  renderCards(list, res.list, (p) => openDetail('rpack', p));
+}
+if ($('btn-rpack-search')) $('btn-rpack-search').onclick = async () => {
+  const q = $('in-rpack-query').value.trim();
+  const list = $('rpack-list');
+  if (!q) return loadRpackTop();
+  $('rpack-list-title').textContent = '🔍 搜索结果：' + q;
+  list.innerHTML = '<div class="empty">搜索中…</div>';
+  const res = await window.api.rpackSearch({ query: q });
+  if (!res.ok) { list.innerHTML = `<div class="empty">搜索失败：${res.error}</div>`; return; }
+  renderCards(list, res.list, (p) => openDetail('rpack', p));
+};
+if ($('btn-rpack-open')) $('btn-rpack-open').onclick = () => window.api.rpackOpen();
+if ($('in-rpack-query')) $('in-rpack-query').onkeydown = (e) => { if (e.key === 'Enter') $('btn-rpack-search').click(); };
+
 // ---------- 独立详情页 ----------
 async function openDetail(kind, pack) {
   detailCtx = { kind, pack };
@@ -1369,13 +1767,14 @@ async function openDetail(kind, pack) {
   document.querySelector('.content').scrollTop = 0;
 
   const isMod = kind === 'mod';
+  const isRpack = kind === 'rpack';
   const source = pack.source || (isMod ? ($('sel-modsrc') && $('sel-modsrc').value) || 'modrinth' : 'modrinth');
   detailCtx.source = source;
 
   // 顶部信息
   $('detail-icon').src = pack.icon || '';
   $('detail-title').textContent = pack.title;
-  const kindLabel = kind === 'shader' ? '光影包' : isMod ? 'Mod' : '整合包';
+  const kindLabel = kind === 'shader' ? '光影包' : isRpack ? '资源包' : isMod ? 'Mod' : '整合包';
   $('detail-meta').innerHTML =
     `<span class="tg dl">⬇ ${fmtNum(pack.downloads || 0)} 下载</span>` +
     `<span class="tg">${kindLabel}</span>` +
@@ -1390,7 +1789,7 @@ async function openDetail(kind, pack) {
     $('btn-detail-install').textContent = '⬇ 下载此 Mod';
   } else {
     targetRow.style.display = 'none';
-    $('btn-detail-install').textContent = kind === 'shader' ? '⬇ 一键安装光影包' : '⬇ 一键安装整合包';
+    $('btn-detail-install').textContent = kind === 'shader' ? '⬇ 一键安装光影包' : isRpack ? '⬇ 一键安装资源包' : '⬇ 一键安装整合包';
   }
   $('detail-progress-card').style.display = 'none';
   $('detail-steps').innerHTML = '';
@@ -1415,7 +1814,9 @@ async function openDetail(kind, pack) {
   $('detail-ver-title').textContent = isMod ? '全部可用版本（自动筛选兼容当前实例）' : '全部可用版本';
   const ul = $('detail-ver-list');
   ul.innerHTML = '<li class="empty">加载中…</li>';
-  const res = await window.api.packVersions({ source, id: pack.id, version: isMod ? ($('sel-detail-target') && $('sel-detail-target').value) || '' : undefined });
+  const res = isRpack
+    ? await window.api.rpackVersions({ id: pack.id, mc: '' })
+    : await window.api.packVersions({ source, id: pack.id, version: isMod ? ($('sel-detail-target') && $('sel-detail-target').value) || '' : undefined });
   if (!res.ok) { ul.innerHTML = `<li class="empty">加载失败：${res.error}</li>`; return; }
   renderVersions(ul, res.list, (v) => installVersion(v));
 }
@@ -1445,6 +1846,7 @@ async function fillDetailTargets(pack) {
 $('btn-detail-back').onclick = () => {
   let back = 'modpack';
   if (detailCtx && detailCtx.kind === 'shader') back = 'shader';
+  else if (detailCtx && detailCtx.kind === 'rpack') back = 'shader';
   else if (detailCtx && detailCtx.kind === 'mod') back = 'mod';
   document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
   $('page-' + back).classList.add('active');
@@ -1507,6 +1909,30 @@ async function installVersion(v) {
       $('detail-progress').style.width = '100%';
       $('detail-progress-text').textContent = '下载完成';
       alert(`已下载到「${target}」的 mods 文件夹：\n${f.filename}`);
+    } else {
+      addStep('下载失败：' + (r ? r.error : '未知错误'), 'err');
+      $('detail-progress-text').textContent = '下载失败';
+    }
+    return;
+  }
+
+  // 资源包：下载到 .minecraft/resourcepacks
+  if (kind === 'rpack') {
+    const f = (v.files || []).find((x) => x.primary) || (v.files || [])[0];
+    if (!f) return alert('该版本没有可下载文件');
+    const card = $('detail-progress-card');
+    card.style.display = 'block';
+    $('detail-progress-title').textContent = '安装资源包：' + pack.title;
+    $('detail-progress').style.width = '30%';
+    $('detail-progress-text').textContent = '正在下载…';
+    $('detail-steps').innerHTML = '';
+    addStep('下载到 resourcepacks');
+    log('data', `开始下载资源包：${pack.title} / ${f.filename}`);
+    const r = await window.api.rpackInstall({ url: f.url, filename: f.filename });
+    if (r && r.ok) {
+      addStep('下载完成', 'done');
+      $('detail-progress').style.width = '100%';
+      $('detail-progress-text').textContent = '下载完成，可在游戏“选项 → 资源包”中启用';
     } else {
       addStep('下载失败：' + (r ? r.error : '未知错误'), 'err');
       $('detail-progress-text').textContent = '下载失败';

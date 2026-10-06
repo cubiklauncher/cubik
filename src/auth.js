@@ -217,11 +217,77 @@ function bodyUrl(uuid) {
   return `https://crafatar.com/renders/body/${String(uuid).replace(/-/g, '')}?size=256`;
 }
 
+// ---------- 皮肤 / 披风管理 ----------
+const MC_SKINS_URL = 'https://api.minecraftservices.com/minecraft/profile/skins';
+const MC_ACTIVE_CAPE_URL = 'https://api.minecraftservices.com/minecraft/profile/capes/active';
+
+// 上传新皮肤：variant = 'classic'（经典广臂）| 'slim'（细臂）
+async function uploadSkin(accessToken, filePath, variant = 'classic') {
+  const fs = require('fs');
+  const path = require('path');
+  const data = fs.readFileSync(filePath);
+  const boundary = '----CubikBoundary' + Date.now().toString(16);
+  const name = path.basename(filePath);
+  const head =
+    `--${boundary}\r\n` +
+    `Content-Disposition: form-data; name="variant"\r\n\r\n${variant}\r\n` +
+    `--${boundary}\r\n` +
+    `Content-Disposition: form-data; name="file"; filename="${name}"\r\n` +
+    `Content-Type: image/png\r\n\r\n`;
+  const tail = `\r\n--${boundary}--\r\n`;
+  const body = Buffer.concat([Buffer.from(head, 'utf8'), data, Buffer.from(tail, 'utf8')]);
+  return new Promise((resolve, reject) => {
+    const u = new URL(MC_SKINS_URL);
+    const req = https.request(
+      {
+        method: 'POST',
+        hostname: u.hostname,
+        path: u.pathname,
+        headers: {
+          Authorization: 'Bearer ' + accessToken,
+          'Content-Type': 'multipart/form-data; boundary=' + boundary,
+          'Content-Length': body.length,
+          'User-Agent': 'Cubik/1.0'
+        }
+      },
+      (res) => {
+        let b = '';
+        res.on('data', (d) => (b += d));
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            try { resolve(JSON.parse(b)); } catch { resolve({}); }
+          } else reject(new Error('HTTP ' + res.statusCode + ' ' + b.slice(0, 200)));
+        });
+      }
+    );
+    req.setTimeout(60000, () => req.destroy(new Error('上传超时')));
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+// 重新获取档案（上传皮肤后刷新）
+async function refreshProfile(accessToken) {
+  return getMcProfile(accessToken);
+}
+
+// 启用/取消披风：capeId 为空则隐藏披风
+async function setActiveCape(accessToken, capeId) {
+  return reqJson('PUT', MC_ACTIVE_CAPE_URL, {
+    headers: { Authorization: 'Bearer ' + accessToken },
+    body: { capeId: capeId || '' }
+  });
+}
+
 module.exports = {
   startDeviceCode,
   loginFlow,
   refreshFlow,
   avatarUrl,
   bodyUrl,
+  uploadSkin,
+  refreshProfile,
+  setActiveCape,
   CLIENT_ID
 };
