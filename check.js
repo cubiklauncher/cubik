@@ -9,7 +9,9 @@ const bad = (label, msg) => { fail++; console.log('  XX  ' + label + ' ' + msg);
 
 const main = R('src/main.js');
 const preload = R('src/preload.js');
-const renderer = R('src/renderer/renderer.js');
+const rendererDir = path.join(__dirname, 'src', 'renderer', 'js');
+const rendererFiles = fs.readdirSync(rendererDir).filter((f) => f.endsWith('.js')).sort().map((f) => 'src/renderer/js/' + f);
+const renderer = rendererFiles.map((f) => R(f)).join('\n');
 const html = R('src/renderer/index.html');
 
 // 1. IPC 通道一致性
@@ -41,10 +43,12 @@ const missDom = [...new Set(rendererIds)].filter((i) => !htmlIds.has(i) && !/^(u
 if (missDom.length) bad('DOM id: HTML 缺少', missDom.join(',')); else ok('DOM id: HTML ' + htmlIds.size + ' / renderer ' + new Set(rendererIds).size);
 
 // 4. 模块语法
-const files = ['src/main.js', 'src/preload.js', 'src/server.js', 'src/modpack.js', 'src/installer.js', 'src/constants.js', 'src/auth.js', 'src/java.js', 'src/telemetry.js', 'src/tunnel.js', 'src/backup.js', 'src/selftest.js', 'src/renderer/renderer.js'];
+const files = ['src/main.js', 'src/preload.js', 'src/server.js', 'src/modpack.js', 'src/installer.js', 'src/constants.js', 'src/auth.js', 'src/java.js', 'src/telemetry.js', 'src/tunnel.js', 'src/backup.js', 'src/selftest.js', ];
 // 纳入 src/ipc/*.js
 const _ipcDir = path.join(__dirname, 'src', 'ipc');
 if (fs.existsSync(_ipcDir)) for (const f of fs.readdirSync(_ipcDir)) if (/\.js$/.test(f)) files.push('src/ipc/' + f);
+// 纳入 src/renderer/js/*.js（拆分后的 renderer 脚本）
+if (fs.existsSync(rendererDir)) for (const f of rendererFiles) files.push(f);
 console.log('=== 模块语法 ===');
 for (const f of files) {
   try { new Function(R(f)); console.log('  OK  ' + f); }
@@ -53,7 +57,7 @@ for (const f of files) {
 
 // 5. require 依赖可解析性
 console.log('=== require 依赖 ===');
-const jsFiles = files.filter((f) => /^src\/(ipc\/)?[^/]+\.js$/.test(f));
+const jsFiles = files.filter((f) => /^src\/(ipc\/)?[^/]+\.js$/.test(f) || /^src\/renderer\/js\/[^/]+\.js$/.test(f));
 const missReq = [];
 for (const f of jsFiles) {
   const src = R(f);
