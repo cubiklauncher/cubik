@@ -8,5 +8,5 @@ database_name = "cubik-telemetry"
 database_id = "17c505f3-3928-4857-aae7-8c81a90941ca"
 
 [vars]
-ALLOW_ORIGIN = "https://wodefa66666.github.io"
-# ADMIN_TOKEN 用 wrangler secret put ADMIN_TOKEN 设置，不要写在这里
+ALLOW_ORIGIN = "https://cubiklauncher.github.io"
+# ADMIN_TOKEN 通过 wrangler secret put ADMIN_TOKEN 设置，不要写在这里
