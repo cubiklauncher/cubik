@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('api', {
   getConfig: () => ipcRenderer.invoke('cfg:get'),
   getRam: () => ipcRenderer.invoke('sys:ram'),
   appInfo: () => ipcRenderer.invoke('app:info'),
+  appSupport: () => ipcRenderer.invoke('app:support'),
   legal: (d) => ipcRenderer.invoke('app:legal', d),
   setConfig: (cfg) => ipcRenderer.invoke('cfg:set', cfg),
   pickDir: () => ipcRenderer.invoke('pick:dir'),
@@ -125,6 +126,7 @@ contextBridge.exposeInMainWorld('api', {
   packTop: (p) => ipcRenderer.invoke('pack:top', p),
   packVersions: (p) => ipcRenderer.invoke('pack:versions', p),
   packInstallFull: (p) => ipcRenderer.invoke('pack:install-full', p),
+  packExport: (p) => ipcRenderer.invoke('pack:export', p),
   projectDetail: (p) => ipcRenderer.invoke('project:detail', p),
 
   // 光影包

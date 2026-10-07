@@ -69,6 +69,17 @@ ipcMain.handle('app:info', () => {
   return { name: APP_NAME, version: APP_VERSION, electron: process.versions.electron, node: process.versions.node, author: C.LEGAL_AUTHOR || '', email: C.LEGAL_EMAIL || '', repo: C.REPO_URL || '' };
 });
 
+// 支持作者信息（赞赏收款码 / 反馈链接），随版本常量暴露
+ipcMain.handle('app:support', () => {
+  const C = require('../constants');
+  return {
+    wechat: C.SUPPORT_QR_WECHAT || '',
+    alipay: C.SUPPORT_QR_ALIPAY || '',
+    repo: C.REPO_URL || '',
+    issues: C.SUPPORT_ISSUES_URL || ''
+  };
+});
+
 // 读取法律文档（从随附的 .md 文件）
 ipcMain.handle('app:legal', (_e, doc) => {
   const allow = ['LICENSE', 'PRIVACY', 'TERMS', 'DISCLAIMER', 'THIRD-PARTY-NOTICES'];

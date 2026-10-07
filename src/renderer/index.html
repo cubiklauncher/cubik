@@ -268,6 +268,28 @@
     <section class="page" id="page-modpack">
       <h1>整合包下载</h1>
       <div class="card">
+        <h2 style="margin-bottom:6px"><i class="ico" data-icon="upload"></i> 整合包创作 / 导出</h2>
+        <p class="hint" style="margin:0 0 12px">把当前本地实例（模组 + 配置）导出成一个可分享的整合包文件（.mrpack），别人可用本启动器直接导入。</p>
+        <div class="row" style="flex-wrap:wrap">
+          <label style="margin:0;flex:none">源实例：</label>
+          <select id="sel-export-instance" style="flex:1;min-width:180px"><option>加载本地实例中…</option></select>
+        </div>
+        <div class="row" style="flex-wrap:wrap">
+          <input id="in-export-name" type="text" placeholder="整合包名称（必填）" style="flex:1;min-width:160px">
+          <input id="in-export-version" type="text" placeholder="版本号，如 1.0.0" style="flex:none;width:150px">
+        </div>
+        <div class="row" style="flex-wrap:wrap">
+          <input id="in-export-author" type="text" placeholder="作者（可选）" style="flex:1;min-width:160px">
+          <input id="in-export-dir" type="text" placeholder="导出目录（留空导出到游戏目录 exports）" style="flex:1;min-width:200px">
+          <button id="btn-export-dir" class="btn ghost" style="flex:none">选择目录</button>
+        </div>
+        <textarea id="in-export-desc" placeholder="整合包描述（可选）" style="width:100%;min-height:56px;resize:vertical;font-size:13px;padding:10px 12px;border-radius:11px;border:1px solid rgba(255,255,255,.7);background:rgba(255,255,255,.5);color:var(--text);outline:none;box-sizing:border-box"></textarea>
+        <div class="row end" style="margin-top:12px">
+          <button id="btn-export-pack" class="btn primary"><i class="ico" data-icon="archive"></i> 开始导出</button>
+        </div>
+        <p class="hint" id="export-result" style="min-height:20px"></p>
+      </div>
+      <div class="card">
         <div class="row">
           <select id="sel-pack-source">
             <option value="all">🌐 综合搜索（Modrinth + CurseForge）</option>
@@ -983,6 +1005,15 @@
           <div class="swatches" id="accent-swatches"></div>
         </div>
 
+        <label>外观主题（明暗模式）</label>
+        <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="theme-mode-grid" id="theme-mode-grid"></div>
+        </div>
+        <p class="hint" id="theme-mode-hint">跟随系统时会根据系统浅色 / 深色自动切换，重启后依然生效。</p>
+
+        <label>预设主题色（一键切换主色）</label>
+        <div class="theme-presets" id="theme-presets"></div>
+
         <label>背景皮肤（预设）</label>
         <div class="skin-grid" id="skin-grid"></div>
 
@@ -1055,6 +1086,25 @@
           <li>联系邮箱：<code id="about-email">358670473@qq.com</code></li>
         </ul>
         <p class="hint">本项目开源免费，欢迎提出建议或贡献代码。</p>
+      </div>
+      <div class="card">
+        <h2><i class="ico" data-icon="heart"></i> 支持作者</h2>
+        <p class="about-slogan" style="margin:6px 0 14px">本项目开源免费，无任何收费功能。如果 Cubik 帮到了你，欢迎点 Star、反馈问题，或通过赞赏支持作者继续维护。</p>
+        <div class="support-btns">
+          <button class="btn primary" id="btn-support-star"><i class="ico" data-icon="globe"></i> 去 GitHub 点 Star</button>
+          <button class="btn" id="btn-support-issues"><i class="ico" data-icon="chat"></i> 反馈问题</button>
+        </div>
+        <div class="support-qr-row">
+          <div class="support-qr">
+            <div class="support-qr-img" id="support-qr-wechat"><span class="support-qr-ph">作者暂未上传收款码</span></div>
+            <div class="support-qr-label">微信赞赏</div>
+          </div>
+          <div class="support-qr">
+            <div class="support-qr-img" id="support-qr-alipay"><span class="support-qr-ph">作者暂未上传收款码</span></div>
+            <div class="support-qr-label">支付宝赞赏</div>
+          </div>
+        </div>
+        <p class="hint" style="text-align:center">赞赏完全自愿，不影响任何功能使用。感谢每一位支持者 ❤️</p>
       </div>
       <div class="card">
         <h2>运行环境</h2>
@@ -1138,6 +1188,7 @@
 <script src="js/data.js"></script>
 <script src="js/appearance.js"></script>
 <script src="js/pack.js"></script>
+<script src="js/support.js"></script>
 <script src="js/server.js"></script>
 </body>
 </html>

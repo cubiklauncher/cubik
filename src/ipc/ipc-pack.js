@@ -275,5 +275,135 @@ ipcMain.handle('addon:install', async (_e, { kind, baseVersion, addonVersion }) 
   }
 });
 
+// ---------- 整合包创作 / 导出（本地实例 → 可分享 .mrpack） ----------
+// 导出为 Modrinth 兼容格式（modrinth.index.json + overrides/），可被本启动器直接再导入。
+// 导出内容：manifest（MC 版本、加载器、模组清单）+ mods 文件夹 + 实例配置（config/options 等），
+// 不打包游戏本体 / 大型缓存（saves、logs、crash-reports、libraries 等）。
+
+// 从版本 JSON 推断加载器与加载器版本号
+function _detectLoaderVersion(json) {
+  const mainClass = String(json.mainClass || '').toLowerCase();
+  const libs = (json.libraries || []).map((l) => (l.name || '').toLowerCase()).join(' ');
+  let kind = 'vanilla';
+  let version = '';
+  if (mainClass.includes('fabricmc') || libs.includes('net.fabricmc:')) kind = 'fabric';
+  else if (mainClass.includes('neoforge') || libs.includes('neoforged:')) kind = 'neoforge';
+  else if (mainClass.includes('forge') || libs.includes('net.minecraftforge:')) kind = 'forge';
+  // 从库名提取加载器版本：net.fabricmc:fabric-loader:0.15.11 / net.minecraftforge:forge:1.20.1-47.4.10 / net.neoforged:neoforge:20.4.237
+  const m = String(json.libraries || []).match(/(?:fabric-loader|forge|neoforge):([0-9][^"',\s]*?)["',]/i);
+  if (m) version = m[1].replace(/[^0-9.\-]/g, '');
+  // fabric 常见形式 net.fabricmc:fabric-loader:0.15.11（无前缀）
+  if (!version && kind === 'fabric') {
+    const fm = String(json.libraries || []).match(/fabric-loader:([0-9.]+)/i);
+    if (fm) version = fm[1];
+  }
+  return { kind, version };
+}
+
+ipcMain.handle('pack:export', async (_e, { instanceName, packName, packVersion, author, description, outDir } = {}) => {
+  try {
+    if (!instanceName) return { ok: false, error: '请先选择要导出的实例' };
+    const cfg = loadConfig();
+    const instanceDir = path.join(cfg.mcDir, 'versions', String(instanceName));
+    if (!fs.existsSync(instanceDir)) return { ok: false, error: '实例目录不存在：' + instanceName };
+    const jsonPath = path.join(instanceDir, String(instanceName) + '.json');
+    if (!fs.existsSync(jsonPath)) return { ok: false, error: '该实例缺少版本 JSON，无法导出' };
+
+    const send = (m) => __win().webContents.send('install:log', m + '\n');
+    const prog = (pct, done, total, label) => __win().webContents.send('install:progress', { pct, done, total, label });
+
+    send('开始导出整合包：' + instanceName);
+    const vjson = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+    const mcVersion = resolveBaseMcVersion(cfg.mcDir, String(instanceName)) || '';
+    const { kind: loader, version: loaderVersion } = _detectLoaderVersion(vjson);
+
+    // 目标文件名（非法字符已清洗）
+    const safeName = String(packName || instanceName).replace(/[<>:"/\\|?*\s]+/g, '_').slice(0, 60) || 'modpack';
+    const finalOutDir = outDir || path.join(cfg.mcDir, 'exports');
+    fs.mkdirSync(finalOutDir, { recursive: true });
+    const outFile = path.join(finalOutDir, safeName + '.mrpack');
+
+    // 收集 mods 清单（instanceDir/mods 下的 .jar）
+    prog(5, 0, 1, '收集模组清单');
+    const modsDir = path.join(instanceDir, 'mods');
+    const mods = [];
+    if (fs.existsSync(modsDir)) {
+      for (const f of fs.readdirSync(modsDir)) {
+        if (!/\.jar$/i.test(f)) continue;
+        const fp = path.join(modsDir, f);
+        let size = 0; try { size = fs.statSync(fp).size; } catch {}
+        mods.push({ filename: f, sizeBytes: size });
+      }
+    }
+
+    // 构建 Modrinth 兼容 manifest
+    const deps = { minecraft: mcVersion || '1.20.1' };
+    if (loader === 'fabric') deps['fabric-loader'] = loaderVersion || '0.15.11';
+    else if (loader === 'forge') deps['forge'] = loaderVersion || '';
+    else if (loader === 'neoforge') deps['neoforge'] = loaderVersion || '';
+    const index = {
+      formatVersion: 1,
+      game: 'minecraft',
+      versionId: mcVersion || '1.20.1',
+      name: packName || String(instanceName),
+      summary: description || '',
+      author: author || '',
+      dependencies: deps,
+      files: [],
+      mods
+    };
+
+    // 用 adm-zip 打包（跨平台，无需外部 tar）
+    const AdmZip = (() => { try { return require('adm-zip'); } catch { return null; } })();
+    if (!AdmZip) return { ok: false, error: '缺少 adm-zip 依赖，无法打包' };
+    const zip = new AdmZip();
+
+    prog(25, 0, 1, '写入整合包清单');
+    zip.addFile('modrinth.index.json', Buffer.from(JSON.stringify(index, null, 2), 'utf8'));
+
+    // 复制 mods 到 overrides/mods（保证 round-trip：导入时会原样拷贝回实例）
+    if (mods.length) {
+      send(`打包 ${mods.length} 个模组`);
+      mods.forEach((m, i) => {
+        zip.addLocalFile(path.join(modsDir, m.filename), 'overrides/mods');
+        prog(30 + Math.round((i / mods.length) * 40), i, mods.length, '打包模组');
+      });
+    }
+
+    // 复制实例配置（config / options.txt 等），排除大型缓存与游戏本体
+    prog(72, 0, 1, '复制实例配置');
+    const SKIP = new Set(['mods', 'saves', 'logs', 'crash-reports', 'libraries', 'versions', 'natives', 'shaderpacks', 'resourcepacks', 'screenshots', 'texturepacks']);
+    const walk = (dir, rel) => {
+      let count = 0;
+      if (!fs.existsSync(dir)) return count;
+      for (const e of fs.readdirSync(dir)) {
+        const abs = path.join(dir, e);
+        const r = rel ? rel + '/' + e : e;
+        let st; try { st = fs.statSync(abs); } catch { continue; }
+        if (st.isDirectory()) {
+          if (SKIP.has(e)) continue;
+          count += walk(abs, r);
+        } else {
+          // 跳过版本 json / jar（游戏本体，由 manifest + 加载器安装负责）
+          if (e === String(instanceName) + '.json' || e === String(instanceName) + '.jar') continue;
+          zip.addLocalFile(abs, 'overrides' + (rel ? '/' + rel : ''));
+          count++;
+        }
+      }
+      return count;
+    };
+    const cfgCount = walk(instanceDir, '');
+    if (cfgCount) send(`打包 ${cfgCount} 个实例配置文件`);
+
+    prog(88, 0, 1, '压缩打包');
+    await new Promise((res, rej) => { try { zip.writeZip(outFile); res(); } catch (err) { rej(err); } });
+    prog(100, 1, 1, '完成');
+    send('✔ 整合包导出完成: ' + outFile);
+    return { ok: true, file: outFile, dir: finalOutDir, name: safeName, mcVersion, loader, modsCount: mods.length };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
 
 };

@@ -74,7 +74,7 @@ function navToPage(page) {
   document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
   const pageEl = $('page-' + page);
   if (pageEl) pageEl.classList.add('active');
-  if (page === 'modpack' && !packLoaded) loadPackTop();
+  if (page === 'modpack') { if (!packLoaded) loadPackTop(); if (typeof loadExportInstances === 'function') loadExportInstances(); }
   if (page === 'shader' && !shaderLoaded) loadShaderTop();
   if (page === 'data') loadDataPage();
   if (page === 'mod' && !modPageLoaded) loadModPage();
@@ -205,6 +205,8 @@ async function init() {
   if ($('in-gameargs')) $('in-gameargs').value = cfg.gameArgs || '';
   // 外观（启动器皮肤）
   initAppearance(cfg);
+  // 支持作者 + 整合包导出（新功能初始化）
+  try { initSupportAndExport(); } catch {}
   $('home-account').textContent = cfg.username || 'Steve';
   $('st-mcdir').textContent = cfg.mcDir;
   // 账号状态（微软正版）

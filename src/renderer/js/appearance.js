@@ -12,6 +12,79 @@ const SKINS = [
 const ACCENTS = ['#2f6ae0', '#6a5cff', '#e0488a', '#2fae7a', '#e0803f', '#c0392b', '#3aa0c9', '#7a5cc0'];
 let currentSkin = 'aurora';
 
+// 预设主题色（一键切换主色，与 ACCENTS 对应但带名称便于展示）
+const THEME_PRESETS = [
+  { name: '默认蓝', color: '#2f6ae0' },
+  { name: '紫罗兰', color: '#6a5cff' },
+  { name: '玫红', color: '#e0488a' },
+  { name: '翡翠绿', color: '#2fae7a' },
+  { name: '活力橙', color: '#e0803f' },
+  { name: '炽热红', color: '#c0392b' },
+  { name: '天空蓝', color: '#3aa0c9' },
+  { name: '葡萄紫', color: '#7a5cc0' }
+];
+// 明暗模式
+let currentThemeMode = 'light'; // 'light' | 'dark' | 'system'
+const THEME_MODES = [
+  { id: 'light', label: '浅色', icon: 'sun' },
+  { id: 'dark', label: '深色', icon: 'moon' },
+  { id: 'system', label: '跟随系统', icon: 'globe' }
+];
+
+// 根据系统偏好解析实际明暗（system 模式时跟随系统）
+function resolveThemeMode(mode) {
+  if (mode === 'dark') return 'dark';
+  if (mode === 'light') return 'light';
+  // system：跟随系统（默认浅色）
+  try {
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+  } catch {}
+  return 'light';
+}
+
+function applyTheme() {
+  const resolved = resolveThemeMode(currentThemeMode);
+  if (resolved === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  else document.documentElement.removeAttribute('data-theme');
+  // 更新选中态
+  document.querySelectorAll('#theme-mode-grid .theme-mode').forEach((el) => {
+    el.classList.toggle('active', el.dataset.mode === currentThemeMode);
+  });
+  document.querySelectorAll('#theme-presets .theme-preset').forEach((el) => {
+    const acc = $('in-accent') ? $('in-accent').value : '#2f6ae0';
+    el.classList.toggle('active', el.dataset.color.toLowerCase() === String(acc).toLowerCase());
+  });
+}
+
+function buildThemeUI() {
+  const grid = $('theme-mode-grid');
+  if (grid && !grid.dataset.built) {
+    grid.dataset.built = '1';
+    THEME_MODES.forEach((m) => {
+      const b = document.createElement('button');
+      b.className = 'theme-mode';
+      b.type = 'button';
+      b.dataset.mode = m.id;
+      b.innerHTML = icon(m.icon) + '<span>' + m.label + '</span>';
+      b.onclick = () => { currentThemeMode = m.id; applyTheme(); };
+      grid.appendChild(b);
+    });
+  }
+  const presets = $('theme-presets');
+  if (presets && !presets.dataset.built) {
+    presets.dataset.built = '1';
+    THEME_PRESETS.forEach((p) => {
+      const el = document.createElement('div');
+      el.className = 'theme-preset';
+      el.dataset.color = p.color;
+      el.title = p.name;
+      el.style.background = p.color;
+      el.onclick = () => { if ($('in-accent')) $('in-accent').value = p.color; applyAppearance(); };
+      presets.appendChild(el);
+    });
+  }
+}
+
 function applyAppearance() {
   const accent = $('in-accent') ? $('in-accent').value : '#2f6ae0';
   document.documentElement.style.setProperty('--accent', accent);
@@ -45,6 +118,7 @@ function applyAppearance() {
   // 更新选中态
   document.querySelectorAll('#skin-grid .skin-item').forEach((el) => el.classList.toggle('active', el.dataset.skin === skin && !bgImg));
   document.querySelectorAll('#accent-swatches .swatch').forEach((el) => el.classList.toggle('active', el.dataset.color.toLowerCase() === accent.toLowerCase()));
+  applyTheme();
 }
 
 function lighten(hex, amt) {
@@ -86,7 +160,9 @@ function buildAppearanceUI() {
 
 function initAppearance(cfg) {
   buildAppearanceUI();
+  buildThemeUI();
   currentSkin = cfg.skin || 'aurora';
+  currentThemeMode = cfg.themeMode || 'light';
   if ($('in-accent')) $('in-accent').value = cfg.accentColor || '#2f6ae0';
   if ($('in-bg-image')) $('in-bg-image').value = cfg.bgImage || '';
   if ($('in-perf-mode')) $('in-perf-mode').checked = !!cfg.perfMode;
@@ -102,6 +178,10 @@ function applyPerfMode(on) {
 }
 
 if ($('in-accent')) $('in-accent').oninput = applyAppearance;
+// 系统深色/浅色偏好变化时（system 模式下自动跟随）
+try {
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (currentThemeMode === 'system') applyTheme(); });
+} catch {}
 if ($('in-perf-mode')) $('in-perf-mode').onchange = () => applyPerfMode($('in-perf-mode').checked);
 if ($('btn-pick-bg')) $('btn-pick-bg').onclick = async () => {
   const p = await window.api.pickFile({ filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp'] }] });
@@ -146,6 +226,7 @@ $('btn-save').onclick = async () => {
   cfg.minimizeOnLaunch = $('in-min-on-launch') ? $('in-min-on-launch').checked : true;
   cfg.notifyOnDone = $('in-notify-done') ? $('in-notify-done').checked : true;
   cfg.telemetry = $('in-telemetry') ? $('in-telemetry').checked : true;
+  cfg.themeMode = currentThemeMode || 'light';
   applyPerfMode(cfg.perfMode);
   await window.api.setConfig(cfg);
   $('st-mcdir').textContent = cfg.mcDir;
