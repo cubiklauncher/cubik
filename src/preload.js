@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld('api', {
   modInstall: (p) => ipcRenderer.invoke('mod:install', p),
   modDeps: (p) => ipcRenderer.invoke('mod:deps', p),
   modInstallDep: (p) => ipcRenderer.invoke('mod:install-dep', p),
+  modInstallDeps: (p) => ipcRenderer.invoke('mod:install-deps', p),
+  modInstalledFiles: (p) => ipcRenderer.invoke('mod:installed-files', p),
   checkUpdate: () => ipcRenderer.invoke('app:check-update'),
   checkUpdateP: (o) => ipcRenderer.invoke('app:check-update', o),
   downloadUpdate: (o) => ipcRenderer.invoke('app:download-update', o),
@@ -100,6 +102,7 @@ contextBridge.exposeInMainWorld('api', {
   modBatchUpdate: (p) => ipcRenderer.invoke('mod:batch-update', p),
   modsConflicts: (p) => ipcRenderer.invoke('mods:conflicts', p),
   onModBatchProgress: (cb) => ipcRenderer.on('mod:batch-progress', (_e, d) => cb(d)),
+  onModDepsProgress: (cb) => ipcRenderer.on('mod:deps-progress', (_e, d) => cb(d)),
 
   // 皮肤 / 披风
   skinInfo: (p) => ipcRenderer.invoke('skin:info', p),

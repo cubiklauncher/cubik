@@ -215,7 +215,7 @@ function attachSelfTest(win, app) {
           require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-dl-shot.png'), pngDl.toPNG());
           await win.webContents.executeJavaScript(`dlTasks.length = 0; dlRender(); document.querySelector('.nav-item[data-page="home"]').click();`);
         } catch (e) {}
-        // 截图建服页的「挑 Mod」区块（展开并模拟勾选）
+        // 截图：建服页的「挑 Mod」区块（展开并模拟勾选）
         try {
           await win.webContents.executeJavaScript(`
             (function(){
@@ -233,6 +233,41 @@ function attachSelfTest(win, app) {
           const pngSp = await win.webContents.capturePage();
           require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-srvmodpick.png'), pngSp.toPNG());
           await win.webContents.executeJavaScript(`srvPickedMods = []; renderSrvPickedMods(); document.querySelector('.nav-item[data-page="home"]').click();`);
+        } catch (e) {}
+        // 截图：Mod 详情页的前置 Mod（依赖）面板
+        try {
+          await win.webContents.executeJavaScript(`
+            (async function(){
+              // 切到详情页（模拟打开 Mod）
+              document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+              document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+              var dp = document.getElementById('page-detail'); if (dp) dp.classList.add('active');
+              var ti = document.getElementById('detail-title'); if (ti) ti.textContent = 'JEI 物品管理器';
+              var titleEl = document.getElementById('detail-deps-title');
+              var listEl = document.getElementById('detail-deps-list');
+              if (!titleEl || !listEl) return;
+              titleEl.style.display = 'block'; listEl.style.display = 'block';
+              titleEl.innerHTML = icon('box') + ' 前置 Mod（依赖） <span class="tg dl">3 必需</span> <span class="tg mc">1 可选</span> <span class="tg" style="background:rgba(248,113,113,.15);color:#f87171">1 不兼容</span>';
+              listEl.innerHTML = '';
+              var bar = document.createElement('li'); bar.className='deps-actions';
+              bar.innerHTML = '<button class="btn primary mini">'+icon('download')+' 一键安装全部必需前置（2 个未装）</button>';
+              listEl.appendChild(bar);
+              var gh = function(t,n){var li=document.createElement('li');li.className='deps-group-head';li.innerHTML='<span>'+t+'</span><span class="deps-group-n">'+n+'</span>';listEl.appendChild(li);};
+              var row = function(name,tag,col,installed){var li=document.createElement('li');li.innerHTML='<div class="ver-left" style="display:flex;align-items:center;gap:10px;min-width:0"><span class="dep-ph">'+icon('box')+'</span><div style="min-width:0"><div class="ver-name">'+name+'</div><div class="ver-tags"><span class="tg '+col+'">'+tag+'</span>'+(installed?'<span class="tg dep-installed" style="font-size:11px">'+icon('check')+' 已装</span>':'')+'<span class="tg" style="font-size:11px">'+name.toLowerCase().replace(/ /g,'-')+'-1.20.1.jar</span></div></div></div><div class="ver-right"><button class="btn mini"'+(installed?' disabled':'')+'>'+(installed?icon('check')+' 已安装':'安装')+'</button></div>';listEl.appendChild(li);};
+              gh(icon('warning')+' 必需前置',3);
+              row('Fabric API','必需','dep-req',true); row('Architectury API','必需','dep-req',false); row('Cloth Config API','必需','dep-req',false);
+              gh(icon('plus')+' 可选前置',1);
+              row('Mod Menu','可选','dep-opt',false);
+              gh(icon('ban')+' 不兼容',1);
+              (function(){var li=document.createElement('li');li.innerHTML='<div class="ver-left"><div class="ver-name" style="color:#f87171">'+icon('ban')+' OptiFine</div><div class="ver-tags"><span class="tg" style="background:rgba(248,113,113,.15);color:#f87171">不兼容</span></div></div>';listEl.appendChild(li);})();
+              var panel = titleEl.closest('.card') || titleEl.parentElement;
+              if (panel) panel.scrollIntoView({block:'center'});
+            })()
+          `);
+          await new Promise((r) => setTimeout(r, 600));
+          const pngDeps = await win.webContents.capturePage();
+          require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-deps-shot.png'), pngDeps.toPNG());
+          await win.webContents.executeJavaScript(`document.querySelector('.nav-item[data-page="home"]').click();`);
         } catch (e) {}
       } catch (e) { try { require('fs').writeFileSync(require('path').join(__dirname, '..', 'selftest-out.txt'), 'ERR ' + e.message); } catch {} }
       setTimeout(() => app.quit(), 300);

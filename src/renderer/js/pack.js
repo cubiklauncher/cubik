@@ -268,8 +268,31 @@ $('btn-detail-page').onclick = () => {
 
 // 渲染版本列表
 // ---------- 前置 Mod（依赖）展示与安装 ----------
-// 把已装/已下载的文件名记下来，避免重复安装
+// 缓存每个“实例+Mod版本”的已存在文件集合，避免重复扫描磁盘
+const installedFilesCache = new Map(); // key: `${version}` -> Set(filename)
+// 会话内已装（本次流程里刚装过的），用于立即置灰按钮
 const installedDepNames = new Set();
+// 当前展示上下文（供“一键安装全部”使用）
+let depsCtx = null;
+
+// 拉取（带缓存）目标实例 mods 目录下已存在的文件
+async function getInstalledFiles(version) {
+  if (!version) return new Set();
+  if (installedFilesCache.has(version)) return installedFilesCache.get(version);
+  let set = new Set();
+  try {
+    const r = await window.api.modInstalledFiles({ version });
+    if (r && r.ok) set = new Set((r.files || []).map((f) => f.toLowerCase()));
+  } catch {}
+  installedFilesCache.set(version, set);
+  return set;
+}
+
+function isDepInstalled(installedSet, filename) {
+  if (!filename) return false;
+  const n = filename.toLowerCase();
+  return installedDepNames.has(filename) || installedSet.has(n);
+}
 
 async function showModDeps(v, pack, target) {
   const titleEl = $('detail-deps-title');
@@ -280,6 +303,7 @@ async function showModDeps(v, pack, target) {
   titleEl.innerHTML = icon('box') + ' 前置 Mod（依赖）';
   listEl.innerHTML = '<li class="empty">查询前置中…</li>';
   window.__hasRequiredDeps = false;
+  depsCtx = null;
 
   // 当前目标实例的 MC 版本 / 加载器
   let mcVersion = '', loader = '';
@@ -297,34 +321,74 @@ async function showModDeps(v, pack, target) {
     loader: loader || undefined
   });
   if (!r || !r.ok) {
-    titleEl.style.display = 'none'; listEl.style.display = 'none';
+    titleEl.innerHTML = icon('box') + ' 前置 Mod（依赖）';
+    listEl.innerHTML = `<li class="empty">读取前置失败：${esc((r && r.error) || '未知错误')}</li>`;
     return;
   }
   const deps = (r.dependencies || []).filter((d) => d.type === 'required' || d.type === 'optional' || d.type === 'incompatible');
+  const required = deps.filter((d) => d.type === 'required');
+  const optional = deps.filter((d) => d.type === 'optional');
+  const incompat = deps.filter((d) => d.type === 'incompatible');
+  window.__hasRequiredDeps = required.length > 0;
+
+  // 已装文件（真实扫描 + 会话内刚装）
+  const installedSet = await getInstalledFiles(target);
+
   if (!deps.length) {
     titleEl.innerHTML = icon('box') + ' 前置 Mod（依赖）';
-    listEl.innerHTML = '<li class="empty">✅ 无前置 Mod（可直接用）</li>';
+    listEl.innerHTML = '<li class="empty">' + icon('check') + ' 无前置 Mod（可直接用）</li>';
     return;
   }
 
-  const required = deps.filter((d) => d.type === 'required');
-  const optional = deps.filter((d) => d.type === 'optional');
-  window.__hasRequiredDeps = required.length > 0;
+  // 顶层标题 + 一键安装
+  const needInstall = required.filter((d) => d.file && d.file.url && !isDepInstalled(installedSet, d.file.filename));
+  titleEl.innerHTML = icon('box') + ' 前置 Mod（依赖）'
+    + (required.length ? ' <span class="tg dl">' + required.length + ' 必需</span>' : '')
+    + (optional.length ? ' <span class="tg mc">' + optional.length + ' 可选</span>' : '')
+    + (incompat.length ? ' <span class="tg" style="background:rgba(248,113,113,.15);color:#f87171">' + incompat.length + ' 不兼容</span>' : '');
 
-  titleEl.innerHTML = icon('box') + ' 前置 Mod（依赖）' + (required.length ? ' — ' + icon('warning') + ' ' + required.length + ' 个必需' : '');
   listEl.innerHTML = '';
+
+  // 一键安装全部必需前置（当有可装且未装的）
+  if (needInstall.length) {
+    const bar = document.createElement('li');
+    bar.className = 'deps-actions';
+    const btn = document.createElement('button');
+    btn.className = 'btn primary mini';
+    btn.innerHTML = icon('download') + ` 一键安装全部必需前置（${needInstall.length} 个未装）`;
+    btn.onclick = async () => {
+      btn.disabled = true;
+      btn.innerHTML = '安装中…';
+      const items = needInstall.map((d) => ({ url: d.file.url, filename: d.file.filename, title: d.title || '' }));
+      const rr = await window.api.modInstallDeps({ version: target, items });
+      if (rr && rr.ok) {
+        (rr.installed || []).forEach((f) => installedDepNames.add(f));
+        // 失效缓存，下次重扫
+        installedFilesCache.delete(target);
+        addStep(`已安装 ${rr.installed.length} 个必需前置` + (rr.failed && rr.failed.length ? `，${rr.failed.length} 个失败` : ''), (rr.failed && rr.failed.length) ? 'err' : 'done');
+      } else {
+        addStep('批量安装前置失败：' + ((rr && rr.error) || '未知错误'), 'err');
+      }
+      // 重新渲染
+      await showModDeps(v, pack, target);
+    };
+    bar.appendChild(btn);
+    listEl.appendChild(bar);
+  }
 
   const makeRow = (d, kindLabel, cls) => {
     const li = document.createElement('li');
-    const icon = d.icon ? `<img src="${esc(d.icon)}" referrerpolicy="no-referrer" style="width:32px;height:32px;border-radius:6px;object-fit:cover;flex:none" onerror="this.style.display='none'">` : '';
+    const ic = d.icon ? `<img src="${esc(d.icon)}" referrerpolicy="no-referrer" style="width:32px;height:32px;border-radius:6px;object-fit:cover;flex:none" onerror="this.style.display='none'">` : `<span class="dep-ph">${icon('box')}</span>`;
     const canInstall = d.file && d.file.url;
+    const installed = canInstall && isDepInstalled(installedSet, d.file.filename);
     const fileTag = canInstall ? `<span class="tg" style="font-size:11px">${esc(d.file.filename)}</span>` : '';
+    const installedTag = installed ? `<span class="tg dep-installed" style="font-size:11px">${icon('check')} 已装</span>` : '';
     li.innerHTML = `
       <div class="ver-left" style="display:flex;align-items:center;gap:10px;min-width:0">
-        ${icon}
+        ${ic}
         <div style="min-width:0">
           <div class="ver-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.title || d.slug || d.id)}</div>
-          <div class="ver-tags"><span class="tg ${cls}">${kindLabel}</span>${fileTag}</div>
+          <div class="ver-tags"><span class="tg ${cls}">${kindLabel}</span>${installedTag}${fileTag}</div>
         </div>
       </div>
       <div class="ver-right"></div>`;
@@ -332,15 +396,16 @@ async function showModDeps(v, pack, target) {
     if (canInstall) {
       const btn = document.createElement('button');
       btn.className = 'btn mini';
-      btn.textContent = installedDepNames.has(d.file.filename) ? '已安装' : '安装';
-      if (installedDepNames.has(d.file.filename)) btn.disabled = true;
+      btn.innerHTML = installed ? icon('check') + ' 已安装' : '安装';
+      if (installed) btn.disabled = true;
       btn.onclick = async (e) => {
         e.stopPropagation();
         btn.disabled = true; btn.textContent = '安装中…';
         const rr = await window.api.modInstallDep({ version: target, url: d.file.url, filename: d.file.filename });
         if (rr && rr.ok) {
           installedDepNames.add(d.file.filename);
-          btn.textContent = '已安装';
+          installedFilesCache.delete(target);
+          btn.innerHTML = icon('check') + ' 已安装';
           addStep(`已安装前置：${d.title || d.file.filename}`, 'done');
         } else {
           btn.disabled = false; btn.textContent = '重试';
@@ -354,15 +419,26 @@ async function showModDeps(v, pack, target) {
     return li;
   };
 
-  required.forEach((d) => listEl.appendChild(makeRow(d, '必需前置', 'dl')));
-  optional.forEach((d) => listEl.appendChild(makeRow(d, '可选前置', 'mc')));
-
-  const incompat = deps.filter((d) => d.type === 'incompatible');
+  // 分组标题 + 行
+  const groupHeader = (label, n) => {
+    if (!n) return;
+    const li = document.createElement('li');
+    li.className = 'deps-group-head';
+    li.innerHTML = `<span>${label}</span><span class="deps-group-n">${n}</span>`;
+    listEl.appendChild(li);
+  };
+  groupHeader(icon('warning') + ' 必需前置', required.length);
+  required.forEach((d) => listEl.appendChild(makeRow(d, '必需', 'dep-req')));
+  groupHeader(icon('plus') + ' 可选前置', optional.length);
+  optional.forEach((d) => listEl.appendChild(makeRow(d, '可选', 'dep-opt')));
+  groupHeader(icon('ban') + ' 不兼容', incompat.length);
   incompat.forEach((d) => {
     const li = document.createElement('li');
     li.innerHTML = `<div class="ver-left"><div class="ver-name" style="color:#f87171">${icon('ban')} ${esc(d.title || d.id)}</div><div class="ver-tags"><span class="tg" style="background:rgba(248,113,113,.15);color:#f87171">不兼容</span></div></div>`;
     listEl.appendChild(li);
   });
+
+  depsCtx = { v, pack, target };
 }
 
 // ---------- 前置 Mod 面板--------
@@ -416,6 +492,8 @@ async function installVersion(v) {
     log('data', `开始下载 Mod：${pack.title} / ${f.filename} → ${target}`);
     const r = await window.api.modInstall({ version: target, url: f.url, filename: f.filename });
     if (r && r.ok) {
+      installedDepNames.add(f.filename);
+      installedFilesCache.delete(target);
       addStep('下载完成', 'done');
       $('detail-progress').style.width = '100%';
       $('detail-progress-text').textContent = '下载完成';

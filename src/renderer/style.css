@@ -527,6 +527,29 @@ pre.srv-log {
 /* 按钮/可点击卡片的统一按压反馈 */
 .btn:active, .qcmd:active, .qa-card:active, .pack-card:active, .nav-item:active { transform: translateY(1px) scale(.995); }
 
+/* ---------- 前置 Mod（依赖）面板 ---------- */
+.deps-group-head .tg, #detail-deps-list .tg.dep-req { background: rgba(255,244,224,.9); color: #c07a10; }
+#detail-deps-list .tg.dep-opt { background: rgba(231,239,255,.75); color: var(--accent); }
+#detail-deps-list .tg.dep-installed { background: rgba(234,247,238,.9); color: var(--ok); }
+#detail-deps-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.deps-actions { display: flex; }
+.deps-actions .btn { width: 100%; justify-content: center; }
+.deps-group-head {
+  display: flex; align-items: center; gap: 8px; margin-top: 4px;
+  font-size: 11.5px; font-weight: 700; color: var(--text-mute); letter-spacing: .02em;
+}
+.deps-group-head span:first-child { display: inline-flex; align-items: center; gap: 6px; }
+.deps-group-n {
+  min-width: 17px; height: 17px; padding: 0 5px; border-radius: 999px;
+  background: rgba(120,150,220,.16); color: var(--text-soft);
+  font-size: 10.5px; line-height: 17px; text-align: center;
+}
+.dep-ph {
+  width: 32px; height: 32px; border-radius: 6px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(120,150,220,.14); color: var(--text-soft);
+}
+
 /* ---------- 建服时挑 Mod ---------- */
 .srvmod-results {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));

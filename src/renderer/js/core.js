@@ -303,7 +303,15 @@ if (window.api.onPackZhName) {
     try { dlHookInstallProgress(p); } catch {}
   });
   // 安装/下载完成 → 顶部进度条闪一下“完成”后自动隐藏
-  window.api.onInstallDone((d) => { finishGlobalProgress(d); try { dlHookInstallDone(d); } catch {} });window.api.onServerProgress((p) => {
+  window.api.onInstallDone((d) => { finishGlobalProgress(d); try { dlHookInstallDone(d); } catch {} });
+  // 前置 Mod 批量安装进度（复用全局进度条）
+  if (typeof window.api.onModDepsProgress === 'function') {
+    window.api.onModDepsProgress((p) => {
+      if (!p) return;
+      const pct = p.total ? Math.round(((p.index + (p.phase === 'done' ? 1 : 0)) / p.total) * 100) : 0;
+      updateGlobalProgress({ pct, done: p.index + (p.phase === 'done' ? 1 : 0), total: p.total, label: `安装前置 Mod（${p.index + 1}/${p.total}）` });
+    });
+  }window.api.onServerProgress((p) => {
     const pct = p.total > 0 ? Math.min(100, Math.round((p.task / p.total) * 100)) : 0;
     $('srv-progress').style.width = pct + '%';
   });

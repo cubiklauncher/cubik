@@ -136,6 +136,41 @@ ipcMain.handle('mod:install-dep', async (_e, { version, url, filename }) => {
   } catch (e) { return { ok: false, error: e.message }; }
 });
 
+// 批量安装前置 Mod（顺序，逐个进度回调，返回失败清单）
+// items: [{ url, filename, title }]
+ipcMain.handle('mod:install-deps', async (_e, { version, items }) => {
+  try {
+    const cfg = loadConfig();
+    const dir = path.join(cfg.mcDir, 'versions', version, 'mods');
+    fs.mkdirSync(dir, { recursive: true });
+    const list = Array.isArray(items) ? items : [];
+    const done = []; const failed = [];
+    for (let i = 0; i < list.length; i++) {
+      const it = list[i];
+      try {
+        if (__win() && !__win().isDestroyed()) __win().webContents.send('mod:deps-progress', { index: i, total: list.length, filename: it.filename, phase: 'start' });
+        const dest = path.join(dir, it.filename);
+        const send = (m) => { try { __win().webContents.send('install:log', m + '\n'); } catch {} };
+        await modpack.downloadFile(it.url, dest, null, send, it.filename);
+        done.push(it.filename);
+        if (__win() && !__win().isDestroyed()) __win().webContents.send('mod:deps-progress', { index: i, total: list.length, filename: it.filename, phase: 'done' });
+      } catch (e) { failed.push({ filename: it.filename, title: it.title || '', error: e.message }); }
+    }
+    return { ok: true, installed: done, failed };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
+// 目标实例 mods 目录下已存在的文件名集合（用于前缀“已装”判定，不依赖前端内存）
+ipcMain.handle('mod:installed-files', async (_e, { version }) => {
+  try {
+    const cfg = loadConfig();
+    const dir = path.join(cfg.mcDir, 'versions', version, 'mods');
+    if (!fs.existsSync(dir)) return { ok: true, files: [] };
+    const files = fs.readdirSync(dir).filter((f) => /\.jar(\.disabled)?$/i.test(f));
+    return { ok: true, files };
+  } catch (e) { return { ok: false, error: e.message, files: [] }; }
+});
+
 
 
 ipcMain.handle('mod:check-updates', async (_e, { version }) => {  try {
