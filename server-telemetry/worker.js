@@ -15,9 +15,9 @@
 //
 // 环境变量（wrangler.toml [vars] 或 secret）：
 //   ADMIN_TOKEN  后台访问令牌
-//   ALLOW_ORIGIN 允许的跨域来源，默认 https://wodefa66666.github.io
+//   ALLOW_ORIGIN 允许的跨域来源，默认 https://cubiklauncher.github.io
 
-const DEFAULT_ORIGIN = 'https://wodefa66666.github.io';
+const DEFAULT_ORIGIN = 'https://cubiklauncher.github.io';
 
 function cors(origin, allow) {
   const ok = !allow || allow === '*' || origin === allow;
