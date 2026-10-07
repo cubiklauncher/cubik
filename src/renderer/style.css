@@ -935,10 +935,7 @@ body[data-skin="graphite"] { --text: #1c2130; }
 .chat-input-row { display: flex; gap: 8px; }
 .chat-input-row input { flex: 1; }
 
-/* ---------- 一键邀请 ---------- */
-.invite-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
-.invite-text { width: 100%; resize: vertical; font-size: 13px; line-height: 1.6; padding: 12px 14px; border-radius: 12px;
-  border: 1px solid rgba(120,150,220,.25); background: rgba(255,255,255,.65); color: var(--text); font-family: inherit; }
+/* ---------- 一键邀请（已移除，改由「服务器日志」代替） ---------- */
 
 /* ---------- 教程折叠 ---------- */.tut-collapse { padding: 0; overflow: hidden; }
 .tut-collapse > summary { cursor: pointer; font-weight: 700; font-size: 15px; padding: 16px 20px; user-select: none; list-style: none; }

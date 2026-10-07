@@ -1,4 +1,4 @@
-// 服务器：建服 / 管理 / 装 Mod / 存档备份 / 自动更新 / 玩家 / 指令 / 聊天 / 穿透 / 联机 / 邀请 / init
+// 服务器：建服 / 管理 / 装 Mod / 存档备份 / 自动更新 / 玩家 / 指令 / 聊天 / 穿透 / 联机 / init
 // ---------- 服务器 ----------
 // 按已下载整合包建服：扫描本机整合包，选中后自动定类型/版本并带上它的模组
 let srvPackList = [];
@@ -1164,40 +1164,6 @@ async function refreshServerStatus() {
     } catch { chipAddr.textContent = '—'; }
   }
 }
-
-// ---------- 一键邀请 ----------
-let lastInvite = '';
-let lastAddr = '';
-async function genInvite() {
-  const dir = ($('in-srv-dir') || {}).value ? $('in-srv-dir').value.trim() : '';
-  const r = await window.api.serverInfo({ dir });
-  const cfg = await window.api.getConfig();
-  const motd = (r && r.motd) || 'Minecraft Server';
-  const port = (r && r.port) || 25565;
-  const lan = (r && r.lanAddr) || '';
-  const pub = (r && r.publicAddr) || '';
-  lastAddr = lan || pub || '';
-  const lines = [];
-  lines.push(`【${motd}】邀请你一起玩 Minecraft！`);
-  if (lan) lines.push(`同一局域网：${lan}`);
-  if (pub) lines.push(`远程联机：${pub}`);
-  if (!lan && !pub) lines.push('（未检测到可用地址，请先启动服务器并检查网络）');
-  lines.push('进服方法：游戏里「多人游戏 → 添加服务器」粘贴地址即可。');
-  lastInvite = lines.join('\n');
-  const ta = $('invite-text');
-  if (ta) ta.value = lastInvite;
-  return lastInvite;
-}
-
-if ($('btn-invite-gen')) $('btn-invite-gen').onclick = () => genInvite();
-if ($('btn-copy-invite')) $('btn-copy-invite').onclick = async (e) => {
-  const t = lastInvite || (await genInvite());
-  await copyText(t, e.target);
-};
-if ($('btn-copy-addr')) $('btn-copy-addr').onclick = async (e) => {
-  const t = lastAddr || (await genInvite(), lastAddr);
-  await copyText(t, e.target);
-};
 
 // 切到服务器页：刷新在线名单（聊天监听已在 init 全局绑定）
 document.querySelectorAll('.nav-item[data-page="server"]').forEach((b) => {

@@ -578,7 +578,7 @@ function attachSelfTest(win, app) {
           const pngTop = await win.webContents.capturePage();
           require('fs').writeFileSync(require('path').join(__dirname, '..', 'tmp-srv-top.png'), pngTop.toPNG());
         } catch (e) {}
-        // 额外截图2：服务器页“联机地址→一键邀请→使用说明”区域
+        // 额外截图2：服务器页“服务器日志→联机地址”区域
         try {
           await win.webContents.executeJavaScript(`document.getElementById('tunnel-card').scrollIntoView({block:'end'});`);
           await new Promise((r) => setTimeout(r, 500));

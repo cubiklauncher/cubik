@@ -528,21 +528,22 @@
         </div>
       </div>
 
-      <!-- 聊天栏 + 在线玩家 -->
+      <!-- 服务器日志：谁进谁出 -->
       <div class="card chat-card">
         <div class="chat-head">
-          <h2 style="margin:0"><i class="ico" data-icon="chat"></i> 服务器聊天</h2>
+          <h2 style="margin:0"><i class="ico" data-icon="chat"></i> 服务器日志</h2>
           <span class="chat-online" id="chat-online"><i class="dot"></i> 在线 <b id="chat-online-n">0</b> 人</span>
         </div>
+        <p class="hint" style="margin:0 0 8px">谁进谁出、聊天和系统消息都会实时记录在这里。</p>
         <div class="chat-players" id="chat-players"><span class="chat-empty">暂无玩家在线</span></div>
-        <div class="chat-log" id="chat-log"><div class="chat-hint">启动服务器后，玩家聊天、加入/离开会实时显示在这里。</div></div>
+        <div class="chat-log" id="chat-log"><div class="chat-hint">启动服务器后，玩家加入 / 离开、聊天、系统消息会实时显示在这里。</div></div>
         <div class="chat-input-row">
           <input id="in-chat-msg" type="text" placeholder="输入消息，发送给服务器里的所有人…" maxlength="240">
           <button id="btn-chat-send" class="btn">发送</button>
         </div>
       </div>
 
-      <!-- 一键邀请 -->
+      <!-- 服务器日志（谁进谁出） -->
       <div class="card">
         <h2><i class="ico" data-icon="globe"></i> 联机地址（把这个发给朋友）</h2>
         <div class="net-grid">
@@ -567,17 +568,6 @@
         <div class="row end">
           <button id="btn-net-refresh" class="btn"><i class="ico" data-icon="refresh"></i> 刷新地址</button>
         </div>
-      </div>
-
-      <div class="card invite-card">
-        <h2><i class="ico" data-icon="chat"></i> 一键邀请朋友</h2>
-        <p class="hint" style="margin-top:2px">生成一段可直接粘贴给朋友的邀请信息（含服务器地址）。“复制邀请”后发给朋友，他在游戏里「多人游戏 → 直接连接 / 添加服务器」粘贴即可进服。</p>
-        <div class="invite-actions">
-          <button class="btn primary" id="btn-invite-gen">生成邀请信息</button>
-          <button class="btn" id="btn-copy-invite">复制邀请</button>
-          <button class="btn ghost" id="btn-copy-addr">只复制地址</button>
-        </div>
-        <textarea id="invite-text" class="invite-text" rows="4" readonly placeholder="点击「生成邀请信息」…"></textarea>
       </div>
 
       <div class="card" id="srv-mod-card">
