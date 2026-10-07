@@ -55,6 +55,9 @@ export default {
       const a = String(b.a || '').slice(0, 16) || 'unknown';
       const f = b.f ? 1 : 0;
       const d = String(b.d || '').slice(0, 64) || '';
+      const ov = String(b.o || '').slice(0, 16) || '';   // OS 大版本
+      const lg = String(b.l || '').slice(0, 12) || '';   // 界面语言
+      const ch = String(b.r || '').slice(0, 12) || '';   // 版本渠道
       // 匿名：不存原始 IP，仅存粗粒度国家（Cloudflare 提供，可能为空）
       const country = (request.cf && request.cf.country) || '';
       const day = new Date().toISOString().slice(0, 10);
@@ -62,8 +65,8 @@ export default {
       try {
         const stmts = [
           env.DB.prepare(
-            'INSERT INTO events (device_id, version, platform, arch, first_run, country, day, ts) VALUES (?,?,?,?,?,?,?,?)'
-          ).bind(d, v, p, a, f, country, day, Date.now()),
+            'INSERT INTO events (device_id, version, platform, arch, first_run, country, day, ts, os_ver, lang, channel) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+          ).bind(d, v, p, a, f, country, day, Date.now(), ov, lg, ch),
           env.DB.prepare(
             `INSERT INTO daily (day, version, count) VALUES (?,?,1)
              ON CONFLICT(day, version) DO UPDATE SET count = count + 1`
@@ -114,6 +117,15 @@ export default {
         const byCountry = await env.DB.prepare(
           'SELECT country, COUNT(*) AS c FROM events WHERE country != "" GROUP BY country ORDER BY c DESC LIMIT 20'
         ).all();
+        const byOs = await env.DB.prepare(
+          'SELECT platform, os_ver, COUNT(*) AS c FROM events GROUP BY platform, os_ver ORDER BY c DESC LIMIT 20'
+        ).all();
+        const byLang = await env.DB.prepare(
+          'SELECT lang, COUNT(*) AS c FROM events WHERE lang != "" GROUP BY lang ORDER BY c DESC LIMIT 15'
+        ).all();
+        const byChannel = await env.DB.prepare(
+          'SELECT channel, COUNT(*) AS c FROM events WHERE channel != "" GROUP BY channel ORDER BY c DESC LIMIT 5'
+        ).all();
         const last14 = await env.DB.prepare(
           `SELECT day, COUNT(DISTINCT device_id) AS active, COUNT(*) AS launches
            FROM events WHERE day >= date('now','-14 day')
@@ -127,6 +139,9 @@ export default {
           by_version: byVersion.results || [],
           by_platform: byPlatform.results || [],
           by_country: byCountry.results || [],
+          by_os: byOs.results || [],
+          by_lang: byLang.results || [],
+          by_channel: byChannel.results || [],
           daily: last14.results || [],
           updated_at: new Date().toISOString()
         }, 200, H);

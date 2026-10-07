@@ -10,7 +10,10 @@ CREATE TABLE IF NOT EXISTS events (
   first_run  INTEGER,   -- 1 = 该设备首次启动
   country    TEXT,      -- 粗粒度国家码（来自 Cloudflare，可空）
   day        TEXT,      -- YYYY-MM-DD
-  ts         INTEGER    -- 毫秒时间戳
+  ts         INTEGER,   -- 毫秒时间戳
+  os_ver     TEXT,      -- 操作系统大版本（如 10 / 11）
+  lang       TEXT,      -- 界面语言（如 zh-CN）
+  channel    TEXT       -- 版本渠道（stable / pre）
 );
 
 CREATE INDEX IF NOT EXISTS idx_events_day ON events(day);

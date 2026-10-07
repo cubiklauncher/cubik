@@ -51,22 +51,41 @@
   });
 
   // ---------- 使用统计（匿名上报聚合，公开展示） ----------
+  // 后端不可达时优雅降级：显示“暂时无法获取”而不是留一堆 “—”，
+  // 避免访问者误以为网站坏了。
   var STATS_API = 'https://cubik-telemetry.358670473.workers.dev';
   (function loadStats() {
+    var section = document.getElementById('stats');
     var elL = document.getElementById('statLaunches');
     var elD = document.getElementById('statDevices');
     var elT = document.getElementById('statToday');
-    if (!elL || !STATS_API || STATS_API.indexOf('example.com') !== -1) return; // 未配置则不显示
+    var note = document.getElementById('statNote');
+    if (!elL || !STATS_API || STATS_API.indexOf('example.com') !== -1) {
+      if (section) section.style.display = 'none';
+      return;
+    }
+    var done = false;
+    var showUnavailable = function () {
+      if (done) return;
+      done = true;
+      var grid = document.getElementById('statsGrid');
+      if (grid) grid.style.display = 'none';
+      if (note) note.textContent = '统计数据暂时无法获取（稍后会自动重试）。此功能不影响启动器使用。';
+    };
+    // 8 秒超时保护（含国内网络对 workers.dev 不可达的情形）
+    var timer = setTimeout(showUnavailable, 8000);
     fetch(STATS_API.replace(/\/$/, '') + '/stats')
       .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function (d) {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
         elL.textContent = Number(d.total_launches || 0).toLocaleString('zh-CN');
         elD.textContent = Number(d.total_devices || 0).toLocaleString('zh-CN');
         elT.textContent = Number(d.today_active || 0).toLocaleString('zh-CN');
-        var note = document.getElementById('statNote');
         if (note) note.textContent = '数据实时更新 · 仅统计匿名总量，不涉及个人隐私';
       })
-      .catch(function () { /* 静默失败，保留占位 */ });
+      .catch(function () { clearTimeout(timer); showUnavailable(); });
   })();
 
   // ---------- 背景粒子（轻量 canvas） ----------

@@ -79,6 +79,7 @@
         <div class="sub" id="updated">—</div>
       </div>
       <div>
+        <button class="ghost" id="exportBtn">导出 CSV</button>
         <button class="ghost" id="refreshBtn">刷新</button>
         <button class="ghost" id="logoutBtn">退出</button>
       </div>
@@ -100,6 +101,13 @@
       <div class="box"><h2>版本分布</h2><div id="byVer"></div></div>
       <div class="box"><h2>平台分布</h2><div id="byPlat"></div></div>
     </div>
+
+    <div class="grid2">
+      <div class="box"><h2>操作系统分布</h2><div id="byOs"></div></div>
+      <div class="box"><h2>语言分布</h2><div id="byLang"></div></div>
+    </div>
+
+    <div class="box"><h2>版本渠道分布</h2><div id="byChannel"></div></div>
 
     <div class="box"><h2>地区分布（粗粒度）</h2><div id="byCountry" class="muted">—</div></div>
   </div>
@@ -156,7 +164,11 @@ async function load(){
 
   rows('byVer', d.by_version, 'version', 'c');
   rows('byPlat', d.by_platform, 'platform', 'c');
+  rows('byOs', (d.by_os||[]).map(function(x){ return { k: (x.platform||'') + ' ' + (x.os_ver||'?'), c: x.c }; }), 'k', 'c');
+  rows('byLang', d.by_lang, 'lang', 'c');
+  rows('byChannel', (d.by_channel||[]).map(function(x){ return { k: x.channel==='pre'?'预发布':'正式版', c: x.c }; }), 'k', 'c');
   rows('byCountry', d.by_country, 'country', 'c');
+  window.__lastData = d;
 }
 
 $('loginBtn').onclick = async () => {
@@ -172,6 +184,29 @@ $('loginBtn').onclick = async () => {
 };
 $('refreshBtn').onclick = () => load().catch(e=>alert(e.message));
 $('logoutBtn').onclick = () => { sessionStorage.removeItem('cubik_token'); location.reload(); };
+$('exportBtn').onclick = () => {
+  const d = window.__lastData;
+  if(!d){ alert('暂无数据，请先刷新'); return; }
+  const lines = [];
+  lines.push('Cubik \u4f7f\u7528\u7edf\u8ba1\u5bfc\u51fa,' + new Date().toISOString());
+  lines.push('');
+  lines.push('\u603b\u91cf');
+  lines.push('\u7d2f\u8ba1\u542f\u52a8\u6b21\u6570,' + (d.total_launches||0));
+  lines.push('\u72ec\u7acb\u8bbe\u5907\u6570,' + (d.total_devices||0));
+  lines.push('\u65b0\u589e\u8bbe\u5907,' + (d.new_devices||0));
+  const push = (title, arr, kf, vf) => { lines.push(''); lines.push(title); lines.push(kf + ',' + vf); (arr||[]).forEach(x=>lines.push('"'+(x[kf]||'')+'",'+(x[vf]||0))); };
+  push('\u7248\u672c\u5206\u5e03', d.by_version, 'version', 'c');
+  push('\u5e73\u53f0\u5206\u5e03', d.by_platform, 'platform', 'c');
+  push('\u8bed\u8a00\u5206\u5e03', d.by_lang, 'lang', 'c');
+  push('\u5730\u533a\u5206\u5e03', d.by_country, 'country', 'c');
+  const csv = '\ufeff' + lines.join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'cubik-stats-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
 $('token').addEventListener('keydown', e=>{ if(e.key==='Enter') $('loginBtn').click(); });
 
 // 自动登录（会话内）

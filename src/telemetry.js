@@ -59,6 +59,35 @@ function statsEnabled(dataRoot) {
   return true;
 }
 
+// 操作系统大版本（仅取主版本号，避免精确定位）：win32 10/11、macOS 版本、Linux 内核主版本
+function osVersion() {
+  try {
+    const rel = require('os').release();
+    if (process.platform === 'win32') {
+      const m = String(rel).match(/^10\.0\.(\d+)/);
+      if (m) { const b = Number(m[1]); return b >= 22000 ? '11' : '10'; }
+      return String(rel).split('.')[0] || '';
+    }
+    return String(rel).split('.')[0] || '';
+  } catch { return ''; }
+}
+
+// 界面语言（粗粒度，如 zh-CN）；优先配置，回退系统区域
+function locale() {
+  try {
+    const l = process.env.LANG || Intl.DateTimeFormat().resolvedOptions().locale || '';
+    return String(l).replace('_', '-').slice(0, 12);
+  } catch { return ''; }
+}
+
+// 版本渠道：正式版（无预发布后缀）/ 预发布
+function releaseChannel() {
+  try {
+    const v = require('./constants').APP_VERSION || '';
+    return /-(beta|rc|alpha|dev)/i.test(v) ? 'pre' : 'stable';
+  } catch { return 'stable'; }
+}
+
 function post(url, payload, timeout = REPORT_TIMEOUT) {
   return new Promise((resolve, reject) => {
     let u;
@@ -105,7 +134,11 @@ async function report(opts) {
     p: process.platform,             // win32 / darwin / linux
     a: process.arch,                 // x64 / arm64
     f: firstRun ? 1 : 0,             // 是否首次启动
-    d: getDeviceId(dataRoot)         // 匿名设备 ID（随机 UUID）
+    d: getDeviceId(dataRoot),        // 匿名设备 ID（随机 UUID）
+    // 以下均为粗粒度、非标识信息：
+    o: osVersion(),                  // 操作系统大版本（如 10 / 11）
+    l: locale(),                     // 界面语言（如 zh-CN）
+    r: releaseChannel()              // 版本渠道：正式版 / 预发布
   };
 
   try {
