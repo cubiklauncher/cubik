@@ -1,4 +1,8 @@
 // 设置：服务器版本列表 / Java 检测 / 事件绑定
+// 项目地址（与 constants.js 保持一致）
+var REPO_URL = 'https://github.com/cubiklauncher/cubik';
+var ISSUES_URL = REPO_URL + '/issues';
+
 // ---------- 服务器版本列表 ----------
 async function loadServerVersions() {
   const type = $('sel-srv-type').value;
@@ -71,10 +75,10 @@ if ($('btn-log-copy')) $('btn-log-copy').onclick = async () => {
 };
 $('btn-refresh').onclick = refreshVersions;
 $('btn-detect-java').onclick = detectJava;
-$('btn-about-repo').onclick = () => window.api.openPath('https://github.com/');
-$('btn-about-issues').onclick = () => window.api.openPath('https://github.com/');
-if ($('about-repo-link')) $('about-repo-link').onclick = (e) => { e.preventDefault(); window.api.openPath('https://github.com/'); };
-if ($('about-issues-link')) $('about-issues-link').onclick = (e) => { e.preventDefault(); window.api.openPath('https://github.com/'); };
+$('btn-about-repo').onclick = () => window.api.openPath(REPO_URL);
+$('btn-about-issues').onclick = () => window.api.openPath(ISSUES_URL);
+if ($('about-repo-link')) $('about-repo-link').onclick = (e) => { e.preventDefault(); window.api.openPath(REPO_URL); };
+if ($('about-issues-link')) $('about-issues-link').onclick = (e) => { e.preventDefault(); window.api.openPath(ISSUES_URL); };
 
 // 法律文档弹窗
 document.querySelectorAll('.legal-link').forEach((b) => {
